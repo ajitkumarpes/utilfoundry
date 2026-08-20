@@ -41,6 +41,49 @@ class PdfWatermarkServiceTest {
   }
 
   @Test
+  void devanagariTextIsDrawnAndExtractable() throws Exception {
+    MockMultipartFile file = pdfFile(pdfWithPages(1));
+
+    byte[] result = service.watermark(file, "गोपनीय", "center");
+
+    try (PDDocument doc = Loader.loadPDF(result)) {
+      String text = new PDFTextStripper().getText(doc);
+      assertTrue(text.contains("गोपनीय"));
+    }
+  }
+
+  @Test
+  void mixedLatinAndDevanagariTextRendersBothScriptsCorrectly() throws Exception {
+    MockMultipartFile file = pdfFile(pdfWithPages(1));
+
+    byte[] result = service.watermark(file, "Room 101 कमरा", "center");
+
+    try (PDDocument doc = Loader.loadPDF(result)) {
+      String text = new PDFTextStripper().getText(doc);
+      assertTrue(text.contains("Room 101"));
+      assertTrue(text.contains("कमरा"));
+    }
+  }
+
+  @Test
+  void mixedLatinAndDevanagariTextAlsoWorksDiagonally() throws Exception {
+    MockMultipartFile file = pdfFile(pdfWithPages(1));
+
+    byte[] result = service.watermark(file, "Room 101 कमरा", "diagonal");
+
+    try (PDDocument doc = Loader.loadPDF(result)) {
+      // PDFTextStripper's line-detection heuristic splits sufficiently long rotated text
+      // across multiple lines regardless of script or font (confirmed independently: a
+      // same-length pure-Latin diagonal string shows the identical split). Strip whitespace
+      // before asserting so this checks the actual character content, not incidental
+      // line-grouping from the rotation.
+      String flattened = new PDFTextStripper().getText(doc).replaceAll("\\s+", "");
+      assertTrue(flattened.contains("Room101"));
+      assertTrue(flattened.contains("कमरा"));
+    }
+  }
+
+  @Test
   void blankTextRejected() throws Exception {
     MockMultipartFile file = pdfFile(pdfWithPages(1));
 

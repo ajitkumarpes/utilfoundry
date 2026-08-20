@@ -49,8 +49,13 @@ first batch above):
 | Sign PDF (visual stamp, not a certified e-signature) | `/tools/sign-pdf` | `POST /api/v1/pdf/sign` |
 | Redact PDF (true content removal, not a visual overlay) | `/tools/redact-pdf` | `POST /api/v1/pdf/redact` |
 
-Grayscale converts embedded images only (not arbitrary vector/text color) —
-disclosed in the tool's own copy, not silently limited. Redact rewrites the
+Add Watermark supports Hindi/Devanagari free text, not just Latin — two
+OFL-licensed Noto fonts are bundled and the text is automatically split into
+per-script runs (Devanagari input has no Latin glyphs in its font and vice
+versa, confirmed directly, not assumed) so mixed strings like "Room 101
+कमरा" render correctly. Grayscale converts embedded images only (not
+arbitrary vector/text color) — disclosed in the tool's own copy, not
+silently limited. Redact rewrites the
 page's content stream to drop any text-show or image-draw operator
 overlapping a marked area, then covers it — verified by confirming redacted
 text is genuinely absent from `PDFTextStripper` output on the result, not

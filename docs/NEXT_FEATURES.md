@@ -55,14 +55,38 @@
       text inside a form IS still caught (triggers dropping the whole form
       invocation) via the engine's natural recursion. Revisit if a user hits
       this with a real document.
-    - Watermark's free-text field needs a Unicode-capable font for Devanagari
-      input (this product ships Hindi OCR, so this isn't hypothetical) —
-      **currently unshipped**: needs explicit go-ahead to download
-      `NotoSans-Regular.ttf` + `NotoSansDevanagari-Regular.ttf` from Google's
-      official OFL-licensed font repo (downloading a file requires the user's
-      confirmation in this environment). Latin/English watermark text works
-      today; Devanagari watermark text will currently render as tofu boxes
-      until this lands.
+    - **Watermark Devanagari/Hindi support — shipped.** Two OFL-licensed fonts
+      are bundled at `backend/src/main/resources/fonts/`
+      (`NotoSans-Regular.ttf`, `NotoSansDevanagari-Regular.ttf`, pulled from
+      the canonical `notofonts` GitHub org, not the `google/fonts` mirror —
+      that repo no longer ships pre-built static instances for these
+      families, only a variable font). The watermark text is scanned for the
+      Devanagari Unicode block (U+0900–U+097F); pure-Latin input keeps the
+      original Helvetica-Bold path unchanged (zero behavior change, zero
+      added embedding weight for the common case). Any Devanagari character
+      switches the whole call into Unicode mode, which **must split the
+      string into per-script runs and draw each with `setFont()` +
+      `showText()` in sequence** — confirmed via `hb-shape` that
+      `NotoSansDevanagari-Regular.ttf` has zero Latin letter glyphs (only
+      Devanagari + shared digits/punctuation), so a mixed string like
+      "Room 101 कमरा" genuinely needs both embedded fonts, not one.
+      - **A real finding surfaced during verification, worth recording so it
+        isn't mistaken for a bug later**: `PDFTextStripper`'s line-detection
+        heuristic splits sufficiently long **diagonal/rotated** watermark
+        text across multiple extracted lines — confirmed via content-stream
+        token inspection that this is NOT missing or corrupted content (every
+        character is present, correctly encoded, in the right order) and NOT
+        specific to Devanagari or the new font-switching code — an unmodified
+        pure-Latin diagonal string of the same length ("Room 101 ABCD")
+        exhibits the identical split. This is pre-existing behavior of
+        rotated-text extraction in this tool, invisible before now only
+        because the original diagonal test used a 5-character string too
+        short to trigger it. It doesn't affect the visual watermark (a
+        separate, unaffected rendering path) and diagonal stamps aren't
+        realistically copy-pasted as contiguous text anyway, so this isn't
+        being treated as a defect — but the test suite now asserts against it
+        honestly (whitespace-normalized for the diagonal case) rather than
+        silently avoiding long diagonal strings.
 
 ## Architecture (as shipped)
 
