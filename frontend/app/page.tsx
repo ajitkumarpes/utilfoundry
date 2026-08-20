@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { ArrowRight, Layers, Repeat, Minimize2 } from "lucide-react";
+import { ArrowRight, Layers, Repeat, FileType, Minimize2 } from "lucide-react";
 import SiteHeader from "@/components/SiteHeader";
 import SiteFooter from "@/components/SiteFooter";
 
@@ -11,16 +11,29 @@ const groups = [
     tools: [
       { name: "Merge PDF", href: "/tools/merge-pdf" },
       { name: "Split PDF", href: "/tools/split-pdf" },
-      { name: "Organize Pages", href: "/tools/organize-pdf" }
+      { name: "Organize Pages", href: "/tools/organize-pdf" },
+      { name: "OCR PDF", href: "/tools/ocr-pdf" }
     ]
   },
   {
     id: "convert-tools",
-    title: "Convert",
+    title: "Convert Images",
     icon: Repeat,
     tools: [
       { name: "Image to PDF", href: "/tools/image-to-pdf" },
       { name: "PDF to Image", href: "/tools/pdf-to-image" }
+    ]
+  },
+  {
+    id: "office-tools",
+    title: "Convert Office Files",
+    icon: FileType,
+    tools: [
+      { name: "Word to PDF", href: "/tools/word-to-pdf" },
+      { name: "Excel to PDF", href: "/tools/excel-to-pdf" },
+      { name: "PowerPoint to PDF", href: "/tools/ppt-to-pdf" },
+      { name: "PDF to Word", href: "/tools/pdf-to-word" },
+      { name: "PDF to PowerPoint", href: "/tools/pdf-to-ppt" }
     ]
   },
   {
@@ -44,9 +57,9 @@ export default function Home() {
           <em>handled in seconds.</em>
         </h1>
         <p>
-          Merge, split, organize, convert and compress PDFs. Processed
-          privately on our servers and removed automatically — no account
-          needed.
+          Merge, split, organize, OCR, convert and compress PDFs — plus Word,
+          Excel and PowerPoint conversion. Processed privately on our servers
+          and removed automatically — no account needed.
         </p>
         <div className="hero-actions">
           <Link href="/tools/merge-pdf" className="primary-btn">

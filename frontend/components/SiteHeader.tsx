@@ -9,6 +9,7 @@ export default function SiteHeader() {
       <nav>
         <a href="/#organize-tools">Organize</a>
         <a href="/#convert-tools">Convert</a>
+        <a href="/#office-tools">Office</a>
         <a href="/#optimize-tools">Optimize</a>
       </nav>
     </header>

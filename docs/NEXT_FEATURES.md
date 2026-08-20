@@ -6,31 +6,47 @@
 4. JPG/PNG -> PDF — shipped (as "Image to PDF")
 5. PDF -> JPG/PNG — shipped (as "PDF to Image")
 6. Compress PDF — shipped (PDFBox image recompression; Ghostscript upgrade path below)
-7. Async job abstraction + object storage workflow — not started
-8. OCR worker — not started
-9. Office conversions — not started
-10. AI document layer — not started
+7. Async job abstraction + object storage workflow — shipped (Postgres `jobs` table,
+   Redis list as the queue, MinIO for input/output, 1h retention purge)
+8. OCR — shipped (Python/FastAPI processor shim running ocrmypdf; English + Hindi)
+9. Office conversions — shipped, with one confirmed exception:
+   - Word/Excel/PowerPoint -> PDF: shipped
+   - PDF -> Word, PDF -> PowerPoint: shipped
+   - **PDF -> Excel: not offered.** LibreOffice has no PDF-import path into Calc in
+     this build (no `calc_pdf_import` filter is registered, unlike Writer/Impress) -
+     forcing it opens the PDF via Draw and crashes soffice on export. Confirmed
+     directly, not assumed. Building this would need a genuinely different approach
+     (PDF table extraction, e.g. camelot/tabula) - a different tool, not a LibreOffice
+     conversion. Revisit if a user actually asks for it.
+10. AI document layer — not started, out of scope for the free/no-LLM tool set
 
-## Notes on what's next
+## Architecture (as shipped)
 
-Items 1–6 are synchronous, PDFBox-only, and need no new infrastructure — all
-shipped in the frontend (Next.js) and backend (`PdfController` +
-`*Service` classes in `backend/src/main/java/com/utilnexa/pdf/service`).
+`Browser -> Next.js -> Spring Boot API -> Redis queue -> JobDispatcher (Spring) ->
+processor shim (Python/FastAPI) -> MinIO -> download`.
 
-Items 7–10 each need infrastructure this repo doesn't have yet:
-- **Async jobs**: a queue (Redis is already provisioned but unused) and a
-  job-status API so large files don't block the request thread.
-- **OCR**: the `processor` container already has Tesseract installed
-  (`processor.Dockerfile`) but nothing calls it — needs the async job layer
-  first, since OCR is too slow to run synchronously.
-- **Office conversion**: same — `processor` has LibreOffice installed but
-  unwired.
-- **AI document layer**: needs an AI Gateway (see the product discussion) —
-  out of scope for the free/no-LLM tool set entirely; a separate initiative.
-
-**Compress upgrade path**: the shipped compressor recompresses embedded
-images via PDFBox (JPEG re-encode at a chosen quality). This is real and
-already gets ~80-90% reduction on image-heavy PDFs (scans, photos), but a
-Ghostscript-based pass (already staged in `processor.Dockerfile`) would
-compress vector/text content too and give better ratios generally. Revisit
-once the async job layer exists, since Ghostscript needs to run out-of-process.
+- **Processor shim** (`processor/app.py`): pure stateless executor, two endpoints
+  (`/process/ocr`, `/process/office-convert`), no DB/Redis/S3 client. Runs
+  `ocrmypdf` (Tesseract eng+hin) and `soffice --headless`. Every subprocess call
+  uses an argv list with allow-listed params - never shell interpolation.
+  `soffice` calls are serialized behind an in-process lock (well documented as
+  unreliable under concurrent invocation); OCR runs with real concurrency.
+  PDF-as-source conversions require `--infilter=writer_pdf_import` /
+  `impress_pdf_import`, or LibreOffice opens the PDF via Draw and the export
+  filter mismatches - confirmed directly against the actual soffice output, not
+  assumed from documentation.
+- **Job orchestration** (`backend/.../job/`): Spring Boot owns all state.
+  `JobDispatcher` pops job ids off a Redis list (`BRPOP`-style blocking pop) on a
+  thread pool separate from Tomcat's request threads, calls the shim, updates the
+  `jobs` table. Failed jobs retry up to 3 times **with an 8s backoff between
+  attempts** - without this, idle dispatcher threads re-pop a failed job almost
+  instantly (confirmed: 3 attempts logged 33ms apart before the fix), which would
+  burn all retries before a processor restart could ever recover. A shim 4xx
+  response (bad input) fails immediately without retrying; connection failures /
+  timeouts retry. `JobMaintenanceTask` purges jobs older than 1h (enforces the
+  privacy promise for the async path) and reaps jobs stuck in `PROCESSING` for 5+
+  minutes in case the JVM died mid-job - Postgres, not in-memory state, is the
+  source of truth.
+- **Frontend**: `useJobPoll` hook + a shared `JobToolWorkspace` component for the
+  5 option-free conversion tools; OCR is its own page (needs a language picker).
+  In-flight jobs survive a page refresh via a `?job=<id>` URL param.

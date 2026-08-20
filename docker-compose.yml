@@ -48,6 +48,7 @@ services:
       S3_ACCESS_KEY: minioadmin
       S3_SECRET_KEY: minioadmin123
       S3_BUCKET: pdf-files
+      PROCESSOR_BASE_URL: http://processor:8000
     ports:
       - "8091:8080"
     depends_on:
@@ -55,11 +56,14 @@ services:
       - redis
       - minio
       - createbucket
+      - processor
 
   processor:
     build:
       context: .
       dockerfile: processor.Dockerfile
+    ports:
+      - "8000:8000"
     volumes:
       - processor_workspace:/workspace
 
