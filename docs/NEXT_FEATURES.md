@@ -19,6 +19,50 @@
      (PDF table extraction, e.g. camelot/tabula) - a different tool, not a LibreOffice
      conversion. Revisit if a user actually asks for it.
 10. AI document layer — not started, out of scope for the free/no-LLM tool set
+11. Second tool batch — shipped: Rotate, Add Watermark, Add Page Numbers,
+    Password Protect, Unlock, Grayscale, Extract Images, Crop (auto-margins),
+    Sign (visual stamp), Redact (true content removal). All synchronous,
+    same in-memory pattern as batch 1 — no new infrastructure.
+    - **Grayscale** converts embedded images only, not arbitrary content-stream
+      color operators on vector/text. Rewriting `rg`/`RG`/`k`/`K`/`sc`/`scn` +
+      pattern/shading colorspaces correctly is materially harder and risks
+      breaking pages for a correctness gain that's rarely what "grayscale my
+      PDF" actually means — scans/photos (the dominant real case) are images,
+      and those are handled fully. Revisit only if a user explicitly asks for
+      full-content grayscale.
+    - **Crop** is auto-detect-margins, not manual numeric offsets — a raster
+      scan for the tight non-white bounding box per page, not a fiddly
+      per-side-in-points UI nobody tunes correctly on a phone.
+    - **Sign** is a visual PNG/JPEG stamp placed via drag, never described as
+      a "digital signature" or "e-sign" anywhere in the UI — that term carries
+      specific legal weight (India's IT Act, Aadhaar-eSign class) a stamped
+      image doesn't have.
+    - **Redact** rewrites the actual page content stream (via a
+      `PDFTextStripper` subclass overriding `processOperator`/
+      `processTextPosition`) to drop any text-show or image-draw operator
+      whose bounding box overlaps a marked area, then draws an opaque cover —
+      the cover is cosmetic, the content removal is what matters. Granularity
+      is per-operator (not per-glyph) and any partial overlap drops the whole
+      operator, deliberately erring toward removing more rather than risking
+      a sliver of sensitive content surviving. Verified by confirming the
+      redacted string is genuinely absent from a fresh `PDFTextStripper`
+      extraction of the output, and that the `Do` operator for a redacted
+      image is actually gone from the rewritten content stream — not just
+      that the region renders black. **Known boundary**: an image nested
+      inside a Form XObject that has its own resources dictionary (common in
+      output from complex desktop-publishing tools, not in scanned/generated
+      PDFs) may not be identified as an image during the direct pre-check;
+      text inside a form IS still caught (triggers dropping the whole form
+      invocation) via the engine's natural recursion. Revisit if a user hits
+      this with a real document.
+    - Watermark's free-text field needs a Unicode-capable font for Devanagari
+      input (this product ships Hindi OCR, so this isn't hypothetical) —
+      **currently unshipped**: needs explicit go-ahead to download
+      `NotoSans-Regular.ttf` + `NotoSansDevanagari-Regular.ttf` from Google's
+      official OFL-licensed font repo (downloading a file requires the user's
+      confirmation in this environment). Latin/English watermark text works
+      today; Devanagari watermark text will currently render as tofu boxes
+      until this lands.
 
 ## Architecture (as shipped)
 

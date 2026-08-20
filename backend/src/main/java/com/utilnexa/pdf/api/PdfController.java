@@ -3,12 +3,24 @@ package com.utilnexa.pdf.api;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.utilnexa.pdf.api.dto.NamedFile;
 import com.utilnexa.pdf.api.dto.OrganizePlan;
+import com.utilnexa.pdf.api.dto.RedactionArea;
+import com.utilnexa.pdf.api.dto.SignPlacement;
 import com.utilnexa.pdf.service.ImageToPdfService;
 import com.utilnexa.pdf.service.PdfCompressService;
+import com.utilnexa.pdf.service.PdfCropService;
+import com.utilnexa.pdf.service.PdfExtractImagesService;
+import com.utilnexa.pdf.service.PdfGrayscaleService;
 import com.utilnexa.pdf.service.PdfMergeService;
 import com.utilnexa.pdf.service.PdfOrganizeService;
+import com.utilnexa.pdf.service.PdfPageNumberService;
+import com.utilnexa.pdf.service.PdfProtectService;
+import com.utilnexa.pdf.service.PdfRedactService;
+import com.utilnexa.pdf.service.PdfRotateService;
+import com.utilnexa.pdf.service.PdfSignService;
 import com.utilnexa.pdf.service.PdfSplitService;
 import com.utilnexa.pdf.service.PdfToImageService;
+import com.utilnexa.pdf.service.PdfUnlockService;
+import com.utilnexa.pdf.service.PdfWatermarkService;
 
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
@@ -17,6 +29,7 @@ import java.util.zip.ZipEntry;
 import java.util.zip.ZipOutputStream;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.core.type.TypeReference;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ContentDisposition;
 import org.springframework.http.HttpHeaders;
@@ -40,6 +53,16 @@ public class PdfController {
   private final PdfOrganizeService organizeService;
   private final PdfToImageService pdfToImageService;
   private final PdfCompressService compressService;
+  private final PdfRotateService rotateService;
+  private final PdfWatermarkService watermarkService;
+  private final PdfPageNumberService pageNumberService;
+  private final PdfProtectService protectService;
+  private final PdfUnlockService unlockService;
+  private final PdfGrayscaleService grayscaleService;
+  private final PdfExtractImagesService extractImagesService;
+  private final PdfCropService cropService;
+  private final PdfSignService signService;
+  private final PdfRedactService redactService;
   private final ObjectMapper objectMapper;
 
   @PostMapping(
@@ -115,6 +138,119 @@ public class PdfController {
     headers.set("X-Compressed-Size", String.valueOf(result.compressedSize()));
 
     return ResponseEntity.ok().headers(headers).body(result.content());
+  }
+
+  @PostMapping(
+      value = "/rotate",
+      consumes = MediaType.MULTIPART_FORM_DATA_VALUE,
+      produces = MediaType.APPLICATION_PDF_VALUE)
+  public ResponseEntity<byte[]> rotate(
+      @RequestPart("file") MultipartFile file, @RequestParam("angle") int angle) throws IOException {
+    return pdfResponse(rotateService.rotate(file, angle), "rotated.pdf");
+  }
+
+  @PostMapping(
+      value = "/watermark",
+      consumes = MediaType.MULTIPART_FORM_DATA_VALUE,
+      produces = MediaType.APPLICATION_PDF_VALUE)
+  public ResponseEntity<byte[]> watermark(
+      @RequestPart("file") MultipartFile file,
+      @RequestParam("text") String text,
+      @RequestParam(value = "position", required = false) String position)
+      throws IOException {
+    return pdfResponse(watermarkService.watermark(file, text, position), "watermarked.pdf");
+  }
+
+  @PostMapping(
+      value = "/page-numbers",
+      consumes = MediaType.MULTIPART_FORM_DATA_VALUE,
+      produces = MediaType.APPLICATION_PDF_VALUE)
+  public ResponseEntity<byte[]> pageNumbers(
+      @RequestPart("file") MultipartFile file,
+      @RequestParam(value = "position", required = false) String position,
+      @RequestParam(value = "startAt", required = false) Integer startAt)
+      throws IOException {
+    return pdfResponse(pageNumberService.addPageNumbers(file, position, startAt), "numbered.pdf");
+  }
+
+  @PostMapping(
+      value = "/protect",
+      consumes = MediaType.MULTIPART_FORM_DATA_VALUE,
+      produces = MediaType.APPLICATION_PDF_VALUE)
+  public ResponseEntity<byte[]> protect(
+      @RequestPart("file") MultipartFile file,
+      @RequestParam(value = "userPassword", required = false) String userPassword,
+      @RequestParam(value = "allowPrinting", defaultValue = "true") boolean allowPrinting,
+      @RequestParam(value = "allowCopying", defaultValue = "false") boolean allowCopying)
+      throws IOException {
+    return pdfResponse(protectService.protect(file, userPassword, allowPrinting, allowCopying), "protected.pdf");
+  }
+
+  @PostMapping(
+      value = "/unlock",
+      consumes = MediaType.MULTIPART_FORM_DATA_VALUE,
+      produces = MediaType.APPLICATION_PDF_VALUE)
+  public ResponseEntity<byte[]> unlock(
+      @RequestPart("file") MultipartFile file, @RequestParam("currentPassword") String currentPassword)
+      throws IOException {
+    return pdfResponse(unlockService.unlock(file, currentPassword), "unlocked.pdf");
+  }
+
+  @PostMapping(
+      value = "/grayscale",
+      consumes = MediaType.MULTIPART_FORM_DATA_VALUE,
+      produces = MediaType.APPLICATION_PDF_VALUE)
+  public ResponseEntity<byte[]> grayscale(@RequestPart("file") MultipartFile file) throws IOException {
+    return pdfResponse(grayscaleService.grayscale(file), "grayscale.pdf");
+  }
+
+  @PostMapping(value = "/extract-images", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+  public ResponseEntity<byte[]> extractImages(@RequestPart("file") MultipartFile file) throws IOException {
+    return respondWithFiles(extractImagesService.extract(file), "extracted-images.zip");
+  }
+
+  @PostMapping(
+      value = "/crop",
+      consumes = MediaType.MULTIPART_FORM_DATA_VALUE,
+      produces = MediaType.APPLICATION_PDF_VALUE)
+  public ResponseEntity<byte[]> crop(
+      @RequestPart("file") MultipartFile file, @RequestParam(value = "mode", required = false) String mode)
+      throws IOException {
+    return pdfResponse(cropService.crop(file, mode), "cropped.pdf");
+  }
+
+  @PostMapping(
+      value = "/sign",
+      consumes = MediaType.MULTIPART_FORM_DATA_VALUE,
+      produces = MediaType.APPLICATION_PDF_VALUE)
+  public ResponseEntity<byte[]> sign(
+      @RequestPart("file") MultipartFile file,
+      @RequestPart("signatureImage") MultipartFile signatureImage,
+      @RequestPart("placement") String placementJson)
+      throws IOException {
+    SignPlacement placement;
+    try {
+      placement = objectMapper.readValue(placementJson, SignPlacement.class);
+    } catch (JsonProcessingException e) {
+      throw new IllegalArgumentException("The signature placement could not be read.");
+    }
+    return pdfResponse(signService.sign(file, signatureImage, placement), "signed.pdf");
+  }
+
+  @PostMapping(
+      value = "/redact",
+      consumes = MediaType.MULTIPART_FORM_DATA_VALUE,
+      produces = MediaType.APPLICATION_PDF_VALUE)
+  public ResponseEntity<byte[]> redact(
+      @RequestPart("file") MultipartFile file, @RequestPart("redactions") String redactionsJson)
+      throws IOException {
+    List<RedactionArea> redactions;
+    try {
+      redactions = objectMapper.readValue(redactionsJson, new TypeReference<List<RedactionArea>>() {});
+    } catch (JsonProcessingException e) {
+      throw new IllegalArgumentException("The redaction areas could not be read.");
+    }
+    return pdfResponse(redactService.redact(file, redactions), "redacted.pdf");
   }
 
   private ResponseEntity<byte[]> pdfResponse(byte[] content, String filename) {

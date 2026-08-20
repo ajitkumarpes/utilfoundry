@@ -32,6 +32,31 @@ builds PDF tools.
 PDF to Excel is not offered — LibreOffice has no PDF-import path into Calc
 (confirmed directly, not assumed); see `docs/NEXT_FEATURES.md` for details.
 
+**Synchronous, second batch** (rotate/watermark/page numbers/protect/unlock/
+grayscale/extract-images/crop, all follow the same in-memory pattern as the
+first batch above):
+
+| Tool | Route | API |
+|---|---|---|
+| Rotate PDF | `/tools/rotate-pdf` | `POST /api/v1/pdf/rotate` |
+| Add Watermark | `/tools/watermark-pdf` | `POST /api/v1/pdf/watermark` |
+| Add Page Numbers | `/tools/page-numbers-pdf` | `POST /api/v1/pdf/page-numbers` |
+| Password Protect | `/tools/protect-pdf` | `POST /api/v1/pdf/protect` |
+| Unlock PDF | `/tools/unlock-pdf` | `POST /api/v1/pdf/unlock` |
+| Grayscale PDF | `/tools/grayscale-pdf` | `POST /api/v1/pdf/grayscale` |
+| Extract Images | `/tools/extract-images` | `POST /api/v1/pdf/extract-images` |
+| Crop PDF (auto-margins) | `/tools/crop-pdf` | `POST /api/v1/pdf/crop` |
+| Sign PDF (visual stamp, not a certified e-signature) | `/tools/sign-pdf` | `POST /api/v1/pdf/sign` |
+| Redact PDF (true content removal, not a visual overlay) | `/tools/redact-pdf` | `POST /api/v1/pdf/redact` |
+
+Grayscale converts embedded images only (not arbitrary vector/text color) —
+disclosed in the tool's own copy, not silently limited. Redact rewrites the
+page's content stream to drop any text-show or image-draw operator
+overlapping a marked area, then covers it — verified by confirming redacted
+text is genuinely absent from `PDFTextStripper` output on the result, not
+just visually covered. Compare PDFs, Fill PDF Forms, and PDF/A conversion
+are deliberately not offered; see `docs/NEXT_FEATURES.md`.
+
 All processing happens locally — Apache PDFBox for the synchronous tools,
 Tesseract/`ocrmypdf`/LibreOffice (via a Python processor shim) for the async
 ones. No external PDF API. Job inputs/outputs live in MinIO for at most 1

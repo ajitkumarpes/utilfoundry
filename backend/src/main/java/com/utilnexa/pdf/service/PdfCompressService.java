@@ -4,7 +4,6 @@ import java.awt.image.BufferedImage;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 
-import org.apache.pdfbox.Loader;
 import org.apache.pdfbox.cos.COSName;
 import org.apache.pdfbox.pdmodel.PDDocument;
 import org.apache.pdfbox.pdmodel.PDPage;
@@ -16,22 +15,19 @@ import org.apache.pdfbox.pdmodel.graphics.image.PDImageXObject;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
 
+import com.utilnexa.pdf.service.support.PdfFileValidator;
+
 @Service
 public class PdfCompressService {
-
-  private static final long MAX_FILE_BYTES = 50L * 1024 * 1024;
 
   public record Result(byte[] content, long originalSize, long compressedSize) {}
 
   public Result compress(MultipartFile file, String level) throws IOException {
-    validateFile(file);
+    PdfFileValidator.requirePdf(file);
     float quality = qualityFor(level);
 
     byte[] originalBytes = file.getBytes();
-    try (PDDocument document = Loader.loadPDF(originalBytes)) {
-      if (document.isEncrypted()) {
-        throw new IllegalArgumentException("Password-protected PDFs are not supported yet.");
-      }
+    try (PDDocument document = PdfFileValidator.loadDecrypted(originalBytes)) {
 
       for (PDPage page : document.getPages()) {
         recompressImages(document, page.getResources(), quality);
@@ -74,21 +70,4 @@ public class PdfCompressService {
     };
   }
 
-  private void validateFile(MultipartFile file) {
-    if (file == null || file.isEmpty()) {
-      throw new IllegalArgumentException("A PDF file is required.");
-    }
-    if (!isPdf(file)) {
-      throw new IllegalArgumentException("Only PDF files are supported.");
-    }
-    if (file.getSize() > MAX_FILE_BYTES) {
-      throw new IllegalArgumentException("The PDF must be 50 MB or smaller.");
-    }
-  }
-
-  private boolean isPdf(MultipartFile file) {
-    String type = file.getContentType();
-    String name = file.getOriginalFilename();
-    return "application/pdf".equalsIgnoreCase(type) || (name != null && name.toLowerCase().endsWith(".pdf"));
-  }
 }

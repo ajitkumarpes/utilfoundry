@@ -11,6 +11,7 @@ export default function SiteHeader() {
         <a href="/#convert-tools">Convert</a>
         <a href="/#office-tools">Office</a>
         <a href="/#optimize-tools">Optimize</a>
+        <a href="/#protect-tools">Protect</a>
       </nav>
     </header>
   );

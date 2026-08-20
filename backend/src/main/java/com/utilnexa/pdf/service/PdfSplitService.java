@@ -1,13 +1,13 @@
 package com.utilnexa.pdf.service;
 
 import com.utilnexa.pdf.api.dto.NamedFile;
+import com.utilnexa.pdf.service.support.PdfFileValidator;
 
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
 
-import org.apache.pdfbox.Loader;
 import org.apache.pdfbox.multipdf.Splitter;
 import org.apache.pdfbox.pdmodel.PDDocument;
 import org.springframework.stereotype.Service;
@@ -16,16 +16,11 @@ import org.springframework.web.multipart.MultipartFile;
 @Service
 public class PdfSplitService {
 
-  private static final long MAX_FILE_BYTES = 50L * 1024 * 1024;
-
   public List<NamedFile> split(MultipartFile file, String mode, String ranges) throws IOException {
-    validateFile(file);
+    PdfFileValidator.requirePdf(file);
 
     byte[] bytes = file.getBytes();
-    try (PDDocument document = Loader.loadPDF(bytes)) {
-      if (document.isEncrypted()) {
-        throw new IllegalArgumentException("Password-protected PDFs are not supported yet.");
-      }
+    try (PDDocument document = PdfFileValidator.loadDecrypted(bytes)) {
 
       int pageCount = document.getNumberOfPages();
       List<NamedFile> results = new ArrayList<>();
@@ -117,21 +112,4 @@ public class PdfSplitService {
     return output.toByteArray();
   }
 
-  private void validateFile(MultipartFile file) {
-    if (file == null || file.isEmpty()) {
-      throw new IllegalArgumentException("A PDF file is required.");
-    }
-    if (!isPdf(file)) {
-      throw new IllegalArgumentException("Only PDF files are supported.");
-    }
-    if (file.getSize() > MAX_FILE_BYTES) {
-      throw new IllegalArgumentException("The PDF must be 50 MB or smaller.");
-    }
-  }
-
-  private boolean isPdf(MultipartFile file) {
-    String type = file.getContentType();
-    String name = file.getOriginalFilename();
-    return "application/pdf".equalsIgnoreCase(type) || (name != null && name.toLowerCase().endsWith(".pdf"));
-  }
 }

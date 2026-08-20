@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { ArrowRight, Layers, Repeat, FileType, Minimize2 } from "lucide-react";
+import { ArrowRight, Layers, Repeat, FileType, Minimize2, ShieldCheck } from "lucide-react";
 import SiteHeader from "@/components/SiteHeader";
 import SiteFooter from "@/components/SiteFooter";
 
@@ -12,7 +12,9 @@ const groups = [
       { name: "Merge PDF", href: "/tools/merge-pdf" },
       { name: "Split PDF", href: "/tools/split-pdf" },
       { name: "Organize Pages", href: "/tools/organize-pdf" },
-      { name: "OCR PDF", href: "/tools/ocr-pdf" }
+      { name: "OCR PDF", href: "/tools/ocr-pdf" },
+      { name: "Rotate PDF", href: "/tools/rotate-pdf" },
+      { name: "Crop PDF", href: "/tools/crop-pdf" }
     ]
   },
   {
@@ -40,7 +42,24 @@ const groups = [
     id: "optimize-tools",
     title: "Optimize",
     icon: Minimize2,
-    tools: [{ name: "Compress PDF", href: "/tools/compress-pdf" }]
+    tools: [
+      { name: "Compress PDF", href: "/tools/compress-pdf" },
+      { name: "Grayscale PDF", href: "/tools/grayscale-pdf" },
+      { name: "Extract Images", href: "/tools/extract-images" }
+    ]
+  },
+  {
+    id: "protect-tools",
+    title: "Protect & Sign",
+    icon: ShieldCheck,
+    tools: [
+      { name: "Add Watermark", href: "/tools/watermark-pdf" },
+      { name: "Add Page Numbers", href: "/tools/page-numbers-pdf" },
+      { name: "Password Protect", href: "/tools/protect-pdf" },
+      { name: "Unlock PDF", href: "/tools/unlock-pdf" },
+      { name: "Sign PDF", href: "/tools/sign-pdf" },
+      { name: "Redact PDF", href: "/tools/redact-pdf" }
+    ]
   }
 ];
 
@@ -57,9 +76,10 @@ export default function Home() {
           <em>handled in seconds.</em>
         </h1>
         <p>
-          Merge, split, organize, OCR, convert and compress PDFs — plus Word,
-          Excel and PowerPoint conversion. Processed privately on our servers
-          and removed automatically — no account needed.
+          Merge, split, organize, OCR, convert, compress, watermark, protect,
+          sign and redact PDFs — plus Word, Excel and PowerPoint conversion.
+          Processed privately on our servers and removed automatically — no
+          account needed.
         </p>
         <div className="hero-actions">
           <Link href="/tools/merge-pdf" className="primary-btn">

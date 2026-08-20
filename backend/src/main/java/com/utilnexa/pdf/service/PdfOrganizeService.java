@@ -2,11 +2,11 @@ package com.utilnexa.pdf.service;
 
 import com.utilnexa.pdf.api.dto.OrganizePlan;
 import com.utilnexa.pdf.api.dto.PageOp;
+import com.utilnexa.pdf.service.support.PdfFileValidator;
 
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 
-import org.apache.pdfbox.Loader;
 import org.apache.pdfbox.pdmodel.PDDocument;
 import org.apache.pdfbox.pdmodel.PDPage;
 import org.springframework.stereotype.Service;
@@ -15,21 +15,15 @@ import org.springframework.web.multipart.MultipartFile;
 @Service
 public class PdfOrganizeService {
 
-  private static final long MAX_FILE_BYTES = 50L * 1024 * 1024;
-
   public byte[] organize(MultipartFile file, OrganizePlan plan) throws IOException {
-    validateFile(file);
+    PdfFileValidator.requirePdf(file);
 
     if (plan == null || plan.pages() == null || plan.pages().isEmpty()) {
       throw new IllegalArgumentException("The organized PDF must contain at least one page.");
     }
 
     byte[] bytes = file.getBytes();
-    try (PDDocument source = Loader.loadPDF(bytes)) {
-      if (source.isEncrypted()) {
-        throw new IllegalArgumentException("Password-protected PDFs are not supported yet.");
-      }
-
+    try (PDDocument source = PdfFileValidator.loadDecrypted(bytes)) {
       int pageCount = source.getNumberOfPages();
 
       try (PDDocument result = new PDDocument()) {
@@ -63,21 +57,4 @@ public class PdfOrganizeService {
     return normalized;
   }
 
-  private void validateFile(MultipartFile file) {
-    if (file == null || file.isEmpty()) {
-      throw new IllegalArgumentException("A PDF file is required.");
-    }
-    if (!isPdf(file)) {
-      throw new IllegalArgumentException("Only PDF files are supported.");
-    }
-    if (file.getSize() > MAX_FILE_BYTES) {
-      throw new IllegalArgumentException("The PDF must be 50 MB or smaller.");
-    }
-  }
-
-  private boolean isPdf(MultipartFile file) {
-    String type = file.getContentType();
-    String name = file.getOriginalFilename();
-    return "application/pdf".equalsIgnoreCase(type) || (name != null && name.toLowerCase().endsWith(".pdf"));
-  }
 }
