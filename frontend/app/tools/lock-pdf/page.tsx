@@ -9,7 +9,7 @@ import SinglePdfInput from "@/components/SinglePdfInput";
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:8091";
 
-export default function ProtectPdfPage() {
+export default function LockPdfPage() {
   const [file, setFile] = useState<File | null>(null);
   const [password, setPassword] = useState("");
   const [allowPrinting, setAllowPrinting] = useState(true);
@@ -72,7 +72,7 @@ export default function ProtectPdfPage() {
 
       const anchor = document.createElement("a");
       anchor.href = url;
-      anchor.download = "protected.pdf";
+      anchor.download = "locked.pdf";
       document.body.appendChild(anchor);
       anchor.click();
       anchor.remove();
@@ -102,7 +102,7 @@ export default function ProtectPdfPage() {
           <ArrowLeft size={16} /> All tools
         </Link>
         <div className="eyebrow">PDF TOOL</div>
-        <h1>Password Protect PDF</h1>
+        <h1>Lock PDF</h1>
         <p>Restrict printing and copying, and optionally require a password just to open the file.</p>
       </section>
 
@@ -163,7 +163,7 @@ export default function ProtectPdfPage() {
             </div>
 
             <button type="button" className="primary-btn wide" disabled={processing} onClick={submit}>
-              <Lock size={16} /> {processing ? "Protecting…" : "Protect PDF"}
+              <Lock size={16} /> {processing ? "Locking…" : "Lock PDF"}
             </button>
           </div>
         )}
@@ -173,7 +173,7 @@ export default function ProtectPdfPage() {
             <div className="success-icon">
               <CheckCircle2 size={38} />
             </div>
-            <h2>Your PDF is protected</h2>
+            <h2>Your PDF is locked</h2>
             <p>
               {password.trim()
                 ? "A password is now required to open this file — keep it somewhere safe, it can't be recovered."
@@ -181,13 +181,13 @@ export default function ProtectPdfPage() {
             </p>
 
             {downloadUrl && (
-              <a className="primary-btn" href={downloadUrl} download="protected.pdf">
-                <Download size={18} /> Download protected.pdf
+              <a className="primary-btn" href={downloadUrl} download="locked.pdf">
+                <Download size={18} /> Download locked.pdf
               </a>
             )}
 
             <button type="button" className="secondary-btn" onClick={reset}>
-              <XCircle size={17} /> Protect another PDF
+              <XCircle size={17} /> Lock another PDF
             </button>
           </div>
         )}

@@ -21,7 +21,7 @@ const TOOL_ROUTES = [
   "extract-images",
   "watermark-pdf",
   "page-numbers-pdf",
-  "protect-pdf",
+  "lock-pdf",
   "unlock-pdf",
   "sign-pdf",
   "redact-pdf",

@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 
 export const metadata: Metadata = {
-  title: "Password Protect PDF",
+  title: "Lock PDF",
   description: "Restrict printing and copying, and optionally require a password just to open the file."
 };
 

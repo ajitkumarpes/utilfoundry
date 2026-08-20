@@ -41,7 +41,7 @@ first batch above):
 | Rotate PDF | `/tools/rotate-pdf` | `POST /api/v1/pdf/rotate` |
 | Add Watermark | `/tools/watermark-pdf` | `POST /api/v1/pdf/watermark` |
 | Add Page Numbers | `/tools/page-numbers-pdf` | `POST /api/v1/pdf/page-numbers` |
-| Password Protect | `/tools/protect-pdf` | `POST /api/v1/pdf/protect` |
+| Lock PDF | `/tools/lock-pdf` | `POST /api/v1/pdf/protect` |
 | Unlock PDF | `/tools/unlock-pdf` | `POST /api/v1/pdf/unlock` |
 | Grayscale PDF | `/tools/grayscale-pdf` | `POST /api/v1/pdf/grayscale` |
 | Extract Images | `/tools/extract-images` | `POST /api/v1/pdf/extract-images` |

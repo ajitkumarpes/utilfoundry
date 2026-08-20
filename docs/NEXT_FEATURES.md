@@ -20,7 +20,7 @@
      conversion. Revisit if a user actually asks for it.
 10. AI document layer — not started, out of scope for the free/no-LLM tool set
 11. Second tool batch — shipped: Rotate, Add Watermark, Add Page Numbers,
-    Password Protect, Unlock, Grayscale, Extract Images, Crop (auto-margins),
+    Lock PDF, Unlock, Grayscale, Extract Images, Crop (auto-margins),
     Sign (visual stamp), Redact (true content removal). All synchronous,
     same in-memory pattern as batch 1 — no new infrastructure.
     - **Grayscale** converts embedded images only, not arbitrary content-stream

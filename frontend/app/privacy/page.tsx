@@ -31,7 +31,7 @@ export default function PrivacyPage() {
         <ul>
           <li>
             <strong>Most tools</strong> (Merge, Split, Organize, Rotate, Crop, Compress, Watermark, Page Numbers,
-            Password Protect, Unlock, Grayscale, Extract Images, Sign, Redact, Image ↔ PDF) process your file
+            Lock PDF, Unlock, Grayscale, Extract Images, Sign, Redact, Image ↔ PDF) process your file
             entirely in memory on our server for the duration of the request and never write it to disk. Once the
             result is sent back to your browser, the file is gone.
           </li>

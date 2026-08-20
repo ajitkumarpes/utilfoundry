@@ -59,7 +59,7 @@ const groups = [
     tools: [
       { name: "Add Watermark", href: "/tools/watermark-pdf" },
       { name: "Add Page Numbers", href: "/tools/page-numbers-pdf" },
-      { name: "Password Protect", href: "/tools/protect-pdf" },
+      { name: "Lock PDF", href: "/tools/lock-pdf" },
       { name: "Unlock PDF", href: "/tools/unlock-pdf" },
       { name: "Sign PDF", href: "/tools/sign-pdf" },
       { name: "Redact PDF", href: "/tools/redact-pdf" }
@@ -80,7 +80,7 @@ export default function Home() {
           <em>handled in seconds.</em>
         </h1>
         <p>
-          Merge, split, organize, OCR, convert, compress, watermark, protect,
+          Merge, split, organize, OCR, convert, compress, watermark, lock,
           sign and redact PDFs — plus Word, Excel and PowerPoint conversion.
           Processed privately on our servers and removed automatically — no
           account needed.
