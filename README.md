@@ -49,6 +49,23 @@ first batch above):
 | Sign PDF (visual stamp, not a certified e-signature) | `/tools/sign-pdf` | `POST /api/v1/pdf/sign` |
 | Redact PDF (true content removal, not a visual overlay) | `/tools/redact-pdf` | `POST /api/v1/pdf/redact` |
 
+**Synchronous, third batch:**
+
+| Tool | Route | API |
+|---|---|---|
+| Repair PDF | `/tools/repair-pdf` | `POST /api/v1/pdf/repair` |
+| PDF to Text | `/tools/pdf-to-text` | `POST /api/v1/pdf/to-text` |
+| Edit PDF Metadata | `/tools/edit-metadata` | `POST /api/v1/pdf/metadata` |
+| Pages per Sheet (2-up / 4-up) | `/tools/pages-per-sheet` | `POST /api/v1/pdf/n-up` |
+
+Repair re-saves whatever PDFBox's own recovery-capable parser was able to
+read from a damaged file — it doesn't have separate "repair logic," the
+recovery already happens on load, and this tool's job is to persist that
+recovery as a clean file. Pages per Sheet imports each source page as a
+reusable Form XObject (`LayerUtility`) rather than rasterizing to an image,
+so text stays real text and quality doesn't degrade — each page is scaled
+to fit its cell without distorting its aspect ratio.
+
 Add Watermark supports Hindi/Devanagari free text, not just Latin — two
 OFL-licensed Noto fonts are bundled and the text is automatically split into
 per-script runs (Devanagari input has no Latin glyphs in its font and vice

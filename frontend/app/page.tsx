@@ -14,16 +14,20 @@ const groups = [
       { name: "Organize Pages", href: "/tools/organize-pdf" },
       { name: "OCR PDF", href: "/tools/ocr-pdf" },
       { name: "Rotate PDF", href: "/tools/rotate-pdf" },
-      { name: "Crop PDF", href: "/tools/crop-pdf" }
+      { name: "Crop PDF", href: "/tools/crop-pdf" },
+      { name: "Repair PDF", href: "/tools/repair-pdf" },
+      { name: "Edit PDF Metadata", href: "/tools/edit-metadata" },
+      { name: "Pages per Sheet", href: "/tools/pages-per-sheet" }
     ]
   },
   {
     id: "convert-tools",
-    title: "Convert Images",
+    title: "Convert",
     icon: Repeat,
     tools: [
       { name: "Image to PDF", href: "/tools/image-to-pdf" },
-      { name: "PDF to Image", href: "/tools/pdf-to-image" }
+      { name: "PDF to Image", href: "/tools/pdf-to-image" },
+      { name: "PDF to Text", href: "/tools/pdf-to-text" }
     ]
   },
   {

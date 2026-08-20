@@ -24,7 +24,11 @@ const TOOL_ROUTES = [
   "protect-pdf",
   "unlock-pdf",
   "sign-pdf",
-  "redact-pdf"
+  "redact-pdf",
+  "repair-pdf",
+  "pdf-to-text",
+  "edit-metadata",
+  "pages-per-sheet"
 ];
 
 export default function sitemap(): MetadataRoute.Sitemap {

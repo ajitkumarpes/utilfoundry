@@ -144,6 +144,44 @@
       anywhere (no CI/CD, no hosting target, no TLS — local `docker compose
       up` only). That's an infrastructure/hosting decision for the user to
       make, not something to guess at in code.
+13. Fourth tool batch — shipped: Repair PDF, PDF to Text, Edit PDF Metadata,
+    Pages per Sheet (2-up/4-up).
+    - **Repair** doesn't implement separate repair logic — PDFBox's own
+      parser already recovers from a broken xref table or trailer by falling
+      back to a full-file object scan when it loads a document at all; this
+      tool's entire job is to persist whatever was recovered as a clean,
+      well-formed file. Verified with a real fixture, not assumed: built a
+      valid 2-page PDF, corrupted its `startxref` byte offset to an
+      impossible value, fed it through the service, and confirmed the output
+      still has exactly 2 pages.
+    - **Pages per Sheet** imports each source page as a Form XObject via
+      PDFBox's `LayerUtility` (verified against the real 3.0.5 jar with
+      `javap` before writing any code, not assumed from memory) rather than
+      rasterizing to an image — real vector/text content is preserved, not
+      flattened. Each page is scaled to fit its grid cell without distorting
+      its aspect ratio (letterboxed/centered, never stretched). Only 2-up
+      (1x2) and 4-up (2x2), both landscape A4 — the two layouts that cover
+      the overwhelming majority of real "handout" use, not an arbitrary
+      N-per-page picker nobody would tune correctly. Verified that content
+      genuinely survives the Form XObject round-trip, not just visually: a
+      4-page source PDF with a distinct label per page, after 4-up, has every
+      label still present in a fresh `PDFTextStripper` extraction of the
+      output.
+    - **Edit PDF Metadata**: a field is only changed if the caller actually
+      sends it — an omitted field leaves the existing value untouched. The
+      *service* also supports sending an explicit empty string to clear a
+      field (a real, useful `PDDocumentInformation` capability for direct API
+      use), but the shipped frontend form intentionally never sends that,
+      because the form doesn't show the PDF's current metadata values — a
+      blank input silently erasing a value the user can't see would be a
+      real footgun, so "leave blank to skip" is the only behavior exposed in
+      the UI copy.
+    - **PDF to Text** is a direct `PDFTextStripper` pass — same extraction
+      engine already proven correct elsewhere in this codebase (it's what
+      verifies Redact actually removes content). Scanned pages with no
+      text layer come out empty; the tool's own copy says so and points to
+      OCR PDF first, rather than silently returning an empty file with no
+      explanation.
 
 ## Architecture (as shipped)
 

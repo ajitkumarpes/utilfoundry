@@ -11,14 +11,18 @@ import com.utilnexa.pdf.service.PdfCropService;
 import com.utilnexa.pdf.service.PdfExtractImagesService;
 import com.utilnexa.pdf.service.PdfGrayscaleService;
 import com.utilnexa.pdf.service.PdfMergeService;
+import com.utilnexa.pdf.service.PdfMetadataService;
+import com.utilnexa.pdf.service.PdfNUpService;
 import com.utilnexa.pdf.service.PdfOrganizeService;
 import com.utilnexa.pdf.service.PdfPageNumberService;
 import com.utilnexa.pdf.service.PdfProtectService;
 import com.utilnexa.pdf.service.PdfRedactService;
+import com.utilnexa.pdf.service.PdfRepairService;
 import com.utilnexa.pdf.service.PdfRotateService;
 import com.utilnexa.pdf.service.PdfSignService;
 import com.utilnexa.pdf.service.PdfSplitService;
 import com.utilnexa.pdf.service.PdfToImageService;
+import com.utilnexa.pdf.service.PdfToTextService;
 import com.utilnexa.pdf.service.PdfUnlockService;
 import com.utilnexa.pdf.service.PdfWatermarkService;
 
@@ -63,6 +67,10 @@ public class PdfController {
   private final PdfCropService cropService;
   private final PdfSignService signService;
   private final PdfRedactService redactService;
+  private final PdfRepairService repairService;
+  private final PdfToTextService toTextService;
+  private final PdfMetadataService metadataService;
+  private final PdfNUpService nUpService;
   private final ObjectMapper objectMapper;
 
   @PostMapping(
@@ -251,6 +259,44 @@ public class PdfController {
       throw new IllegalArgumentException("The redaction areas could not be read.");
     }
     return pdfResponse(redactService.redact(file, redactions), "redacted.pdf");
+  }
+
+  @PostMapping(
+      value = "/repair",
+      consumes = MediaType.MULTIPART_FORM_DATA_VALUE,
+      produces = MediaType.APPLICATION_PDF_VALUE)
+  public ResponseEntity<byte[]> repair(@RequestPart("file") MultipartFile file) throws IOException {
+    return pdfResponse(repairService.repair(file), "repaired.pdf");
+  }
+
+  @PostMapping(value = "/to-text", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+  public ResponseEntity<byte[]> toText(@RequestPart("file") MultipartFile file) throws IOException {
+    byte[] text = toTextService.extractText(file);
+    return respondWithFiles(List.of(new NamedFile("extracted.txt", text, "text/plain")), "extracted.txt");
+  }
+
+  @PostMapping(
+      value = "/metadata",
+      consumes = MediaType.MULTIPART_FORM_DATA_VALUE,
+      produces = MediaType.APPLICATION_PDF_VALUE)
+  public ResponseEntity<byte[]> metadata(
+      @RequestPart("file") MultipartFile file,
+      @RequestParam(value = "title", required = false) String title,
+      @RequestParam(value = "author", required = false) String author,
+      @RequestParam(value = "subject", required = false) String subject,
+      @RequestParam(value = "keywords", required = false) String keywords)
+      throws IOException {
+    return pdfResponse(metadataService.updateMetadata(file, title, author, subject, keywords), "updated-metadata.pdf");
+  }
+
+  @PostMapping(
+      value = "/n-up",
+      consumes = MediaType.MULTIPART_FORM_DATA_VALUE,
+      produces = MediaType.APPLICATION_PDF_VALUE)
+  public ResponseEntity<byte[]> nUp(
+      @RequestPart("file") MultipartFile file, @RequestParam("pagesPerSheet") int pagesPerSheet)
+      throws IOException {
+    return pdfResponse(nUpService.nUp(file, pagesPerSheet), "pages-per-sheet.pdf");
   }
 
   private ResponseEntity<byte[]> pdfResponse(byte[] content, String filename) {
