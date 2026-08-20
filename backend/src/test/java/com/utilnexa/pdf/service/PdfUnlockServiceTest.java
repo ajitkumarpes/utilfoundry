@@ -18,7 +18,7 @@ class PdfUnlockServiceTest {
 
   @Test
   void correctPasswordRemovesEncryption() throws Exception {
-    byte[] protectedPdf = protectService.protect(pdfFile(pdfWithPages(1)), "secret123", true, false);
+    byte[] protectedPdf = protectService.protect(pdfFile(pdfWithPages(1)), "secret123", true, false, false, false);
 
     byte[] result = service.unlock(pdfFile(protectedPdf), "secret123");
 
@@ -29,7 +29,7 @@ class PdfUnlockServiceTest {
 
   @Test
   void wrongPasswordRejectedCleanly() throws Exception {
-    byte[] protectedPdf = protectService.protect(pdfFile(pdfWithPages(1)), "secret123", true, false);
+    byte[] protectedPdf = protectService.protect(pdfFile(pdfWithPages(1)), "secret123", true, false, false, false);
 
     assertThrows(IllegalArgumentException.class, () -> service.unlock(pdfFile(protectedPdf), "wrong-password"));
   }

@@ -66,6 +66,39 @@ class PdfSplitServiceTest {
     assertThrows(IllegalArgumentException.class, () -> service.split(file, "BOGUS", null));
   }
 
+  @Test
+  void evenModeReturnsOnlyEvenPagesInOrder() throws Exception {
+    MockMultipartFile file = pdfFile(pdfWithPages(5));
+
+    List<NamedFile> results = service.split(file, "EVEN", null);
+
+    assertEquals(1, results.size());
+    assertEquals("even-pages.pdf", results.get(0).filename());
+    try (PDDocument doc = org.apache.pdfbox.Loader.loadPDF(results.get(0).content())) {
+      assertEquals(2, doc.getNumberOfPages());
+    }
+  }
+
+  @Test
+  void oddModeReturnsOnlyOddPagesInOrder() throws Exception {
+    MockMultipartFile file = pdfFile(pdfWithPages(5));
+
+    List<NamedFile> results = service.split(file, "ODD", null);
+
+    assertEquals(1, results.size());
+    assertEquals("odd-pages.pdf", results.get(0).filename());
+    try (PDDocument doc = org.apache.pdfbox.Loader.loadPDF(results.get(0).content())) {
+      assertEquals(3, doc.getNumberOfPages());
+    }
+  }
+
+  @Test
+  void evenModeRejectedForSinglePageDocument() throws Exception {
+    MockMultipartFile file = pdfFile(pdfWithPages(1));
+
+    assertThrows(IllegalArgumentException.class, () -> service.split(file, "EVEN", null));
+  }
+
   private byte[] pdfWithPages(int count) throws Exception {
     try (PDDocument document = new PDDocument(); ByteArrayOutputStream output = new ByteArrayOutputStream()) {
       for (int i = 0; i < count; i++) {

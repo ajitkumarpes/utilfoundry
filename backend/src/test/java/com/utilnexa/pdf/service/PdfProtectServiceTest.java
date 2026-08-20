@@ -22,7 +22,7 @@ class PdfProtectServiceTest {
   void openPasswordIsRequiredAfterProtecting() throws Exception {
     MockMultipartFile file = pdfFile(pdfWithPages(1));
 
-    byte[] result = service.protect(file, "secret123", true, false);
+    byte[] result = service.protect(file, "secret123", true, false, false, false);
 
     assertThrows(InvalidPasswordException.class, () -> Loader.loadPDF(result));
     try (PDDocument doc = Loader.loadPDF(result, "secret123")) {
@@ -34,7 +34,7 @@ class PdfProtectServiceTest {
   void blankUserPasswordStillRestrictsPermissionsWithoutRequiringOneToOpen() throws Exception {
     MockMultipartFile file = pdfFile(pdfWithPages(1));
 
-    byte[] result = service.protect(file, null, false, false);
+    byte[] result = service.protect(file, null, false, false, false, false);
 
     try (PDDocument doc = Loader.loadPDF(result)) {
       assertTrue(doc.isEncrypted());
@@ -47,20 +47,35 @@ class PdfProtectServiceTest {
   void permissionFlagsAreApplied() throws Exception {
     MockMultipartFile file = pdfFile(pdfWithPages(1));
 
-    byte[] result = service.protect(file, "pw", true, true);
+    byte[] result = service.protect(file, "pw", true, true, false, false);
 
     try (PDDocument doc = Loader.loadPDF(result, "pw")) {
       assertTrue(doc.getCurrentAccessPermission().canPrint());
       assertTrue(doc.getCurrentAccessPermission().canExtractContent());
       assertFalse(doc.getCurrentAccessPermission().canModify());
+      assertFalse(doc.getCurrentAccessPermission().canFillInForm());
+    }
+  }
+
+  @Test
+  void editingAndFormFillingFlagsAreApplied() throws Exception {
+    MockMultipartFile file = pdfFile(pdfWithPages(1));
+
+    byte[] result = service.protect(file, "pw", false, false, true, true);
+
+    try (PDDocument doc = Loader.loadPDF(result, "pw")) {
+      assertTrue(doc.getCurrentAccessPermission().canModify());
+      assertTrue(doc.getCurrentAccessPermission().canFillInForm());
     }
   }
 
   @Test
   void alreadyEncryptedInputRejected() throws Exception {
-    MockMultipartFile file = pdfFile(service.protect(pdfFile(pdfWithPages(1)), "pw", true, false));
+    MockMultipartFile file =
+        pdfFile(service.protect(pdfFile(pdfWithPages(1)), "pw", true, false, false, false));
 
-    assertThrows(IllegalArgumentException.class, () -> service.protect(file, "other", true, false));
+    assertThrows(
+        IllegalArgumentException.class, () -> service.protect(file, "other", true, false, false, false));
   }
 
   private byte[] pdfWithPages(int count) throws Exception {

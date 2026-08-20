@@ -39,6 +39,11 @@ public final class PdfFileValidator {
       document = Loader.loadPDF(bytes);
     } catch (InvalidPasswordException e) {
       throw new IllegalArgumentException(ENCRYPTED_MESSAGE);
+    } catch (IOException e) {
+      // Loader.loadPDF already attempts its own recovery (broken xref/trailer -> full-file object
+      // scan, see PdfRepairService) before ever reaching here, so this is a file too damaged for
+      // that to salvage - a bad-input case (400), not a server fault (500).
+      throw new IllegalArgumentException("This PDF could not be read — it appears to be corrupted or invalid.");
     }
     if (document.isEncrypted()) {
       document.close();

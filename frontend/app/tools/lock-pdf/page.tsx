@@ -14,6 +14,8 @@ export default function LockPdfPage() {
   const [password, setPassword] = useState("");
   const [allowPrinting, setAllowPrinting] = useState(true);
   const [allowCopying, setAllowCopying] = useState(false);
+  const [allowEditing, setAllowEditing] = useState(false);
+  const [allowFillingForms, setAllowFillingForms] = useState(false);
   const [processing, setProcessing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [done, setDone] = useState(false);
@@ -48,6 +50,8 @@ export default function LockPdfPage() {
       if (password.trim()) formData.append("userPassword", password.trim());
       formData.append("allowPrinting", String(allowPrinting));
       formData.append("allowCopying", String(allowCopying));
+      formData.append("allowEditing", String(allowEditing));
+      formData.append("allowFillingForms", String(allowFillingForms));
 
       const response = await fetch(`${API_BASE_URL}/api/v1/pdf/protect`, { method: "POST", body: formData });
 
@@ -103,7 +107,7 @@ export default function LockPdfPage() {
         </Link>
         <div className="eyebrow">PDF TOOL</div>
         <h1>Lock PDF</h1>
-        <p>Restrict printing and copying, and optionally require a password just to open the file.</p>
+        <p>Restrict printing, copying, editing and form-filling, and optionally require a password just to open the file.</p>
       </section>
 
       <section className="workspace">
@@ -159,6 +163,24 @@ export default function LockPdfPage() {
                   disabled={processing}
                 />
                 Allow copying text and images
+              </label>
+              <label style={{ display: "flex", alignItems: "center", gap: 8, fontWeight: 400, marginTop: 8 }}>
+                <input
+                  type="checkbox"
+                  checked={allowEditing}
+                  onChange={e => setAllowEditing(e.target.checked)}
+                  disabled={processing}
+                />
+                Allow editing the document
+              </label>
+              <label style={{ display: "flex", alignItems: "center", gap: 8, fontWeight: 400, marginTop: 8 }}>
+                <input
+                  type="checkbox"
+                  checked={allowFillingForms}
+                  onChange={e => setAllowFillingForms(e.target.checked)}
+                  disabled={processing}
+                />
+                Allow filling in form fields
               </label>
             </div>
 

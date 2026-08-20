@@ -189,9 +189,13 @@ public class PdfController {
       @RequestPart("file") MultipartFile file,
       @RequestParam(value = "userPassword", required = false) String userPassword,
       @RequestParam(value = "allowPrinting", defaultValue = "true") boolean allowPrinting,
-      @RequestParam(value = "allowCopying", defaultValue = "false") boolean allowCopying)
+      @RequestParam(value = "allowCopying", defaultValue = "false") boolean allowCopying,
+      @RequestParam(value = "allowEditing", defaultValue = "false") boolean allowEditing,
+      @RequestParam(value = "allowFillingForms", defaultValue = "false") boolean allowFillingForms)
       throws IOException {
-    return pdfResponse(protectService.protect(file, userPassword, allowPrinting, allowCopying), "protected.pdf");
+    return pdfResponse(
+        protectService.protect(file, userPassword, allowPrinting, allowCopying, allowEditing, allowFillingForms),
+        "protected.pdf");
   }
 
   @PostMapping(

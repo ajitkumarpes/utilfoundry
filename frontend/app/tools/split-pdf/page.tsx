@@ -9,7 +9,7 @@ import SinglePdfInput from "@/components/SinglePdfInput";
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:8091";
 
-type Mode = "ALL" | "RANGES";
+type Mode = "ALL" | "RANGES" | "ODD" | "EVEN";
 
 function parseFilename(header: string | null, fallback: string) {
   if (!header) return fallback;
@@ -156,6 +156,12 @@ export default function SplitPdfPage() {
               </button>
               <button type="button" className={mode === "RANGES" ? "active" : ""} onClick={() => setMode("RANGES")} disabled={processing}>
                 Custom ranges
+              </button>
+              <button type="button" className={mode === "ODD" ? "active" : ""} onClick={() => setMode("ODD")} disabled={processing}>
+                Odd pages
+              </button>
+              <button type="button" className={mode === "EVEN" ? "active" : ""} onClick={() => setMode("EVEN")} disabled={processing}>
+                Even pages
               </button>
             </div>
 

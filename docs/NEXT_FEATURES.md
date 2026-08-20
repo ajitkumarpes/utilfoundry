@@ -167,21 +167,86 @@
       4-page source PDF with a distinct label per page, after 4-up, has every
       label still present in a fresh `PDFTextStripper` extraction of the
       output.
-    - **Edit PDF Metadata**: a field is only changed if the caller actually
-      sends it — an omitted field leaves the existing value untouched. The
-      *service* also supports sending an explicit empty string to clear a
-      field (a real, useful `PDDocumentInformation` capability for direct API
-      use), but the shipped frontend form intentionally never sends that,
-      because the form doesn't show the PDF's current metadata values — a
-      blank input silently erasing a value the user can't see would be a
-      real footgun, so "leave blank to skip" is the only behavior exposed in
-      the UI copy.
+    - **Edit PDF Metadata** (original version): a field was only changed if
+      the caller actually sent it — an omitted field left the existing value
+      untouched. The frontend form intentionally never sent an empty field,
+      because it didn't show the PDF's current metadata values — a blank
+      input silently erasing a value the user can't see would be a real
+      footgun. **Superseded in Round 2, see item 14** — the form now shows
+      current values, which removes the reason this behavior existed.
     - **PDF to Text** is a direct `PDFTextStripper` pass — same extraction
       engine already proven correct elsewhere in this codebase (it's what
       verifies Redact actually removes content). Scanned pages with no
       text layer come out empty; the tool's own copy says so and points to
       OCR PDF first, rather than silently returning an empty file with no
       explanation.
+14. Round 2 (in progress) — Edit Bookmarks, Sanitize PDF, Header & Footer,
+    Text/Markdown/HTML to PDF, plus Split even/odd pages, Lock PDF extra
+    permission toggles, and Organize Pages gaining blank-page and
+    second-file page inserts. Staged, each stage independently built,
+    tested, and committed.
+    - **Three exclusions carried over from the first tool-batch round that
+      were only ever reasoned about in a since-discarded plan file, written
+      down here for real so they don't get re-litigated from memory:**
+      - **Compare PDFs** — not offered. A real diffing feature has its own
+        UI paradigm (two files in, a diff view out, no single processed
+        file to download) — different enough in shape from every tool here
+        that bolting it on would either be shallow (byte-diff, not useful)
+        or effectively a second project.
+      - **Fill PDF Forms** — not offered. Needs AcroForm field detection and
+        an interactive form-filling surface, a different interaction model
+        from every tool here (upload → options → download). A real,
+        substantial feature, not a quick add — comparable in size to the
+        whole Sign/Redact canvas-editor build.
+      - **PDF/A conversion** — not offered. PDF/A specifically needs ICC
+        profile embedding and real conformance validation (veraPDF-class);
+        doing it superficially would hand someone a file that fails the
+        exact government/archival portal validator it's meant for, which is
+        worse than not offering it at all.
+    - **Split PDF gained EVEN/ODD modes**, alongside the existing ALL/RANGES
+      — returns one PDF with just the odd- or even-numbered pages, in
+      original order. Rejects a request for even pages on a 1-page document
+      (nothing to return) with a clear message rather than silently handing
+      back an empty file.
+    - **Lock PDF gained two more permission toggles** ("Allow editing the
+      document", "Allow filling in form fields") — previously hardcoded to
+      always-restricted regardless of what the caller asked for. Printing
+      and copying were already configurable; this completes the same
+      treatment for the other two `AccessPermission` flags PDFBox exposes
+      (document assembly and annotation-modification stay restricted —
+      narrower permissions with little real end-user demand, not exposed).
+    - **Edit PDF Metadata now shows the file's current values** instead of
+      starting blank, via a client-side `pdfjs-dist` metadata read (no new
+      backend endpoint — this is a pure read, so it never needs to leave the
+      browser). This is what makes "leave blank to clear that field" a safe,
+      intentional action instead of the footgun the original version's
+      design note (item 13, above) explains — the user can now see exactly
+      what they're changing or erasing. The submit guard changed to match:
+      it now blocks only when nothing differs from the loaded snapshot
+      (true no-op), not "all fields are blank" (which is now a legitimate
+      request to clear everything the file had). **One disclosed boundary**:
+      clearing all four fields at once still round-trips through the
+      backend's existing "provide at least one field" guard and gets
+      rejected — a narrow edge case, and Sanitize PDF (this same round) is
+      the purpose-built tool for a full metadata wipe; revisit only if a
+      user actually hits this specific path through Edit Metadata itself.
+    - **Found while verifying the above, unrelated to any of it, fixed
+      immediately: a malformed/corrupted PDF returned a raw 500 Internal
+      Server Error on every tool, not a clean 400.** `PdfFileValidator`
+      (`backend/.../service/support/`), the single load chokepoint every
+      synchronous service shares, only caught PDFBox's `InvalidPasswordException`
+      and let every other `IOException` — e.g. `Loader.loadPDF` failing with
+      "Page tree root must be a dictionary" on a file too damaged for even
+      its own recovery scan — propagate uncaught to a generic framework
+      error page. Reproduced directly (not assumed): a genuinely malformed
+      file against the running backend logged exactly that stack trace and
+      returned 500. Fixed with the same pattern `PdfUnlockService` already
+      uses for a wrong password — catch it at the boundary, rethrow as the
+      existing `IllegalArgumentException` the global handler already maps
+      to a clean 400. Notably, `PdfRepairService`'s own doc comment already
+      *claimed* "every other tool in this codebase already surfaces [this]
+      as a clean 400" — that was untrue until this fix; it's true now.
+      Covered by a new `PdfFileValidatorTest`.
 
 ## Architecture (as shipped)
 

@@ -50,8 +50,23 @@ public class PdfSplitService {
             index++;
           }
         }
+      } else if ("EVEN".equalsIgnoreCase(mode) || "ODD".equalsIgnoreCase(mode)) {
+        boolean even = "EVEN".equalsIgnoreCase(mode);
+        try (PDDocument extracted = new PDDocument()) {
+          for (int p = 1; p <= pageCount; p++) {
+            if ((p % 2 == 0) == even) {
+              extracted.importPage(document.getPage(p - 1));
+            }
+          }
+          if (extracted.getNumberOfPages() == 0) {
+            throw new IllegalArgumentException(
+                "This PDF has no " + (even ? "even" : "odd") + "-numbered pages.");
+          }
+          results.add(
+              new NamedFile((even ? "even" : "odd") + "-pages.pdf", toBytes(extracted), "application/pdf"));
+        }
       } else {
-        throw new IllegalArgumentException("mode must be ALL or RANGES.");
+        throw new IllegalArgumentException("mode must be ALL, RANGES, EVEN, or ODD.");
       }
 
       return results;

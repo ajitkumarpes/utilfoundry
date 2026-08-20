@@ -15,7 +15,13 @@ import org.springframework.web.multipart.MultipartFile;
 @Service
 public class PdfProtectService {
 
-  public byte[] protect(MultipartFile file, String userPassword, boolean allowPrinting, boolean allowCopying)
+  public byte[] protect(
+      MultipartFile file,
+      String userPassword,
+      boolean allowPrinting,
+      boolean allowCopying,
+      boolean allowEditing,
+      boolean allowFillingForms)
       throws IOException {
     PdfFileValidator.requirePdf(file);
 
@@ -24,9 +30,9 @@ public class PdfProtectService {
       AccessPermission permission = new AccessPermission();
       permission.setCanPrint(allowPrinting);
       permission.setCanExtractContent(allowCopying);
-      permission.setCanModify(false);
+      permission.setCanModify(allowEditing);
       permission.setCanModifyAnnotations(false);
-      permission.setCanFillInForm(false);
+      permission.setCanFillInForm(allowFillingForms);
       permission.setCanAssembleDocument(false);
 
       // Random, never returned to the caller. If this equalled the user's own open
