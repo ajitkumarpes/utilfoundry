@@ -1,5 +1,11 @@
+import type { Metadata } from "next";
 import JobToolWorkspace from "@/components/JobToolWorkspace";
 import { EXCEL_ACCEPT } from "@/components/SinglePdfInput";
+
+export const metadata: Metadata = {
+  title: "Excel to PDF",
+  description: "Convert an Excel spreadsheet into a PDF. Free, private, no account needed."
+};
 
 export default function ExcelToPdfPage() {
   return (

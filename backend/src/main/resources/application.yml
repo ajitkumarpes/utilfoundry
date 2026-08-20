@@ -31,3 +31,7 @@ app:
     pool-size: 4
   jobs:
     retention-hours: 1
+  cors:
+    allowed-origins: ${CORS_ALLOWED_ORIGINS:http://localhost:3000}
+  rate-limit:
+    requests-per-minute: ${RATE_LIMIT_PER_MINUTE:20}

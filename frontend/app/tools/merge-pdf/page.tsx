@@ -1,4 +1,10 @@
+import type { Metadata } from "next";
 import ToolWorkspace from "@/components/ToolWorkspace";
+
+export const metadata: Metadata = {
+  title: "Merge PDF",
+  description: "Combine multiple PDF files into one document, in the order you choose. Free, private, no account needed."
+};
 
 export default function MergePdfPage() {
   return (

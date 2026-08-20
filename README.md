@@ -96,10 +96,29 @@ Note the backend is mapped to host port **8091** (container port 8080) —
 see `docker-compose.yml`. The frontend reads `NEXT_PUBLIC_API_BASE_URL`,
 which defaults to `http://localhost:8091`.
 
+## Site essentials
+Beyond the tools themselves: CORS origins and the per-IP rate limit (default
+20 requests/minute on `/api/**`, in-memory token bucket via Bucket4j — see
+`RateLimitFilter`) are both environment-configurable (`CORS_ALLOWED_ORIGINS`,
+`RATE_LIMIT_PER_MINUTE` — see `.env.example`), not hardcoded to localhost.
+Every tool page has its own SEO title/description (client-component pages
+get theirs from a sibling `layout.tsx`, since Next.js metadata exports
+require a Server Component); a generated favicon, OG image, `robots.txt`,
+`sitemap.xml`, and a branded 404 page are all in place. Privacy Policy
+(`/privacy`) and Terms of Service (`/terms`) exist and are linked from the
+footer — their content accurately describes how this app actually handles
+files, but **both have `[CONTACT_EMAIL]` / `[JURISDICTION]` placeholders
+that need real values filled in before this goes live**; nothing here
+fabricates a company identity that doesn't exist yet.
+
 ## Production readiness
 The synchronous tools process everything in memory; the async tools (OCR,
 Office conversion) already run through a real job queue with retry, timeout,
 and stale-job reaping — see `docs/NEXT_FEATURES.md` for the full design and
 what's still open (a proper migration tool instead of `ddl-auto: update`,
 presigned MinIO downloads instead of proxying through the API, before this
-goes past a single-operator scale).
+goes past a single-operator scale). Also still open: this has never been
+deployed anywhere — no CI/CD, no hosting target, no TLS — only ever run via
+local `docker compose up`. The rate limiter is in-memory per instance
+(correct for the current single-instance deployment; would need a shared
+store if this ever runs as multiple replicas behind a load balancer).

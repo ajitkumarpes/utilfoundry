@@ -1,5 +1,11 @@
+import type { Metadata } from "next";
 import JobToolWorkspace from "@/components/JobToolWorkspace";
 import { PPT_ACCEPT } from "@/components/SinglePdfInput";
+
+export const metadata: Metadata = {
+  title: "PowerPoint to PDF",
+  description: "Convert a PowerPoint presentation into a PDF. Free, private, no account needed."
+};
 
 export default function PptToPdfPage() {
   return (

@@ -87,6 +87,63 @@
         being treated as a defect — but the test suite now asserts against it
         honestly (whitespace-normalized for the diagonal case) rather than
         silently avoiding long diagonal strings.
+12. Site completeness pass — shipped:
+    - **CORS was hardcoded to `http://localhost:3000`** with no env override —
+      would have rejected every request the moment the frontend ran on a real
+      domain. Now reads `app.cors.allowed-origins` (`CORS_ALLOWED_ORIGINS`
+      env var, comma-separated), defaulting to `http://localhost:3000` so
+      local dev is unaffected. Verified with real cross-origin curl requests:
+      the configured origin gets `200` + the correct
+      `Access-Control-Allow-Origin` header, an unrelated origin gets `403`.
+    - **Zero rate limiting existed anywhere in the backend.** Added
+      `RateLimitFilter` (Bucket4j, in-memory token bucket, per client IP) on
+      `/api/**`, default 20 req/min (`RATE_LIMIT_PER_MINUTE`). Client IP comes
+      from `getRemoteAddr()` by default — `X-Forwarded-For` is only trusted if
+      `app.rate-limit.trust-forwarded-for=true` is explicitly set, because
+      blindly trusting that header lets a caller spoof their rate-limit
+      identity unless a real reverse proxy is the one setting it; flip it on
+      only once this sits behind one. Idle per-IP buckets are evicted every 5
+      minutes so the map doesn't grow unbounded under a many-source-IP abuse
+      pattern. Verified with 25 rapid real requests against a running
+      instance: requests 1–20 passed through, 21–25 got a real `429` with a
+      clean JSON body — the threshold lands exactly where configured, not
+      approximately.
+    - **No Privacy Policy or Terms of Service existed.** Both now exist
+      (`/privacy`, `/terms`, linked from the footer), and their content
+      describes verified real behavior (in-memory sync processing, 1-hour
+      MinIO auto-purge for async jobs, zero third-party analytics/tracking
+      dependencies in `package.json`, no payment processing anywhere in this
+      repo) rather than boilerplate. **Both have `[CONTACT_EMAIL]` /
+      `[JURISDICTION]` placeholders** — deliberately not fabricated, since
+      inventing a fake contact or registered jurisdiction in a legal document
+      would be actively worse than leaving it marked as missing. Fill these
+      in before this goes live.
+    - **No `public/` assets, no per-page SEO metadata, no custom 404.** Added
+      a generated favicon (`app/icon.tsx`) and OG image
+      (`app/opengraph-image.tsx`, via `next/og`, matching the site's actual
+      `.brand` mark — not a generic placeholder), `robots.ts`, `sitemap.ts`
+      (homepage + both legal pages + all 22 tool routes), and
+      `app/not-found.tsx`. Every tool page now has its own title/description
+      instead of all 22 sharing one generic `<title>` — the 7 tools whose
+      `page.tsx` is already a Server Component got `export const metadata`
+      directly; the other 15 are Client Components (`"use client"`), which
+      Next.js forbids from exporting metadata at all, so each got a new
+      sibling `layout.tsx` carrying the metadata instead — **zero changes to
+      any of the 15 already-working client page.tsx files.** Root layout now
+      defines a title template (`"%s | PDFLab"`) so child pages only need a
+      short unique title. Verified in a real, rebuilt-from-scratch browser
+      session: correct tab title for both a direct-metadata page
+      (`Merge PDF | PDFLab`) and a sibling-layout page
+      (`Redact PDF | PDFLab`), `/robots.txt` and `/sitemap.xml` serving valid
+      content, the favicon and OG image both returning real PNGs, the custom
+      404 page rendering for an unknown route, and — to close the loop that
+      none of this broke the actual product — a real file drop through
+      Merge PDF's UI completing end-to-end (`200`, correct merged output)
+      after the full rebuild.
+    - **Still open, not attempted here**: this app has never been deployed
+      anywhere (no CI/CD, no hosting target, no TLS — local `docker compose
+      up` only). That's an infrastructure/hosting decision for the user to
+      make, not something to guess at in code.
 
 ## Architecture (as shipped)
 

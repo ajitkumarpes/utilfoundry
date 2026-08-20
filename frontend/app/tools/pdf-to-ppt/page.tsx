@@ -1,4 +1,10 @@
+import type { Metadata } from "next";
 import JobToolWorkspace from "@/components/JobToolWorkspace";
+
+export const metadata: Metadata = {
+  title: "PDF to PowerPoint",
+  description: "Convert a PDF into an editable PowerPoint presentation. Free, private, no account needed."
+};
 
 export default function PdfToPptPage() {
   return (

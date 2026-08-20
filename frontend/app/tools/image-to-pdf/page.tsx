@@ -1,4 +1,10 @@
+import type { Metadata } from "next";
 import ToolWorkspace from "@/components/ToolWorkspace";
+
+export const metadata: Metadata = {
+  title: "Image to PDF",
+  description: "Turn JPG or PNG photos into a single PDF — handy for Aadhaar, PAN, passport and other document uploads."
+};
 
 export default function ImageToPdfPage() {
   return (
