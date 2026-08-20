@@ -1,0 +1,21 @@
+spring:
+  application:
+    name: pdf-backend
+  servlet:
+    multipart:
+      max-file-size: 50MB
+      max-request-size: 100MB
+  datasource:
+    url: jdbc:postgresql://localhost:5432/pdf_platform
+    username: pdf_user
+    password: pdf_password
+  jpa:
+    hibernate:
+      ddl-auto: update
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info
+server:
+  port: 8080

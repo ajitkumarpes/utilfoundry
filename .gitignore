@@ -1,0 +1,9 @@
+.env
+.idea/
+.vscode/
+*.iml
+node_modules/
+.next/
+target/
+.DS_Store
+supabase/.temp/
