@@ -287,6 +287,23 @@
       — a sanitizer that only cleared one and called itself done would ship
       a false sense of "removed," which is the one failure mode that matters
       for a tool whose entire purpose is removing hidden data.
+    - **Header & Footer** — new tool, 6 independent zones (top/bottom x
+      left/center/right), each None/Custom-text/Page-number/Date/Bates.
+      Same append-mode content-stream + margin-from-`MediaBox` technique as
+      `PdfPageNumberService`, just applied to a full grid instead of 3 fixed
+      positions. **Deliberately coexists with the existing Page Numbers
+      tool** rather than replacing it — same reasoning that already
+      justified Rotate PDF existing separately from Organize Pages' granular
+      rotate: a focused tool serves the "just add page numbers" search
+      intent better than a 6-zone form does; this tool is for compound
+      layouts a simple page-number stamp can't express (a Bates-stamped
+      legal document with a date in one corner and a confidentiality notice
+      in another, for example). Page-number zones here always start at 1 —
+      no custom start-at like the dedicated tool has; if that's what's
+      needed, use Add Page Numbers instead. Verified per-zone independently
+      (text/page-number/date/Bates each checked alone), together on one page
+      (all 6 zones at once, confirmed none clobber each other), and the
+      Bates zone's prefix+padding+increment checked across multiple pages.
 
 ## Architecture (as shipped)
 

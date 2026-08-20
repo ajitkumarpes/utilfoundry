@@ -3,6 +3,7 @@ package com.utilnexa.pdf.api;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.utilnexa.pdf.api.dto.BookmarkEntry;
 import com.utilnexa.pdf.api.dto.BookmarksReadResult;
+import com.utilnexa.pdf.api.dto.HeaderFooterRequest;
 import com.utilnexa.pdf.api.dto.NamedFile;
 import com.utilnexa.pdf.api.dto.OrganizePlan;
 import com.utilnexa.pdf.api.dto.RedactionArea;
@@ -14,6 +15,7 @@ import com.utilnexa.pdf.service.PdfCompressService;
 import com.utilnexa.pdf.service.PdfCropService;
 import com.utilnexa.pdf.service.PdfExtractImagesService;
 import com.utilnexa.pdf.service.PdfGrayscaleService;
+import com.utilnexa.pdf.service.PdfHeaderFooterService;
 import com.utilnexa.pdf.service.PdfMergeService;
 import com.utilnexa.pdf.service.PdfMetadataService;
 import com.utilnexa.pdf.service.PdfNUpService;
@@ -78,6 +80,7 @@ public class PdfController {
   private final PdfNUpService nUpService;
   private final PdfBookmarkService bookmarkService;
   private final PdfSanitizeService sanitizeService;
+  private final PdfHeaderFooterService headerFooterService;
   private final ObjectMapper objectMapper;
 
   @PostMapping(
@@ -350,6 +353,22 @@ public class PdfController {
     return pdfResponse(
         sanitizeService.sanitize(file, clearMetadata, removeAttachments, removeAnnotations, removeScripts),
         "sanitized.pdf");
+  }
+
+  @PostMapping(
+      value = "/header-footer",
+      consumes = MediaType.MULTIPART_FORM_DATA_VALUE,
+      produces = MediaType.APPLICATION_PDF_VALUE)
+  public ResponseEntity<byte[]> headerFooter(
+      @RequestPart("file") MultipartFile file, @RequestPart("config") String configJson)
+      throws IOException {
+    HeaderFooterRequest request;
+    try {
+      request = objectMapper.readValue(configJson, HeaderFooterRequest.class);
+    } catch (JsonProcessingException e) {
+      throw new IllegalArgumentException("The header/footer configuration could not be read.");
+    }
+    return pdfResponse(headerFooterService.apply(file, request), "header-footer.pdf");
   }
 
   private ResponseEntity<byte[]> pdfResponse(byte[] content, String filename) {

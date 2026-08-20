@@ -64,7 +64,8 @@ const groups = [
       { name: "Unlock PDF", href: "/tools/unlock-pdf" },
       { name: "Sign PDF", href: "/tools/sign-pdf" },
       { name: "Redact PDF", href: "/tools/redact-pdf" },
-      { name: "Sanitize PDF", href: "/tools/sanitize-pdf" }
+      { name: "Sanitize PDF", href: "/tools/sanitize-pdf" },
+      { name: "Header & Footer", href: "/tools/header-footer-pdf" }
     ]
   }
 ];

@@ -64,6 +64,7 @@ first batch above):
 |---|---|---|
 | Edit Bookmarks | `/tools/bookmarks-pdf` | `POST /api/v1/pdf/bookmarks` (+ `/bookmarks/read`) |
 | Sanitize PDF | `/tools/sanitize-pdf` | `POST /api/v1/pdf/sanitize` (+ `/sanitize/scan`) |
+| Header & Footer | `/tools/header-footer-pdf` | `POST /api/v1/pdf/header-footer` |
 
 Both of these pre-read the file before showing options — Edit Bookmarks
 shows any existing bookmarks to edit rather than starting blank, Sanitize
