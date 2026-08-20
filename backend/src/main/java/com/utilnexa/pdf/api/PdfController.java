@@ -1,11 +1,15 @@
 package com.utilnexa.pdf.api;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.utilnexa.pdf.api.dto.BookmarkEntry;
+import com.utilnexa.pdf.api.dto.BookmarksReadResult;
 import com.utilnexa.pdf.api.dto.NamedFile;
 import com.utilnexa.pdf.api.dto.OrganizePlan;
 import com.utilnexa.pdf.api.dto.RedactionArea;
+import com.utilnexa.pdf.api.dto.SanitizeScanResult;
 import com.utilnexa.pdf.api.dto.SignPlacement;
 import com.utilnexa.pdf.service.ImageToPdfService;
+import com.utilnexa.pdf.service.PdfBookmarkService;
 import com.utilnexa.pdf.service.PdfCompressService;
 import com.utilnexa.pdf.service.PdfCropService;
 import com.utilnexa.pdf.service.PdfExtractImagesService;
@@ -19,6 +23,7 @@ import com.utilnexa.pdf.service.PdfProtectService;
 import com.utilnexa.pdf.service.PdfRedactService;
 import com.utilnexa.pdf.service.PdfRepairService;
 import com.utilnexa.pdf.service.PdfRotateService;
+import com.utilnexa.pdf.service.PdfSanitizeService;
 import com.utilnexa.pdf.service.PdfSignService;
 import com.utilnexa.pdf.service.PdfSplitService;
 import com.utilnexa.pdf.service.PdfToImageService;
@@ -71,6 +76,8 @@ public class PdfController {
   private final PdfToTextService toTextService;
   private final PdfMetadataService metadataService;
   private final PdfNUpService nUpService;
+  private final PdfBookmarkService bookmarkService;
+  private final PdfSanitizeService sanitizeService;
   private final ObjectMapper objectMapper;
 
   @PostMapping(
@@ -301,6 +308,48 @@ public class PdfController {
       @RequestPart("file") MultipartFile file, @RequestParam("pagesPerSheet") int pagesPerSheet)
       throws IOException {
     return pdfResponse(nUpService.nUp(file, pagesPerSheet), "pages-per-sheet.pdf");
+  }
+
+  @PostMapping(value = "/bookmarks/read", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+  public BookmarksReadResult readBookmarks(@RequestPart("file") MultipartFile file) throws IOException {
+    return bookmarkService.readBookmarks(file);
+  }
+
+  @PostMapping(
+      value = "/bookmarks",
+      consumes = MediaType.MULTIPART_FORM_DATA_VALUE,
+      produces = MediaType.APPLICATION_PDF_VALUE)
+  public ResponseEntity<byte[]> writeBookmarks(
+      @RequestPart("file") MultipartFile file, @RequestPart("bookmarks") String bookmarksJson)
+      throws IOException {
+    List<BookmarkEntry> entries;
+    try {
+      entries = objectMapper.readValue(bookmarksJson, new TypeReference<List<BookmarkEntry>>() {});
+    } catch (JsonProcessingException e) {
+      throw new IllegalArgumentException("The bookmark list could not be read.");
+    }
+    return pdfResponse(bookmarkService.writeBookmarks(file, entries), "bookmarked.pdf");
+  }
+
+  @PostMapping(value = "/sanitize/scan", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+  public SanitizeScanResult scanForSanitize(@RequestPart("file") MultipartFile file) throws IOException {
+    return sanitizeService.scan(file);
+  }
+
+  @PostMapping(
+      value = "/sanitize",
+      consumes = MediaType.MULTIPART_FORM_DATA_VALUE,
+      produces = MediaType.APPLICATION_PDF_VALUE)
+  public ResponseEntity<byte[]> sanitize(
+      @RequestPart("file") MultipartFile file,
+      @RequestParam(value = "clearMetadata", defaultValue = "false") boolean clearMetadata,
+      @RequestParam(value = "removeAttachments", defaultValue = "false") boolean removeAttachments,
+      @RequestParam(value = "removeAnnotations", defaultValue = "false") boolean removeAnnotations,
+      @RequestParam(value = "removeScripts", defaultValue = "false") boolean removeScripts)
+      throws IOException {
+    return pdfResponse(
+        sanitizeService.sanitize(file, clearMetadata, removeAttachments, removeAnnotations, removeScripts),
+        "sanitized.pdf");
   }
 
   private ResponseEntity<byte[]> pdfResponse(byte[] content, String filename) {

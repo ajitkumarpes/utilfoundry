@@ -28,7 +28,9 @@ const TOOL_ROUTES = [
   "repair-pdf",
   "pdf-to-text",
   "edit-metadata",
-  "pages-per-sheet"
+  "pages-per-sheet",
+  "bookmarks-pdf",
+  "sanitize-pdf"
 ];
 
 export default function sitemap(): MetadataRoute.Sitemap {

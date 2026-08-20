@@ -247,6 +247,46 @@
       *claimed* "every other tool in this codebase already surfaces [this]
       as a clean 400" — that was untrue until this fix; it's true now.
       Covered by a new `PdfFileValidatorTest`.
+    - **Edit Bookmarks** — new tool, reads/writes the PDF outline as a flat
+      `{page, title}` list rather than a tree editor. Read is a real backend
+      round-trip (`POST /bookmarks/read`), not a client-side `pdfjs-dist`
+      call like Edit Metadata — bookmark destinations need real resolution
+      (`PDOutlineItem.findDestinationPage`) that's meaningfully simpler done
+      once, server-side, than reimplemented against pdfjs-dist's own
+      destination-ref format. **Disclosed boundary**: existing entries that
+      point at a URL/named-destination rather than a page, or that are
+      nested under another bookmark, get flattened to a plain top-level page
+      link on save — this tool edits one flat list, not the full outline
+      tree. Saving an empty list clears any existing outline entirely
+      (`setDocumentOutline(null)`, not an empty-but-present one) — that's
+      the tool's "remove all bookmarks" path, not a separate feature.
+    - **Sanitize PDF** — new tool, four independent removal targets
+      (document metadata + XMP, embedded attachments, comment/markup
+      annotations, embedded scripts/actions), each pre-checked from a real
+      pre-scan (`POST /sanitize/scan`) rather than a blind form. **Two real
+      bugs caught by the service's own tests before this shipped, not found
+      in review**:
+      - `PDDocumentCatalog.getActions()` auto-vivifies a non-null wrapper
+        object even when the underlying PDF has no `/AA` entry at all — a
+        completely clean, freshly-created PDF was scanning as
+        "has embedded scripts." Fixed by checking
+        `catalog.getCOSObject().containsKey(COSName.AA)` directly instead of
+        the Java wrapper's null-ness.
+      - `PDAnnotationFileAttachment` (a page-level "pushpin" attachment) is
+        itself a `PDAnnotationMarkup` subclass. The first version's removal
+        logic let "remove annotations/comments" alone delete a page's file
+        attachment even with "remove attachments" left unchecked — silently
+        broader than what the two checkboxes independently promised. Fixed
+        by explicitly excluding `PDAnnotationFileAttachment` from the
+        annotations-removal branch; it's now only ever touched by the
+        attachments checkbox, matching what a user unchecking one and not
+        the other would actually expect.
+      Attachment removal covers both storage locations that actually exist
+      in a PDF, confirmed via a fixture that has both: the document-level
+      `/EmbeddedFiles` name tree *and* a page-level `PDAnnotationFileAttachment`
+      — a sanitizer that only cleared one and called itself done would ship
+      a false sense of "removed," which is the one failure mode that matters
+      for a tool whose entire purpose is removing hidden data.
 
 ## Architecture (as shipped)
 

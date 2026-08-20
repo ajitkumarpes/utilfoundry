@@ -17,7 +17,8 @@ const groups = [
       { name: "Crop PDF", href: "/tools/crop-pdf" },
       { name: "Repair PDF", href: "/tools/repair-pdf" },
       { name: "Edit PDF Metadata", href: "/tools/edit-metadata" },
-      { name: "Pages per Sheet", href: "/tools/pages-per-sheet" }
+      { name: "Pages per Sheet", href: "/tools/pages-per-sheet" },
+      { name: "Edit Bookmarks", href: "/tools/bookmarks-pdf" }
     ]
   },
   {
@@ -62,7 +63,8 @@ const groups = [
       { name: "Lock PDF", href: "/tools/lock-pdf" },
       { name: "Unlock PDF", href: "/tools/unlock-pdf" },
       { name: "Sign PDF", href: "/tools/sign-pdf" },
-      { name: "Redact PDF", href: "/tools/redact-pdf" }
+      { name: "Redact PDF", href: "/tools/redact-pdf" },
+      { name: "Sanitize PDF", href: "/tools/sanitize-pdf" }
     ]
   }
 ];

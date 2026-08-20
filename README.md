@@ -58,6 +58,19 @@ first batch above):
 | Edit PDF Metadata | `/tools/edit-metadata` | `POST /api/v1/pdf/metadata` |
 | Pages per Sheet (2-up / 4-up) | `/tools/pages-per-sheet` | `POST /api/v1/pdf/n-up` |
 
+**Synchronous, fourth batch ("Round 2"):**
+
+| Tool | Route | API |
+|---|---|---|
+| Edit Bookmarks | `/tools/bookmarks-pdf` | `POST /api/v1/pdf/bookmarks` (+ `/bookmarks/read`) |
+| Sanitize PDF | `/tools/sanitize-pdf` | `POST /api/v1/pdf/sanitize` (+ `/sanitize/scan`) |
+
+Both of these pre-read the file before showing options — Edit Bookmarks
+shows any existing bookmarks to edit rather than starting blank, Sanitize
+shows a scan of what it actually found (metadata, attachments, comments,
+scripts) with matching checkboxes pre-ticked. See `docs/NEXT_FEATURES.md`
+item 14 for the rest of this round, still in progress.
+
 Repair re-saves whatever PDFBox's own recovery-capable parser was able to
 read from a damaged file — it doesn't have separate "repair logic," the
 recovery already happens on load, and this tool's job is to persist that
