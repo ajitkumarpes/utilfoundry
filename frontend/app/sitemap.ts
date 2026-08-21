@@ -31,7 +31,8 @@ const TOOL_ROUTES = [
   "pages-per-sheet",
   "bookmarks-pdf",
   "sanitize-pdf",
-  "header-footer-pdf"
+  "header-footer-pdf",
+  "text-to-pdf"
 ];
 
 export default function sitemap(): MetadataRoute.Sitemap {

@@ -28,6 +28,7 @@ import com.utilnexa.pdf.service.PdfRotateService;
 import com.utilnexa.pdf.service.PdfSanitizeService;
 import com.utilnexa.pdf.service.PdfSignService;
 import com.utilnexa.pdf.service.PdfSplitService;
+import com.utilnexa.pdf.service.PdfTextToPdfService;
 import com.utilnexa.pdf.service.PdfToImageService;
 import com.utilnexa.pdf.service.PdfToTextService;
 import com.utilnexa.pdf.service.PdfUnlockService;
@@ -81,6 +82,7 @@ public class PdfController {
   private final PdfBookmarkService bookmarkService;
   private final PdfSanitizeService sanitizeService;
   private final PdfHeaderFooterService headerFooterService;
+  private final PdfTextToPdfService textToPdfService;
   private final ObjectMapper objectMapper;
 
   @PostMapping(
@@ -371,6 +373,17 @@ public class PdfController {
       throw new IllegalArgumentException("The header/footer configuration could not be read.");
     }
     return pdfResponse(headerFooterService.apply(file, request), "header-footer.pdf");
+  }
+
+  @PostMapping(
+      value = "/text-to-pdf",
+      consumes = MediaType.MULTIPART_FORM_DATA_VALUE,
+      produces = MediaType.APPLICATION_PDF_VALUE)
+  public ResponseEntity<byte[]> textToPdf(
+      @RequestParam("text") String text,
+      @RequestParam(value = "pageSize", required = false) String pageSize)
+      throws IOException {
+    return pdfResponse(textToPdfService.convert(text, pageSize), "text.pdf");
   }
 
   private ResponseEntity<byte[]> pdfResponse(byte[] content, String filename) {

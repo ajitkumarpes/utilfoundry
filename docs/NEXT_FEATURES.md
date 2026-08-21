@@ -329,6 +329,60 @@
       empty (`text=""`) *and* correctly sized `200x200` inherited from its
       neighbors rather than falling back to A4, and the second-file page
       carrying its own real text content.
+    - **Text to PDF** — new tool, paste or upload plain text (`.txt`, read
+      client-side, no separate backend file-upload path needed), choose
+      A4/Letter. Explicit newlines are preserved as real line breaks (this is
+      a plain-text tool — code, logs, poems — not a paragraph reflow like
+      Markdown to PDF will be); any line too wide for the page word-wraps,
+      and a single unbroken token wider than the page (a long URL, for
+      example) is hard-broken character by character rather than left to
+      overflow. Per-character font resolution, verified empirically against
+      real PDFBox behaviour rather than assumed: Devanagari uses the bundled
+      Devanagari font; everything else tries Standard14 Courier first (a
+      genuinely monospaced, zero-dependency font — WinAnsiEncoding, which a
+      probe confirmed covers plain ASCII *and* common paste artifacts like
+      curly quotes/em-dash/€/•, not just 7-bit ASCII) so plain text and
+      pasted code keep aligned columns; anything Courier can't encode falls
+      back to the bundled NotoSans Unicode font; anything neither font can
+      encode (confirmed by probe to throw `IllegalArgumentException`, not
+      silently mis-render — e.g. CJK, emoji) is substituted with `?` rather
+      than failing the whole document. Two abuse-shaped caps, both because a
+      "paste arbitrary text" tool has no natural size limit otherwise: text
+      over 500,000 characters is rejected outright, and — separately, since
+      a low-density input like thousands of blank lines stays well under
+      that character cap while still exploding into an enormous page count —
+      generation itself aborts cleanly past 500 pages rather than silently
+      producing a multi-thousand-page file.
+      **Found while building this, not by this tool — a real, pre-existing
+      bug in the already-shipped Watermark tool, reproduced and confirmed
+      with evidence, not assumed:** Devanagari conjuncts (a consonant +
+      virama + consonant sequence, e.g. "स्व" in "स्वीट") **render correctly**
+      — confirmed by rasterizing the actual PDF page to an image and visually
+      inspecting it — but PDFBox's auto-generated ToUnicode CMap does not
+      correctly reverse-map the ligature glyph it substitutes in for the
+      sequence, so *extracting* that text (copy-paste, search, screen
+      readers) returns an unrelated character instead: "स्व" extracts as
+      "×व", "क्ष" (a common conjunct) extracts as "³". Isolated character by
+      character to confirm it's specifically conjunct/ligature formation, not
+      Devanagari in general — plain non-conjunct Devanagari ("कमरा") round-
+      trips through extraction correctly, both here and in Watermark.
+      **Not fixed here — genuinely does need infrastructure this codebase
+      doesn't have**: PDFBox exposes no public API to override or supply a
+      ToUnicode CMap per span (checked via `javap` against the actual jar,
+      not assumed), so a real fix needs either a text-shaping library
+      (HarfBuzz/ICU4J-class, to shape text ourselves and track original
+      codepoints through ligature substitution) or hand-written low-level
+      CMap construction — both open-ended builds, not a cheap fix. Captured
+      as a characterization test
+      (`devanagariConjunctsRenderCorrectlyButToUnicodeExtractionIsAKnownLimitation`
+      in `PdfTextToPdfServiceTest`) that will fail (prompting a re-look) if
+      PDFBox's own ToUnicode generation ever improves. **Revisit trigger**:
+      a user reports broken copy-paste/search of Devanagari text with
+      conjuncts, or before shipping a feature whose value depends on
+      Devanagari text-extraction fidelity specifically (e.g. a "searchable
+      Hindi PDF" claim) — Markdown to PDF (next in this round) inherits the
+      same limitation for the same reason and doesn't need to re-solve it
+      first, since it's a display/print tool too, not an extraction one.
 
 ## Architecture (as shipped)
 
