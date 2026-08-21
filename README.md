@@ -175,11 +175,19 @@ fabricates a company identity that doesn't exist yet.
 ## Production readiness
 The synchronous tools process everything in memory; the async tools (OCR,
 Office conversion) already run through a real job queue with retry, timeout,
-and stale-job reaping — see `docs/NEXT_FEATURES.md` for the full design and
-what's still open (a proper migration tool instead of `ddl-auto: update`,
-presigned MinIO downloads instead of proxying through the API, before this
-goes past a single-operator scale). Also still open: this has never been
-deployed anywhere — no CI/CD, no hosting target, no TLS — only ever run via
-local `docker compose up`. The rate limiter is in-memory per instance
-(correct for the current single-instance deployment; would need a shared
-store if this ever runs as multiple replicas behind a load balancer).
+and stale-job reaping — see `docs/NEXT_FEATURES.md` for the full design.
+
+Three items formerly listed here as open are now shipped: schema changes go
+through real Flyway migrations (`backend/src/main/resources/db/migration/`,
+`ddl-auto: validate` as a safety net, not `update`); the download endpoint
+redirects to a short-lived presigned MinIO URL instead of proxying file
+bytes through the API's own memory; and the rate limiter is now Redis-backed
+(`RedisRateLimiter`, shared across however many backend replicas are
+running, not a per-instance `ConcurrentHashMap`) — fails open, not closed,
+on a Redis outage, verified live: a stopped Redis container returns a fast
+(sub-second) pass-through instead of the ~2-minute hang Lettuce's own
+defaults produced before a short command timeout and `REJECT_COMMANDS`
+were configured explicitly.
+
+Still open: this has never been deployed anywhere — no CI/CD, no hosting
+target, no TLS — only ever run via local `docker compose up`.

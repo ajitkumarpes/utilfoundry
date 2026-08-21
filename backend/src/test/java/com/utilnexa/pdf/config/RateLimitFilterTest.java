@@ -2,6 +2,8 @@ package com.utilnexa.pdf.config;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
+import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicInteger;
 
 import org.junit.jupiter.api.Test;
@@ -10,9 +12,17 @@ import org.springframework.mock.web.MockHttpServletResponse;
 
 class RateLimitFilterTest {
 
+  /** A fixed per-key call budget with no time-based refill - every test here is a single fast,
+   * synchronous burst, so a real Bucket4j clock is unnecessary; this only needs to prove
+   * RateLimitFilter's own IP-resolution and 429 logic, not re-prove Bucket4j's own algorithm. */
+  private static RateLimiter fakeLimiter(int limit) {
+    Map<String, AtomicInteger> counts = new ConcurrentHashMap<>();
+    return key -> counts.computeIfAbsent(key, k -> new AtomicInteger(0)).incrementAndGet() <= limit;
+  }
+
   @Test
   void allowsRequestsUpToTheLimitThenBlocks() throws Exception {
-    RateLimitFilter filter = new RateLimitFilter(2, false);
+    RateLimitFilter filter = new RateLimitFilter(fakeLimiter(2), false);
     AtomicInteger passedThrough = new AtomicInteger(0);
 
     for (int i = 0; i < 3; i++) {
@@ -31,7 +41,7 @@ class RateLimitFilterTest {
 
   @Test
   void differentIpsGetIndependentLimits() throws Exception {
-    RateLimitFilter filter = new RateLimitFilter(1, false);
+    RateLimitFilter filter = new RateLimitFilter(fakeLimiter(1), false);
 
     MockHttpServletRequest first = apiRequest("203.0.113.10");
     MockHttpServletResponse firstResponse = new MockHttpServletResponse();
@@ -46,7 +56,7 @@ class RateLimitFilterTest {
 
   @Test
   void nonApiPathsAreNotRateLimited() throws Exception {
-    RateLimitFilter filter = new RateLimitFilter(1, false);
+    RateLimitFilter filter = new RateLimitFilter(fakeLimiter(1), false);
     AtomicInteger passedThrough = new AtomicInteger(0);
 
     for (int i = 0; i < 5; i++) {
@@ -61,7 +71,7 @@ class RateLimitFilterTest {
 
   @Test
   void ignoresForwardedForHeaderWhenNotTrusted() throws Exception {
-    RateLimitFilter filter = new RateLimitFilter(1, false);
+    RateLimitFilter filter = new RateLimitFilter(fakeLimiter(1), false);
 
     MockHttpServletRequest first = apiRequest("203.0.113.10");
     first.addHeader("X-Forwarded-For", "198.51.100.1");
