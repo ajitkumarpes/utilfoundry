@@ -30,7 +30,8 @@ const groups = [
       { name: "PDF to Image", href: "/tools/pdf-to-image" },
       { name: "PDF to Text", href: "/tools/pdf-to-text" },
       { name: "Text to PDF", href: "/tools/text-to-pdf" },
-      { name: "Markdown to PDF", href: "/tools/markdown-to-pdf" }
+      { name: "Markdown to PDF", href: "/tools/markdown-to-pdf" },
+      { name: "HTML to PDF", href: "/tools/html-to-pdf" }
     ]
   },
   {

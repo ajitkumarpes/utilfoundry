@@ -180,10 +180,10 @@
       text layer come out empty; the tool's own copy says so and points to
       OCR PDF first, rather than silently returning an empty file with no
       explanation.
-14. Round 2 (in progress) — Edit Bookmarks, Sanitize PDF, Header & Footer,
-    Text/Markdown/HTML to PDF, plus Split even/odd pages, Lock PDF extra
-    permission toggles, and Organize Pages gaining blank-page and
-    second-file page inserts. Staged, each stage independently built,
+14. Round 2 (complete, all 7 stages shipped) — Edit Bookmarks, Sanitize PDF,
+    Header & Footer, Text/Markdown/HTML to PDF, plus Split even/odd pages,
+    Lock PDF extra permission toggles, and Organize Pages gaining blank-page
+    and second-file page inserts. Staged, each stage independently built,
     tested, and committed.
     - **Three exclusions carried over from the first tool-batch round that
       were only ever reasoned about in a since-discarded plan file, written
@@ -466,6 +466,58 @@
       Docker image specifically, making bold/italic invisible in *that*
       diagnostic tool alone while the PDF itself, and every other viewer,
       renders them correctly).
+    - **HTML to PDF — the last, highest-security-sensitivity tool in this
+      round, shipped only after its mandatory canary test passed.** New
+      dependencies: `io.github.openhtmltopdf:openhtmltopdf-pdfbox:1.1.31`
+      (LGPL-2.1-or-later/LGPL-3.0 — this repo's first copyleft dependency,
+      used unmodified as a library, the standard safe consumption pattern)
+      and `org.jsoup:jsoup:1.23.1` (MIT) for lenient HTML parsing — used
+      specifically *instead of* openhtmltopdf's own `withHtmlContent`, which
+      is backed by a real JAXP `DocumentBuilder` requiring well-formed XHTML
+      and carrying a real XXE surface; jsoup's tokenizer has no DOCTYPE/
+      entity-expansion concept at all, so that class of vulnerability is
+      avoided by construction, not by remembering to disable a feature flag.
+      Deliberately **not** added: `openhtmltopdf-svg-support` (pulls in
+      Apache Batik, which has its own SSRF CVE history) — SVG stays
+      unsupported, disclosed directly in the tool's UI copy.
+      **Security design went through three independent layers, not one,
+      after discovering openhtmltopdf exposes a purpose-built API for
+      exactly this** (`useExternalResourceAccessControl`, taking a
+      `BiPredicate<uri, ExternalResourceType>` — `ExternalResourceType`
+      covers FONT/CSS/IMAGE_RASTER/etc uniformly, confirming one predicate
+      governs every external-resource class, not just images) — a better,
+      more official mechanism than the plan's original single-resolver
+      design, found by reading the actual jar via `javap` rather than
+      assuming the plan's sketch was the only lever available:
+      1. `useExternalResourceAccessControl(..., RUN_BEFORE_RESOLVING_URI)` —
+         rejects anything that isn't a `data:` URI before resolution even
+         starts.
+      2. `useUriResolver` — a second, independent rejection of anything
+         that isn't `data:`.
+      3. `useProtocolsStreamImplementation` registered for http/https/ftp/
+         file — refuses to actually open a connection even if something
+         upstream reached the stream-fetch step regardless.
+      None of these are trusted alone: the plan's hostile review had flagged
+      a documented openhtmltopdf issue
+      ([#444](https://github.com/danfickle/openhtmltopdf/issues/444)) where
+      a resource-loading path bypassed the configured resolver, which is
+      exactly the failure mode three independent layers are meant to
+      survive. **Shipped only after the plan's mandatory canary test passed
+      with observed evidence, not on code review alone**: a real local
+      `com.sun.net.httpserver.HttpServer` listener (no new dependency
+      needed) logging every inbound request, with HTML referencing it via
+      an `<img src>`, a `<link rel=stylesheet href>`, an `@font-face
+      src:url()`, *and* a `javascript:` pseudo-protocol image source —
+      confirmed **zero** inbound requests across all four vectors
+      (`PdfHtmlServiceSsrfTest`, 2 tests). A `data:`-URI image was
+      separately confirmed to still render, proving the allowlist admits
+      the one thing it's supposed to, not just that it blocks everything.
+      `baseUri` is a fixed `about:blank` constant, never derived from user
+      input. Page count enforced post-generation (openhtmltopdf exposes no
+      max-page/timeout hook to interrupt mid-layout, unlike this round's two
+      hand-rolled renderers) — accepted as a reasonable trade-off since the
+      500,000-character input cap already bounds the worst case; revisit
+      only if a real abuse pattern is observed in practice.
 
 ## Architecture (as shipped)
 

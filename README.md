@@ -67,6 +67,7 @@ first batch above):
 | Header & Footer | `/tools/header-footer-pdf` | `POST /api/v1/pdf/header-footer` |
 | Text to PDF | `/tools/text-to-pdf` | `POST /api/v1/pdf/text-to-pdf` |
 | Markdown to PDF | `/tools/markdown-to-pdf` | `POST /api/v1/pdf/markdown-to-pdf` |
+| HTML to PDF | `/tools/html-to-pdf` | `POST /api/v1/pdf/html-to-pdf` |
 
 Both of these pre-read the file before showing options — Edit Bookmarks
 shows any existing bookmarks to edit rather than starting blank, Sanitize
