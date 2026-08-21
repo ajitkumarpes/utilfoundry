@@ -6,6 +6,7 @@ import {
   AlertCircle,
   ArrowLeft,
   CheckCircle2,
+  Copy,
   Download,
   FileStack,
   Loader2,
@@ -174,6 +175,15 @@ export default function OrganizePdfPage() {
     setPages(prev => prev.map(p => (p.id === id ? { ...p, excluded: !p.excluded } : p)));
   };
 
+  const duplicate = (id: string) => {
+    setPages(prev => {
+      const index = prev.findIndex(p => p.id === id);
+      if (index === -1) return prev;
+      const clone: PageState = { ...prev[index], id: nextId() };
+      return [...prev.slice(0, index + 1), clone, ...prev.slice(index + 1)];
+    });
+  };
+
   const onDragEnd = (event: DragEndEvent) => {
     const { active, over } = event;
     if (!over || active.id === over.id) return;
@@ -275,7 +285,7 @@ export default function OrganizePdfPage() {
         </Link>
         <div className="eyebrow">PDF TOOL</div>
         <h1>Organize Pages</h1>
-        <p>Reorder, rotate or remove pages — or insert a blank page or pages from another PDF. Drag thumbnails to rearrange.</p>
+        <p>Reorder, rotate, duplicate, or remove pages — or insert a blank page or pages from another PDF. Drag thumbnails to rearrange.</p>
       </section>
 
       <section className="workspace">
@@ -308,7 +318,7 @@ export default function OrganizePdfPage() {
                   {pages.length} page{pages.length !== 1 ? "s" : ""}
                 </h2>
                 <p style={{ margin: "4px 0 0", color: "#888", fontSize: 13 }}>
-                  {activeCount} will be kept · drag to reorder · use the icons to rotate or remove a page
+                  {activeCount} will be kept · drag to reorder · use the icons to rotate, duplicate, or remove a page
                 </p>
               </div>
               <div style={{ display: "flex", gap: 8 }}>
@@ -366,6 +376,7 @@ export default function OrganizePdfPage() {
                       position={i + 1}
                       onRotate={() => rotate(page.id)}
                       onToggleExclude={() => toggleExclude(page.id)}
+                      onDuplicate={() => duplicate(page.id)}
                     />
                   ))}
                 </div>
@@ -412,12 +423,14 @@ function SortablePageThumb({
   page,
   position,
   onRotate,
-  onToggleExclude
+  onToggleExclude,
+  onDuplicate
 }: {
   page: PageState;
   position: number;
   onRotate: () => void;
   onToggleExclude: () => void;
+  onDuplicate: () => void;
 }) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: page.id });
   const style = { transform: CSS.Transform.toString(transform), transition };
@@ -467,6 +480,16 @@ function SortablePageThumb({
           aria-label="Rotate page"
         >
           <RotateCw size={14} />
+        </button>
+        <button
+          type="button"
+          onClick={e => {
+            e.stopPropagation();
+            onDuplicate();
+          }}
+          aria-label="Duplicate page"
+        >
+          <Copy size={14} />
         </button>
         <button
           type="button"

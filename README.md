@@ -13,7 +13,7 @@ builds PDF tools.
 |---|---|---|
 | Merge PDF | `/tools/merge-pdf` | `POST /api/v1/pdf/merge` |
 | Split PDF | `/tools/split-pdf` | `POST /api/v1/pdf/split` |
-| Organize Pages (reorder/rotate/delete/extract/insert blank/insert from another PDF) | `/tools/organize-pdf` | `POST /api/v1/pdf/organize` |
+| Organize Pages (reorder/rotate/duplicate/delete/extract/insert blank/insert from another PDF) | `/tools/organize-pdf` | `POST /api/v1/pdf/organize` |
 | Image to PDF | `/tools/image-to-pdf` | `POST /api/v1/pdf/images-to-pdf` |
 | PDF to Image | `/tools/pdf-to-image` | `POST /api/v1/pdf/pdf-to-images` |
 | Compress PDF | `/tools/compress-pdf` | `POST /api/v1/pdf/compress` |
@@ -72,8 +72,29 @@ first batch above):
 Both of these pre-read the file before showing options — Edit Bookmarks
 shows any existing bookmarks to edit rather than starting blank, Sanitize
 shows a scan of what it actually found (metadata, attachments, comments,
-scripts) with matching checkboxes pre-ticked. See `docs/NEXT_FEATURES.md`
-item 14 for the rest of this round, still in progress.
+links, scripts) with matching checkboxes pre-ticked. See
+`docs/NEXT_FEATURES.md` item 14 for the full design notes on this round.
+
+**Synchronous, fifth batch (gap sweep):** after Round 2 shipped, a systematic
+pass matched every item from the original feature brainstorm against what
+actually exists in the repo, rather than relying on memory of what was
+scoped in. Three items came back genuinely unaddressed with no on-record
+decision either way, and were cheap enough to just build:
+
+| Tool | Route | API |
+|---|---|---|
+| Extract Links | `/tools/extract-links` | `POST /api/v1/pdf/extract-links` |
+| Extract Attachments | `/tools/extract-attachments` | `POST /api/v1/pdf/extract-attachments` |
+
+Plus two enhancements to existing tools: Organize Pages gained a Duplicate
+action per page (no backend change needed — the plan format already allowed
+the same source page to appear twice), and Sanitize PDF gained a fifth,
+independent checkbox to strip clickable link annotations, alongside its
+existing metadata/attachments/comments/scripts checkboxes. See
+`docs/NEXT_FEATURES.md` item 14 for which brainstorm items were built here,
+which were excluded with a stated reason, and which three (Extract Fonts,
+Flatten PDF, Request Signature) were newly considered and excluded in this
+same pass.
 
 Repair re-saves whatever PDFBox's own recovery-capable parser was able to
 read from a damaged file — it doesn't have separate "repair logic," the

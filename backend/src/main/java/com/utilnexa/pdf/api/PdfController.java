@@ -13,7 +13,9 @@ import com.utilnexa.pdf.service.ImageToPdfService;
 import com.utilnexa.pdf.service.PdfBookmarkService;
 import com.utilnexa.pdf.service.PdfCompressService;
 import com.utilnexa.pdf.service.PdfCropService;
+import com.utilnexa.pdf.service.PdfExtractAttachmentsService;
 import com.utilnexa.pdf.service.PdfExtractImagesService;
+import com.utilnexa.pdf.service.PdfExtractLinksService;
 import com.utilnexa.pdf.service.PdfGrayscaleService;
 import com.utilnexa.pdf.service.PdfHeaderFooterService;
 import com.utilnexa.pdf.service.PdfHtmlService;
@@ -74,6 +76,8 @@ public class PdfController {
   private final PdfUnlockService unlockService;
   private final PdfGrayscaleService grayscaleService;
   private final PdfExtractImagesService extractImagesService;
+  private final PdfExtractLinksService extractLinksService;
+  private final PdfExtractAttachmentsService extractAttachmentsService;
   private final PdfCropService cropService;
   private final PdfSignService signService;
   private final PdfRedactService redactService;
@@ -239,6 +243,17 @@ public class PdfController {
     return respondWithFiles(extractImagesService.extract(file), "extracted-images.zip");
   }
 
+  @PostMapping(value = "/extract-links", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+  public ResponseEntity<byte[]> extractLinks(@RequestPart("file") MultipartFile file) throws IOException {
+    byte[] csv = extractLinksService.extractLinks(file);
+    return respondWithFiles(List.of(new NamedFile("links.csv", csv, "text/csv")), "links.csv");
+  }
+
+  @PostMapping(value = "/extract-attachments", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+  public ResponseEntity<byte[]> extractAttachments(@RequestPart("file") MultipartFile file) throws IOException {
+    return respondWithFiles(extractAttachmentsService.extract(file), "attachments.zip");
+  }
+
   @PostMapping(
       value = "/crop",
       consumes = MediaType.MULTIPART_FORM_DATA_VALUE,
@@ -356,10 +371,11 @@ public class PdfController {
       @RequestParam(value = "clearMetadata", defaultValue = "false") boolean clearMetadata,
       @RequestParam(value = "removeAttachments", defaultValue = "false") boolean removeAttachments,
       @RequestParam(value = "removeAnnotations", defaultValue = "false") boolean removeAnnotations,
-      @RequestParam(value = "removeScripts", defaultValue = "false") boolean removeScripts)
+      @RequestParam(value = "removeScripts", defaultValue = "false") boolean removeScripts,
+      @RequestParam(value = "removeLinks", defaultValue = "false") boolean removeLinks)
       throws IOException {
     return pdfResponse(
-        sanitizeService.sanitize(file, clearMetadata, removeAttachments, removeAnnotations, removeScripts),
+        sanitizeService.sanitize(file, clearMetadata, removeAttachments, removeAnnotations, removeScripts, removeLinks),
         "sanitized.pdf");
   }
 

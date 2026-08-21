@@ -53,7 +53,9 @@ const groups = [
     tools: [
       { name: "Compress PDF", href: "/tools/compress-pdf" },
       { name: "Grayscale PDF", href: "/tools/grayscale-pdf" },
-      { name: "Extract Images", href: "/tools/extract-images" }
+      { name: "Extract Images", href: "/tools/extract-images" },
+      { name: "Extract Links", href: "/tools/extract-links" },
+      { name: "Extract Attachments", href: "/tools/extract-attachments" }
     ]
   },
   {

@@ -34,7 +34,9 @@ const TOOL_ROUTES = [
   "header-footer-pdf",
   "text-to-pdf",
   "markdown-to-pdf",
-  "html-to-pdf"
+  "html-to-pdf",
+  "extract-links",
+  "extract-attachments"
 ];
 
 export default function sitemap(): MetadataRoute.Sitemap {

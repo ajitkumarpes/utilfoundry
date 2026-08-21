@@ -9,7 +9,13 @@ import SinglePdfInput from "@/components/SinglePdfInput";
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:8091";
 
-type ScanResult = { hasMetadata: boolean; attachmentCount: number; annotationCount: number; hasScripts: boolean };
+type ScanResult = {
+  hasMetadata: boolean;
+  attachmentCount: number;
+  annotationCount: number;
+  hasScripts: boolean;
+  linkCount: number;
+};
 
 export default function SanitizePdfPage() {
   const [file, setFile] = useState<File | null>(null);
@@ -19,6 +25,7 @@ export default function SanitizePdfPage() {
   const [removeAttachments, setRemoveAttachments] = useState(false);
   const [removeAnnotations, setRemoveAnnotations] = useState(false);
   const [removeScripts, setRemoveScripts] = useState(false);
+  const [removeLinks, setRemoveLinks] = useState(false);
   const [processing, setProcessing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [done, setDone] = useState(false);
@@ -54,6 +61,7 @@ export default function SanitizePdfPage() {
       setRemoveAttachments(result.attachmentCount > 0);
       setRemoveAnnotations(result.annotationCount > 0);
       setRemoveScripts(result.hasScripts);
+      setRemoveLinks(result.linkCount > 0);
     } catch (err) {
       setFile(null);
       setError(err instanceof Error ? err.message : "Something went wrong reading this PDF.");
@@ -71,7 +79,7 @@ export default function SanitizePdfPage() {
 
   const submit = async () => {
     if (!file) return;
-    if (!clearMetadata && !removeAttachments && !removeAnnotations && !removeScripts) {
+    if (!clearMetadata && !removeAttachments && !removeAnnotations && !removeScripts && !removeLinks) {
       setError("Select at least one thing to remove.");
       return;
     }
@@ -91,6 +99,7 @@ export default function SanitizePdfPage() {
       formData.append("removeAttachments", String(removeAttachments));
       formData.append("removeAnnotations", String(removeAnnotations));
       formData.append("removeScripts", String(removeScripts));
+      formData.append("removeLinks", String(removeLinks));
 
       const response = await fetch(`${API_BASE_URL}/api/v1/pdf/sanitize`, { method: "POST", body: formData });
 
@@ -146,7 +155,7 @@ export default function SanitizePdfPage() {
         </Link>
         <div className="eyebrow">PDF TOOL</div>
         <h1>Sanitize PDF</h1>
-        <p>Strip hidden metadata, attachments, comments, or embedded scripts before sharing a file.</p>
+        <p>Strip hidden metadata, attachments, comments, clickable links, or embedded scripts before sharing a file.</p>
       </section>
 
       <section className="workspace">
@@ -166,7 +175,7 @@ export default function SanitizePdfPage() {
             <div className="upload-icon">
               <Loader2 size={30} className="spin" />
             </div>
-            <h2>Scanning for metadata, attachments, comments, and scripts…</h2>
+            <h2>Scanning for metadata, attachments, comments, links, and scripts…</h2>
           </div>
         )}
 
@@ -199,6 +208,11 @@ export default function SanitizePdfPage() {
                 <input type="checkbox" checked={removeScripts} onChange={e => setRemoveScripts(e.target.checked)} disabled={processing} style={{ marginRight: 8 }} />
                 <strong>Embedded scripts &amp; actions</strong>
                 <span>{scan.hasScripts ? "Found" : "None found"}</span>
+              </label>
+              <label className={`option-card ${removeLinks ? "selected" : ""}`}>
+                <input type="checkbox" checked={removeLinks} onChange={e => setRemoveLinks(e.target.checked)} disabled={processing} style={{ marginRight: 8 }} />
+                <strong>Clickable links</strong>
+                <span>{scan.linkCount > 0 ? `${scan.linkCount} found` : "None found"}</span>
               </label>
             </div>
 

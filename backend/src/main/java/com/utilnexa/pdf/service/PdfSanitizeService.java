@@ -20,17 +20,20 @@ import org.apache.pdfbox.pdmodel.common.COSObjectable;
 import org.apache.pdfbox.pdmodel.common.PDNameTreeNode;
 import org.apache.pdfbox.pdmodel.interactive.annotation.PDAnnotation;
 import org.apache.pdfbox.pdmodel.interactive.annotation.PDAnnotationFileAttachment;
+import org.apache.pdfbox.pdmodel.interactive.annotation.PDAnnotationLink;
 import org.apache.pdfbox.pdmodel.interactive.annotation.PDAnnotationMarkup;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
 
 /**
- * Metadata, attachments, comments/markup annotations, and embedded scripts/actions - each
- * independently removable. {@code PDAnnotationFileAttachment} (a page-level "pushpin" attachment)
- * is itself a {@code PDAnnotationMarkup} subclass, so it's explicitly excluded from the
- * "annotations" removal/count and only ever touched by "attachments" - otherwise checking
- * "remove annotations/comments" alone would silently delete embedded files too, which a caller
- * who left "remove attachments" unchecked would not expect.
+ * Metadata, attachments, comments/markup annotations, clickable links, and embedded
+ * scripts/actions - each independently removable. {@code PDAnnotationFileAttachment} (a
+ * page-level "pushpin" attachment) is itself a {@code PDAnnotationMarkup} subclass, so it's
+ * explicitly excluded from the "annotations" removal/count and only ever touched by
+ * "attachments" - otherwise checking "remove annotations/comments" alone would silently delete
+ * embedded files too, which a caller who left "remove attachments" unchecked would not expect.
+ * {@code PDAnnotationLink} is not a markup subclass at all (no shared type with either bucket),
+ * so it needs its own checkbox rather than folding into "annotations".
  */
 @Service
 public class PdfSanitizeService {
@@ -47,10 +50,13 @@ public class PdfSanitizeService {
 
       int attachmentCount = names == null ? 0 : countEmbeddedFiles(names.getEmbeddedFiles());
       int annotationCount = 0;
+      int linkCount = 0;
       for (PDPage page : document.getPages()) {
         for (PDAnnotation annotation : page.getAnnotations()) {
           if (annotation instanceof PDAnnotationFileAttachment) {
             attachmentCount++;
+          } else if (annotation instanceof PDAnnotationLink) {
+            linkCount++;
           } else if (annotation instanceof PDAnnotationMarkup) {
             annotationCount++;
           }
@@ -63,7 +69,7 @@ public class PdfSanitizeService {
           || catalog.getCOSObject().containsKey(COSName.AA)
           || (names != null && names.getJavaScript() != null);
 
-      return new SanitizeScanResult(hasMetadata, attachmentCount, annotationCount, hasScripts);
+      return new SanitizeScanResult(hasMetadata, attachmentCount, annotationCount, hasScripts, linkCount);
     }
   }
 
@@ -72,10 +78,11 @@ public class PdfSanitizeService {
       boolean clearMetadata,
       boolean removeAttachments,
       boolean removeAnnotations,
-      boolean removeScripts)
+      boolean removeScripts,
+      boolean removeLinks)
       throws IOException {
     PdfFileValidator.requirePdf(file);
-    if (!clearMetadata && !removeAttachments && !removeAnnotations && !removeScripts) {
+    if (!clearMetadata && !removeAttachments && !removeAnnotations && !removeScripts && !removeLinks) {
       throw new IllegalArgumentException("Select at least one thing to remove.");
     }
 
@@ -101,7 +108,7 @@ public class PdfSanitizeService {
         }
       }
 
-      if (removeAnnotations || removeAttachments) {
+      if (removeAnnotations || removeAttachments || removeLinks) {
         for (PDPage page : document.getPages()) {
           List<PDAnnotation> kept = new ArrayList<>();
           for (PDAnnotation annotation : page.getAnnotations()) {
@@ -111,7 +118,8 @@ public class PdfSanitizeService {
             // ever dropped by removeAttachments, never by removeAnnotations alone.
             boolean dropAsMarkup = removeAnnotations && !isAttachment && annotation instanceof PDAnnotationMarkup;
             boolean dropAsAttachment = removeAttachments && isAttachment;
-            if (!dropAsMarkup && !dropAsAttachment) {
+            boolean dropAsLink = removeLinks && annotation instanceof PDAnnotationLink;
+            if (!dropAsMarkup && !dropAsAttachment && !dropAsLink) {
               kept.add(annotation);
             }
           }

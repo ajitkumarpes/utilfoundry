@@ -184,7 +184,9 @@
     Header & Footer, Text/Markdown/HTML to PDF, plus Split even/odd pages,
     Lock PDF extra permission toggles, and Organize Pages gaining blank-page
     and second-file page inserts. Staged, each stage independently built,
-    tested, and committed.
+    tested, and committed. Followed by a gap-sweep pass (see the last
+    sub-bullet below) that added Extract Links, Extract Attachments,
+    Duplicate Pages, and a Sanitize PDF "remove links" checkbox.
     - **Three exclusions carried over from the first tool-batch round that
       were only ever reasoned about in a since-discarded plan file, written
       down here for real so they don't get re-litigated from memory:**
@@ -518,6 +520,74 @@
       hand-rolled renderers) — accepted as a reasonable trade-off since the
       500,000-character input cap already bounds the worst case; revisit
       only if a real abuse pattern is observed in practice.
+    - **Gap sweep (after Round 2 shipped)** — challenged directly on whether
+      everything from the original ~80-item brainstorm got built. Rather
+      than answer from memory, pulled the exact original paste back out of
+      the session transcript and checked every item against the actual
+      current code (`grep`/reading source), not against what the Round 2
+      plan above claimed. Confirmed three items had no on-record decision
+      either way — not "already covered," not "excluded with a reason,"
+      just never addressed — and were cheap enough to build immediately
+      rather than leave open:
+      - **Duplicate Pages** — Organize Pages gained a per-thumbnail Duplicate
+        action. No backend change: `PdfOrganizeService` already imports
+        whatever `sourceIndex` a plan entry names with no uniqueness check,
+        confirmed by reading the service before assuming a change was
+        needed — duplicating was already possible for any caller building
+        the JSON plan directly, just not reachable from the UI.
+      - **Remove Links** — Sanitize PDF gained a fifth, independent checkbox
+        ("Clickable links") on top of its existing four. `PDAnnotationLink`
+        is not a `PDAnnotationMarkup` subclass (unlike the file-attachment
+        case above), so it was invisible to the existing "remove
+        annotations" checkbox entirely — not a redundant addition. `scan()`
+        now reports a `linkCount` alongside the existing four fields, same
+        pre-tick-from-real-scan UX as the rest of the tool.
+      - **Extract Links / Extract Attachments** — two new tools, both
+        following existing precedent exactly (`PdfToTextService`'s
+        single-file-out shape for Links, `PdfExtractImagesService`'s
+        zip-or-single shape for Attachments — the zip-vs-single response
+        plumbing already existed in `PdfController.respondWithFiles`, built
+        for Split/PDF-to-Images/Extract-Images, so neither tool needed new
+        infrastructure). Extract Links only reports `PDAnnotationLink`
+        annotations whose action is `PDActionURI` — disclosed in the tool's
+        own copy that a same-document navigation link or plain text that
+        merely *looks* like a URL won't appear, since neither is a real
+        clickable-link-to-a-URL annotation. Extract Attachments reads both
+        storage locations Sanitize already has to write to (the
+        document-level `/EmbeddedFiles` name tree and per-page
+        `PDAnnotationFileAttachment`), and de-duplicates colliding
+        filenames (`data.txt`, `data (2).txt`, ...) before zipping — two
+        attachments sharing a name would otherwise throw
+        `ZipException: duplicate entry` at response time, not a hypothetical.
+      Three more items were newly considered in this same pass and excluded
+      **with a stated reason**, not silently:
+      - **Extract Fonts** — not offered, on a risk not previously
+        considered. Extract Images/Extract Text/Extract Attachments all hand
+        back content the document's *own author* put there. A font program
+        embedded in a PDF is different in kind: most commercial font EULAs
+        permit embedding for display but explicitly prohibit extracting and
+        reusing the font file itself. A tool whose entire purpose is "pull
+        the raw font file back out of someone else's PDF" is a foreseeable
+        font-piracy vector in a way none of the other extract tools are —
+        excluded on that basis, not on build cost.
+      - **Flatten PDF** — not offered. PDFBox's real flattening value is
+        baking submitted AcroForm field values into static page content;
+        this repo has no Fill-Forms feature (Forms was excluded from Round 2
+        as full-product scope) and therefore nothing to flatten yet.
+        Building it now would be a button with no real workflow behind it.
+        Revisit if/when a Fill PDF Form tool is ever built — at that point
+        flattening the result is a natural, justified follow-on.
+      - **Request Signature** (send a PDF to someone else to sign, track
+        who has/hasn't signed) — not offered, and not comparable in size to
+        anything else in this document. Every tool in this repo, sync and
+        async alike, is stateless per-request — the async ones poll a job
+        for at most an hour and then it's purged. Request Signature needs
+        durable state across days (who's been asked, who's signed, signer
+        access links, notify-on-completion) — a different architecture
+        class from anything this platform currently runs, not a feature gap
+        inside the existing one. Hid inside the brainstorm's "Sign" tier
+        rather than its "Forms" tier, which is why it wasn't swept into the
+        Forms exclusion the first time around.
 
 ## Architecture (as shipped)
 
