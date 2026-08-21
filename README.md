@@ -78,23 +78,25 @@ links, scripts) with matching checkboxes pre-ticked. See
 **Synchronous, fifth batch (gap sweep):** after Round 2 shipped, a systematic
 pass matched every item from the original feature brainstorm against what
 actually exists in the repo, rather than relying on memory of what was
-scoped in. Three items came back genuinely unaddressed with no on-record
-decision either way, and were cheap enough to just build:
+scoped in. Several items came back genuinely unaddressed with no on-record
+decision either way:
 
 | Tool | Route | API |
 |---|---|---|
 | Extract Links | `/tools/extract-links` | `POST /api/v1/pdf/extract-links` |
 | Extract Attachments | `/tools/extract-attachments` | `POST /api/v1/pdf/extract-attachments` |
+| Flatten PDF | `/tools/flatten-pdf` | `POST /api/v1/pdf/flatten` (+ `/flatten/scan`) |
 
 Plus two enhancements to existing tools: Organize Pages gained a Duplicate
 action per page (no backend change needed — the plan format already allowed
 the same source page to appear twice), and Sanitize PDF gained a fifth,
 independent checkbox to strip clickable link annotations, alongside its
-existing metadata/attachments/comments/scripts checkboxes. See
-`docs/NEXT_FEATURES.md` item 14 for which brainstorm items were built here,
-which were excluded with a stated reason, and which three (Extract Fonts,
-Flatten PDF, Request Signature) were newly considered and excluded in this
-same pass.
+existing metadata/attachments/comments/scripts checkboxes. Flatten PDF
+shipped one turn later than the rest, after directly correcting this same
+document's first-pass reasoning for excluding it — see
+`docs/NEXT_FEATURES.md` item 14 for the full account, including the two
+items (Extract Fonts, Request Signature) still excluded with a stated
+reason, not silently.
 
 Repair re-saves whatever PDFBox's own recovery-capable parser was able to
 read from a damaged file — it doesn't have separate "repair logic," the

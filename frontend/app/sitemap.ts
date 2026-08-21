@@ -36,7 +36,8 @@ const TOOL_ROUTES = [
   "markdown-to-pdf",
   "html-to-pdf",
   "extract-links",
-  "extract-attachments"
+  "extract-attachments",
+  "flatten-pdf"
 ];
 
 export default function sitemap(): MetadataRoute.Sitemap {

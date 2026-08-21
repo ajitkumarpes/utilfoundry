@@ -186,7 +186,8 @@
     and second-file page inserts. Staged, each stage independently built,
     tested, and committed. Followed by a gap-sweep pass (see the last
     sub-bullet below) that added Extract Links, Extract Attachments,
-    Duplicate Pages, and a Sanitize PDF "remove links" checkbox.
+    Duplicate Pages, a Sanitize PDF "remove links" checkbox, and — one turn
+    later, correcting this document's own first-pass exclusion — Flatten PDF.
     - **Three exclusions carried over from the first tool-batch round that
       were only ever reasoned about in a since-discarded plan file, written
       down here for real so they don't get re-litigated from memory:**
@@ -559,7 +560,34 @@
         filenames (`data.txt`, `data (2).txt`, ...) before zipping — two
         attachments sharing a name would otherwise throw
         `ZipException: duplicate entry` at response time, not a hypothetical.
-      Three more items were newly considered in this same pass and excluded
+      - **Flatten PDF** — a fourth new tool, added one turn after the three
+        above, when directly asked "do we need anything extra to build the
+        excluded items" and it turned out the answer for this one was no.
+        **This corrects the original exclusion write-up in this same
+        document**, which reasoned "no Fill-Forms feature exists, so nothing
+        to flatten" — too narrow: a PDF with real form field values or
+        markup annotations can arrive from *anywhere* (Acrobat, DocuSign,
+        a reviewer's comments), not only from a Fill-Forms tool this repo
+        doesn't have. Two independent checkboxes, pre-scanned like Sanitize:
+        **Form fields**, calling PDFBox's own `PDAcroForm.flatten()` (a
+        verified one-call API, confirmed via `javap` before writing a line
+        of code); **Comments & markup**, reusing Sanitize's exact
+        `PDAnnotationMarkup`-minus-`PDAnnotationFileAttachment` definition
+        of "annotations" for consistency across both tools. Annotation
+        flattening is hand-rolled (PDFBox has no built-in equivalent to
+        `PDAcroForm.flatten()` for non-form annotations) and **deliberately
+        conservative**: it only bakes in an annotation whose appearance
+        stream has an identity matrix (no rotation/shear/scale baked into
+        the appearance itself, the common case for mainstream-tool output);
+        anything else is left exactly as-is rather than risk drawing it in
+        the wrong place, disclosed directly in the tool's own copy. Verified
+        past "no exception thrown": a real fixture with both a filled text
+        field and a markup annotation, flattened, then read back with
+        `PDFTextStripper` — the field's value and the annotation's baked-in
+        content both come back as ordinary extractable page text
+        (`PdfFlattenServiceTest`, 6 tests, including one fixture with a
+        45-degree-rotated appearance matrix asserting it survives untouched).
+      Two more items were newly considered in this same pass and excluded
       **with a stated reason**, not silently:
       - **Extract Fonts** — not offered, on a risk not previously
         considered. Extract Images/Extract Text/Extract Attachments all hand
@@ -569,14 +597,11 @@
         reusing the font file itself. A tool whose entire purpose is "pull
         the raw font file back out of someone else's PDF" is a foreseeable
         font-piracy vector in a way none of the other extract tools are —
-        excluded on that basis, not on build cost.
-      - **Flatten PDF** — not offered. PDFBox's real flattening value is
-        baking submitted AcroForm field values into static page content;
-        this repo has no Fill-Forms feature (Forms was excluded from Round 2
-        as full-product scope) and therefore nothing to flatten yet.
-        Building it now would be a button with no real workflow behind it.
-        Revisit if/when a Fill PDF Form tool is ever built — at that point
-        flattening the result is a natural, justified follow-on.
+        excluded on that basis, not on build cost. (Technically easy, for
+        the record: `PDFontDescriptor.getFontFile()/getFontFile2()/
+        getFontFile3()` hands back the raw embedded font bytes directly,
+        confirmed via `javap`, same shape as Extract Attachments. This one
+        needs a product/legal call, not more engineering.)
       - **Request Signature** (send a PDF to someone else to sign, track
         who has/hasn't signed) — not offered, and not comparable in size to
         anything else in this document. Every tool in this repo, sync and
@@ -585,7 +610,13 @@
         durable state across days (who's been asked, who's signed, signer
         access links, notify-on-completion) — a different architecture
         class from anything this platform currently runs, not a feature gap
-        inside the existing one. Hid inside the brainstorm's "Sign" tier
+        inside the existing one. Confirmed directly, not assumed: grepped
+        `backend/pom.xml`, `frontend/package.json`, and `docker-compose.yml`
+        for any existing email-sending capability (SMTP, SendGrid, Resend,
+        Mailgun, SES, javamail) — zero hits; the only durable-ish state this
+        repo has is the async job queue (Postgres + Redis + MinIO), and even
+        that purges job output after at most an hour, per this doc's own
+        Architecture section below. Hid inside the brainstorm's "Sign" tier
         rather than its "Forms" tier, which is why it wasn't swept into the
         Forms exclusion the first time around.
 

@@ -3,6 +3,7 @@ package com.utilnexa.pdf.api;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.utilnexa.pdf.api.dto.BookmarkEntry;
 import com.utilnexa.pdf.api.dto.BookmarksReadResult;
+import com.utilnexa.pdf.api.dto.FlattenScanResult;
 import com.utilnexa.pdf.api.dto.HeaderFooterRequest;
 import com.utilnexa.pdf.api.dto.NamedFile;
 import com.utilnexa.pdf.api.dto.OrganizePlan;
@@ -16,6 +17,7 @@ import com.utilnexa.pdf.service.PdfCropService;
 import com.utilnexa.pdf.service.PdfExtractAttachmentsService;
 import com.utilnexa.pdf.service.PdfExtractImagesService;
 import com.utilnexa.pdf.service.PdfExtractLinksService;
+import com.utilnexa.pdf.service.PdfFlattenService;
 import com.utilnexa.pdf.service.PdfGrayscaleService;
 import com.utilnexa.pdf.service.PdfHeaderFooterService;
 import com.utilnexa.pdf.service.PdfHtmlService;
@@ -91,6 +93,7 @@ public class PdfController {
   private final PdfTextToPdfService textToPdfService;
   private final PdfMarkdownService markdownService;
   private final PdfHtmlService htmlService;
+  private final PdfFlattenService flattenService;
   private final ObjectMapper objectMapper;
 
   @PostMapping(
@@ -377,6 +380,23 @@ public class PdfController {
     return pdfResponse(
         sanitizeService.sanitize(file, clearMetadata, removeAttachments, removeAnnotations, removeScripts, removeLinks),
         "sanitized.pdf");
+  }
+
+  @PostMapping(value = "/flatten/scan", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+  public FlattenScanResult scanForFlatten(@RequestPart("file") MultipartFile file) throws IOException {
+    return flattenService.scan(file);
+  }
+
+  @PostMapping(
+      value = "/flatten",
+      consumes = MediaType.MULTIPART_FORM_DATA_VALUE,
+      produces = MediaType.APPLICATION_PDF_VALUE)
+  public ResponseEntity<byte[]> flatten(
+      @RequestPart("file") MultipartFile file,
+      @RequestParam(value = "flattenForms", defaultValue = "false") boolean flattenForms,
+      @RequestParam(value = "flattenAnnotations", defaultValue = "false") boolean flattenAnnotations)
+      throws IOException {
+    return pdfResponse(flattenService.flatten(file, flattenForms, flattenAnnotations), "flattened.pdf");
   }
 
   @PostMapping(
