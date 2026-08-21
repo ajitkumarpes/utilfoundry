@@ -1,13 +1,15 @@
 "use client";
 
-import { useCallback, useState } from "react";
+import { useCallback, useRef, useState } from "react";
 import Link from "next/link";
 import {
   AlertCircle,
   ArrowLeft,
   CheckCircle2,
   Download,
+  FileStack,
   Loader2,
+  Plus,
   RotateCw,
   Trash2,
   Undo2,
@@ -30,26 +32,61 @@ import SinglePdfInput from "@/components/SinglePdfInput";
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:8091";
 
+type PageKind = "SOURCE" | "SOURCE2" | "BLANK";
+
 type PageState = {
   id: string;
-  sourceIndex: number;
-  thumbnail: string;
+  kind: PageKind;
+  sourceIndex: number | null;
+  thumbnail: string | null;
   rotation: number;
   excluded: boolean;
 };
 
+type ThumbInfo = { sourceIndex: number; thumbnail: string };
+
 let idSeq = 0;
 const nextId = () => `p${Date.now()}-${idSeq++}`;
+
+async function renderThumbnails(file: File): Promise<ThumbInfo[]> {
+  const pdfjsLib = await import("pdfjs-dist");
+  pdfjsLib.GlobalWorkerOptions.workerSrc = new URL(
+    "pdfjs-dist/build/pdf.worker.min.mjs",
+    import.meta.url
+  ).toString();
+
+  const buffer = await file.arrayBuffer();
+  const pdf = await pdfjsLib.getDocument({ data: buffer }).promise;
+
+  const out: ThumbInfo[] = [];
+  for (let i = 1; i <= pdf.numPages; i++) {
+    const page = await pdf.getPage(i);
+    const viewport = page.getViewport({ scale: 0.45 });
+    const canvas = document.createElement("canvas");
+    canvas.width = viewport.width;
+    canvas.height = viewport.height;
+    const ctx = canvas.getContext("2d");
+    if (ctx) {
+      await page.render({ canvasContext: ctx, viewport }).promise;
+    }
+    out.push({ sourceIndex: i - 1, thumbnail: canvas.toDataURL("image/png") });
+  }
+  return out;
+}
 
 export default function OrganizePdfPage() {
   const [file, setFile] = useState<File | null>(null);
   const [pages, setPages] = useState<PageState[]>([]);
   const [loadingThumbs, setLoadingThumbs] = useState(false);
+  const [file2, setFile2] = useState<File | null>(null);
+  const [file2Pages, setFile2Pages] = useState<ThumbInfo[]>([]);
+  const [loadingFile2, setLoadingFile2] = useState(false);
   const [processing, setProcessing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [done, setDone] = useState(false);
   const [downloadUrl, setDownloadUrl] = useState<string | null>(null);
   const [savedCount, setSavedCount] = useState(0);
+  const file2InputRef = useRef<HTMLInputElement>(null);
 
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 4 } }),
@@ -60,36 +97,17 @@ export default function OrganizePdfPage() {
     setLoadingThumbs(true);
     setError(null);
     try {
-      const pdfjsLib = await import("pdfjs-dist");
-      pdfjsLib.GlobalWorkerOptions.workerSrc = new URL(
-        "pdfjs-dist/build/pdf.worker.min.mjs",
-        import.meta.url
-      ).toString();
-
-      const buffer = await picked.arrayBuffer();
-      const pdf = await pdfjsLib.getDocument({ data: buffer }).promise;
-
-      const next: PageState[] = [];
-      for (let i = 1; i <= pdf.numPages; i++) {
-        const page = await pdf.getPage(i);
-        const viewport = page.getViewport({ scale: 0.45 });
-        const canvas = document.createElement("canvas");
-        canvas.width = viewport.width;
-        canvas.height = viewport.height;
-        const ctx = canvas.getContext("2d");
-        if (ctx) {
-          await page.render({ canvasContext: ctx, viewport }).promise;
-        }
-        next.push({
+      const thumbs = await renderThumbnails(picked);
+      setPages(
+        thumbs.map(t => ({
           id: nextId(),
-          sourceIndex: i - 1,
-          thumbnail: canvas.toDataURL("image/png"),
+          kind: "SOURCE" as const,
+          sourceIndex: t.sourceIndex,
+          thumbnail: t.thumbnail,
           rotation: 0,
           excluded: false
-        });
-      }
-
-      setPages(next);
+        }))
+      );
       setFile(picked);
     } catch {
       setError("Could not read this PDF. It may be corrupted or password-protected.");
@@ -98,11 +116,54 @@ export default function OrganizePdfPage() {
     }
   }, []);
 
+  const pickFile2 = () => file2InputRef.current?.click();
+
+  const onFile2Chosen = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const picked = e.target.files?.[0];
+    e.target.value = "";
+    if (!picked) return;
+
+    setLoadingFile2(true);
+    setError(null);
+    try {
+      const thumbs = await renderThumbnails(picked);
+      setFile2(picked);
+      setFile2Pages(thumbs);
+    } catch {
+      setError("Could not read the second PDF. It may be corrupted or password-protected.");
+    } finally {
+      setLoadingFile2(false);
+    }
+  };
+
   const clearFile = () => {
     setFile(null);
     setPages([]);
+    setFile2(null);
+    setFile2Pages([]);
     setError(null);
     setDone(false);
+  };
+
+  const insertBlankPage = () => {
+    setPages(prev => [
+      ...prev,
+      { id: nextId(), kind: "BLANK", sourceIndex: null, thumbnail: null, rotation: 0, excluded: false }
+    ]);
+  };
+
+  const insertFromFile2 = (thumb: ThumbInfo) => {
+    setPages(prev => [
+      ...prev,
+      {
+        id: nextId(),
+        kind: "SOURCE2",
+        sourceIndex: thumb.sourceIndex,
+        thumbnail: thumb.thumbnail,
+        rotation: 0,
+        excluded: false
+      }
+    ]);
   };
 
   const rotate = (id: string) => {
@@ -141,14 +202,17 @@ export default function OrganizePdfPage() {
     }
 
     try {
+      const activePages = pages.filter(p => !p.excluded);
       const plan = {
-        pages: pages
-          .filter(p => !p.excluded)
-          .map(p => ({ sourceIndex: p.sourceIndex, rotation: p.rotation }))
+        pages: activePages.map(p => ({ kind: p.kind, sourceIndex: p.sourceIndex, rotation: p.rotation }))
       };
+      const needsFile2 = activePages.some(p => p.kind === "SOURCE2");
 
       const formData = new FormData();
       formData.append("file", file, file.name);
+      if (needsFile2 && file2) {
+        formData.append("file2", file2, file2.name);
+      }
       formData.append("plan", JSON.stringify(plan));
 
       const response = await fetch(`${API_BASE_URL}/api/v1/pdf/organize`, {
@@ -193,6 +257,8 @@ export default function OrganizePdfPage() {
     if (downloadUrl) URL.revokeObjectURL(downloadUrl);
     setFile(null);
     setPages([]);
+    setFile2(null);
+    setFile2Pages([]);
     setDone(false);
     setProcessing(false);
     setError(null);
@@ -209,7 +275,7 @@ export default function OrganizePdfPage() {
         </Link>
         <div className="eyebrow">PDF TOOL</div>
         <h1>Organize Pages</h1>
-        <p>Reorder, rotate or remove pages. Drag thumbnails to rearrange, and download when it looks right.</p>
+        <p>Reorder, rotate or remove pages — or insert a blank page or pages from another PDF. Drag thumbnails to rearrange.</p>
       </section>
 
       <section className="workspace">
@@ -245,10 +311,50 @@ export default function OrganizePdfPage() {
                   {activeCount} will be kept · drag to reorder · use the icons to rotate or remove a page
                 </p>
               </div>
-              <button type="button" className="add-btn" onClick={clearFile} disabled={processing}>
-                <Trash2 size={17} /> Replace file
-              </button>
+              <div style={{ display: "flex", gap: 8 }}>
+                <button type="button" className="add-btn" onClick={insertBlankPage} disabled={processing}>
+                  <Plus size={16} /> Blank page
+                </button>
+                <button type="button" className="add-btn" onClick={pickFile2} disabled={processing || loadingFile2}>
+                  <FileStack size={16} /> {loadingFile2 ? "Reading…" : "From another PDF"}
+                </button>
+                <button type="button" className="add-btn" onClick={clearFile} disabled={processing}>
+                  <Trash2 size={17} /> Replace file
+                </button>
+              </div>
             </div>
+            <input
+              ref={file2InputRef}
+              type="file"
+              accept="application/pdf"
+              onChange={onFile2Chosen}
+              style={{ display: "none" }}
+            />
+
+            {file2Pages.length > 0 && (
+              <div className="file-panel" style={{ background: "#f7f7f5", marginBottom: 18 }}>
+                <p style={{ margin: "0 0 10px", fontSize: 13, color: "#666" }}>
+                  From <strong>{file2?.name}</strong> — click a page to insert it at the end of the list below.
+                </p>
+                <div className="page-grid">
+                  {file2Pages.map(t => (
+                    <button
+                      key={t.sourceIndex}
+                      type="button"
+                      className="page-thumb selectable"
+                      onClick={() => insertFromFile2(t)}
+                      disabled={processing}
+                      style={{ border: "1px solid #deded8" }}
+                    >
+                      <div className="thumb-canvas-wrap">
+                        <img src={t.thumbnail} alt={`Second file page ${t.sourceIndex + 1}`} draggable={false} />
+                      </div>
+                      <span className="page-num">Page {t.sourceIndex + 1}</span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
 
             <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={onDragEnd}>
               <SortableContext items={pages.map(p => p.id)} strategy={rectSortingStrategy}>
@@ -326,9 +432,31 @@ function SortablePageThumb({
       {...listeners}
     >
       <div className={`thumb-canvas-wrap${rotClass}`}>
-        <img src={page.thumbnail} alt={`Page ${position}`} draggable={false} />
+        {page.thumbnail ? (
+          <img src={page.thumbnail} alt={`Page ${position}`} draggable={false} />
+        ) : (
+          <div
+            style={{
+              width: "100%",
+              height: "100%",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              background: "#fff",
+              border: "1.5px dashed #ccc",
+              color: "#aaa",
+              fontSize: 12,
+              fontWeight: 700
+            }}
+          >
+            Blank
+          </div>
+        )}
       </div>
-      <span className="page-num">Page {position}</span>
+      <span className="page-num">
+        Page {position}
+        {page.kind === "SOURCE2" ? " · 2nd file" : ""}
+      </span>
       <div className="thumb-actions">
         <button
           type="button"

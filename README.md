@@ -13,7 +13,7 @@ builds PDF tools.
 |---|---|---|
 | Merge PDF | `/tools/merge-pdf` | `POST /api/v1/pdf/merge` |
 | Split PDF | `/tools/split-pdf` | `POST /api/v1/pdf/split` |
-| Organize Pages (reorder/rotate/delete/extract) | `/tools/organize-pdf` | `POST /api/v1/pdf/organize` |
+| Organize Pages (reorder/rotate/delete/extract/insert blank/insert from another PDF) | `/tools/organize-pdf` | `POST /api/v1/pdf/organize` |
 | Image to PDF | `/tools/image-to-pdf` | `POST /api/v1/pdf/images-to-pdf` |
 | PDF to Image | `/tools/pdf-to-image` | `POST /api/v1/pdf/pdf-to-images` |
 | Compress PDF | `/tools/compress-pdf` | `POST /api/v1/pdf/compress` |

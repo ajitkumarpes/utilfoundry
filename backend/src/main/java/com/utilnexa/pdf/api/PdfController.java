@@ -116,7 +116,9 @@ public class PdfController {
       consumes = MediaType.MULTIPART_FORM_DATA_VALUE,
       produces = MediaType.APPLICATION_PDF_VALUE)
   public ResponseEntity<byte[]> organize(
-      @RequestPart("file") MultipartFile file, @RequestPart("plan") String planJson)
+      @RequestPart("file") MultipartFile file,
+      @RequestPart(value = "file2", required = false) MultipartFile file2,
+      @RequestPart("plan") String planJson)
       throws IOException {
     OrganizePlan plan;
     try {
@@ -124,7 +126,7 @@ public class PdfController {
     } catch (JsonProcessingException e) {
       throw new IllegalArgumentException("The page plan could not be read.");
     }
-    return pdfResponse(organizeService.organize(file, plan), "organized.pdf");
+    return pdfResponse(organizeService.organize(file, file2, plan), "organized.pdf");
   }
 
   @PostMapping(value = "/pdf-to-images", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)

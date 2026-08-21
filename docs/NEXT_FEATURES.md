@@ -304,6 +304,31 @@
       (text/page-number/date/Bates each checked alone), together on one page
       (all 6 zones at once, confirmed none clobber each other), and the
       Bates zone's prefix+padding+increment checked across multiple pages.
+    - **Organize Pages gained blank-page and second-file page inserts** —
+      no new tool page, an extension of the existing one. `PageOp` gained a
+      `Kind{SOURCE, SOURCE2, BLANK}` discriminator (was implicitly
+      SOURCE-only); `organize()` takes an optional second `file2` part,
+      copying the same optional-`@RequestPart` pattern `/sign` already uses
+      for `signatureImage`. The frontend's reorder/rotate/exclude logic
+      needed no changes at all — it was already keyed entirely off a
+      client-generated `id`, never `sourceIndex`, confirmed by reading the
+      code before assuming it — so blank placeholders and a second file's
+      thumbnails drop into the same `@dnd-kit` `SortableContext` for free.
+      **One real gap caught before shipping, not after**: a `BLANK` op has
+      no source page to size itself from, and PDFBox's no-arg `new PDPage()`
+      defaults to US Letter — silently wrong for an all-A4 or custom-size
+      document. Fixed by deriving the blank page's `MediaBox` from the
+      nearest neighboring `SOURCE`/`SOURCE2` op in the same plan (previous,
+      else next, else A4 fallback), bounds-safe against a neighbor whose own
+      index hasn't been validated yet. Verified end-to-end with a real
+      browser round trip, not just unit tests: uploaded a 3-page fixture,
+      rotated page 1 90°, inserted a blank page, opened a second PDF and
+      inserted one of its pages, submitted, then re-verified the actual
+      downloaded bytes with a PDFBox-based structural check (not just
+      HTTP 200) — 5 pages, page 1 `rotation=90`, the blank page genuinely
+      empty (`text=""`) *and* correctly sized `200x200` inherited from its
+      neighbors rather than falling back to A4, and the second-file page
+      carrying its own real text content.
 
 ## Architecture (as shipped)
 
