@@ -1,14 +1,13 @@
 package com.utilnexa.pdf.service;
 
 import com.utilnexa.pdf.api.dto.NamedFile;
+import com.utilnexa.pdf.service.support.FilenameDeduplicator;
 import com.utilnexa.pdf.service.support.PdfFileValidator;
 
 import java.io.IOException;
 import java.util.ArrayList;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
 
 import org.apache.pdfbox.pdmodel.PDDocument;
 import org.apache.pdfbox.pdmodel.PDDocumentCatalog;
@@ -28,8 +27,9 @@ import org.springframework.web.multipart.MultipartFile;
  * Reads embedded files back out, from both storage locations a PDF can use - the document-level
  * {@code /EmbeddedFiles} name tree and per-page {@code PDAnnotationFileAttachment} ("pushpin")
  * annotations - mirroring {@link PdfSanitizeService}'s dual-location coverage of the same two
- * places. Only reads the document's own embedded files, not third-party assets like fonts (which
- * carry their own licensing and aren't this document's content to hand back out).
+ * places. Covers files the document's own author chose to attach (invoices, source spreadsheets,
+ * supporting docs) - see {@link PdfExtractFontsService} for the separate, licensing-sensitive
+ * case of extracting embedded font programs.
  */
 @Service
 public class PdfExtractAttachmentsService {
@@ -40,12 +40,12 @@ public class PdfExtractAttachmentsService {
     byte[] bytes = file.getBytes();
     try (PDDocument document = PdfFileValidator.loadDecrypted(bytes)) {
       List<NamedFile> results = new ArrayList<>();
-      Set<String> usedNames = new HashSet<>();
+      FilenameDeduplicator names = new FilenameDeduplicator();
 
       PDDocumentCatalog catalog = document.getDocumentCatalog();
-      PDDocumentNameDictionary names = catalog.getNames();
-      if (names != null && names.getEmbeddedFiles() != null) {
-        collectFromNameTree(names.getEmbeddedFiles(), results, usedNames);
+      PDDocumentNameDictionary nameDictionary = catalog.getNames();
+      if (nameDictionary != null && nameDictionary.getEmbeddedFiles() != null) {
+        collectFromNameTree(nameDictionary.getEmbeddedFiles(), results, names);
       }
 
       for (PDPage page : document.getPages()) {
@@ -53,7 +53,7 @@ public class PdfExtractAttachmentsService {
           if (annotation instanceof PDAnnotationFileAttachment attachmentAnnotation) {
             PDFileSpecification spec = attachmentAnnotation.getFile();
             if (spec instanceof PDComplexFileSpecification complexSpec) {
-              addFile(complexSpec, results, usedNames);
+              addFile(complexSpec, results, names);
             }
           }
         }
@@ -67,23 +67,23 @@ public class PdfExtractAttachmentsService {
   }
 
   private void collectFromNameTree(
-      PDNameTreeNode<PDComplexFileSpecification> node, List<NamedFile> results, Set<String> usedNames)
+      PDNameTreeNode<PDComplexFileSpecification> node, List<NamedFile> results, FilenameDeduplicator names)
       throws IOException {
     Map<String, PDComplexFileSpecification> direct = node.getNames();
     if (direct != null) {
       for (PDComplexFileSpecification spec : direct.values()) {
-        addFile(spec, results, usedNames);
+        addFile(spec, results, names);
       }
     }
     List<PDNameTreeNode<PDComplexFileSpecification>> kids = node.getKids();
     if (kids != null) {
       for (PDNameTreeNode<PDComplexFileSpecification> kid : kids) {
-        collectFromNameTree(kid, results, usedNames);
+        collectFromNameTree(kid, results, names);
       }
     }
   }
 
-  private void addFile(PDComplexFileSpecification spec, List<NamedFile> results, Set<String> usedNames)
+  private void addFile(PDComplexFileSpecification spec, List<NamedFile> results, FilenameDeduplicator names)
       throws IOException {
     PDEmbeddedFile embedded = spec.getEmbeddedFile();
     if (embedded == null) return;
@@ -92,7 +92,7 @@ public class PdfExtractAttachmentsService {
     if (filename == null || filename.isBlank()) {
       filename = "attachment-" + (results.size() + 1);
     }
-    filename = uniqueName(filename, usedNames);
+    filename = names.uniqueName(filename);
 
     String contentType = embedded.getSubtype();
     if (contentType == null || contentType.isBlank()) {
@@ -100,25 +100,5 @@ public class PdfExtractAttachmentsService {
     }
 
     results.add(new NamedFile(filename, embedded.toByteArray(), contentType));
-  }
-
-  private String uniqueName(String filename, Set<String> usedNames) {
-    if (usedNames.add(filename)) {
-      return filename;
-    }
-    String base = filename;
-    String extension = "";
-    int dot = filename.lastIndexOf('.');
-    if (dot > 0) {
-      base = filename.substring(0, dot);
-      extension = filename.substring(dot);
-    }
-    int suffix = 2;
-    String candidate;
-    do {
-      candidate = base + " (" + suffix + ")" + extension;
-      suffix++;
-    } while (!usedNames.add(candidate));
-    return candidate;
   }
 }

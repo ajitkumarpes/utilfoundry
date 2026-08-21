@@ -187,7 +187,9 @@
     tested, and committed. Followed by a gap-sweep pass (see the last
     sub-bullet below) that added Extract Links, Extract Attachments,
     Duplicate Pages, a Sanitize PDF "remove links" checkbox, and — one turn
-    later, correcting this document's own first-pass exclusion — Flatten PDF.
+    later, correcting this document's own first-pass exclusions and shipped
+    after explicit user sign-off on the Extract Fonts licensing question —
+    Flatten PDF and Extract Fonts.
     - **Three exclusions carried over from the first tool-batch round that
       were only ever reasoned about in a since-discarded plan file, written
       down here for real so they don't get re-litigated from memory:**
@@ -587,21 +589,29 @@
         content both come back as ordinary extractable page text
         (`PdfFlattenServiceTest`, 6 tests, including one fixture with a
         45-degree-rotated appearance matrix asserting it survives untouched).
-      Two more items were newly considered in this same pass and excluded
-      **with a stated reason**, not silently:
-      - **Extract Fonts** — not offered, on a risk not previously
-        considered. Extract Images/Extract Text/Extract Attachments all hand
-        back content the document's *own author* put there. A font program
-        embedded in a PDF is different in kind: most commercial font EULAs
-        permit embedding for display but explicitly prohibit extracting and
-        reusing the font file itself. A tool whose entire purpose is "pull
-        the raw font file back out of someone else's PDF" is a foreseeable
-        font-piracy vector in a way none of the other extract tools are —
-        excluded on that basis, not on build cost. (Technically easy, for
-        the record: `PDFontDescriptor.getFontFile()/getFontFile2()/
-        getFontFile3()` hands back the raw embedded font bytes directly,
-        confirmed via `javap`, same shape as Extract Attachments. This one
-        needs a product/legal call, not more engineering.)
+      - **Extract Fonts** — a fifth new tool, built the same turn as Flatten
+        PDF, once asked directly whether the excluded items needed anything
+        extra. Technically easy (`PDFontDescriptor.getFontFile()/
+        getFontFile2()/getFontFile3()` hands back the raw embedded font
+        bytes directly, confirmed via `javap`, same shape as Extract
+        Attachments) — the open question was never engineering cost but a
+        licensing risk: most commercial font EULAs permit embedding a font
+        for display but forbid extracting the file for reuse elsewhere,
+        unlike Extract Images/Text/Attachments, which all hand back content
+        the document's own author put there. Put to the user directly, who
+        chose **build it, with a disclaimer** over skipping it or the
+        stricter subsetted-only variant also on offer. Shipped with the
+        disclaimer in the tool's own copy: most PDF-embedded fonts are
+        subsets (only the glyphs the document actually uses, not a complete
+        font), which the extracted filename discloses rather than hides -
+        confirmed for real, not just claimed, when the live server round-trip
+        against a genuine embedded NotoSans returned exactly
+        `AAAXBC+NotoSans-Regular.ttf`. The same embedded font referenced from
+        every page of a document is extracted once, by COS object identity,
+        not once per page reference (`PdfExtractFontsServiceTest`, 3 tests,
+        including one fixture with the font used across two pages asserting
+        a single result).
+      One item remains excluded **with a stated reason**, not silently:
       - **Request Signature** (send a PDF to someone else to sign, track
         who has/hasn't signed) — not offered, and not comparable in size to
         anything else in this document. Every tool in this repo, sync and
@@ -618,7 +628,11 @@
         that purges job output after at most an hour, per this doc's own
         Architecture section below. Hid inside the brainstorm's "Sign" tier
         rather than its "Forms" tier, which is why it wasn't swept into the
-        Forms exclusion the first time around.
+        Forms exclusion the first time around. Put to the user directly, who
+        chose to scope this as its own project (email provider selection,
+        durable state model, signer-facing flow, all designed before any
+        code) rather than skip it outright — **not started**; revisit when
+        that planning conversation happens.
 
 ## Architecture (as shipped)
 

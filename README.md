@@ -86,17 +86,21 @@ decision either way:
 | Extract Links | `/tools/extract-links` | `POST /api/v1/pdf/extract-links` |
 | Extract Attachments | `/tools/extract-attachments` | `POST /api/v1/pdf/extract-attachments` |
 | Flatten PDF | `/tools/flatten-pdf` | `POST /api/v1/pdf/flatten` (+ `/flatten/scan`) |
+| Extract Fonts | `/tools/extract-fonts` | `POST /api/v1/pdf/extract-fonts` |
 
 Plus two enhancements to existing tools: Organize Pages gained a Duplicate
 action per page (no backend change needed — the plan format already allowed
 the same source page to appear twice), and Sanitize PDF gained a fifth,
 independent checkbox to strip clickable link annotations, alongside its
-existing metadata/attachments/comments/scripts checkboxes. Flatten PDF
-shipped one turn later than the rest, after directly correcting this same
-document's first-pass reasoning for excluding it — see
-`docs/NEXT_FEATURES.md` item 14 for the full account, including the two
-items (Extract Fonts, Request Signature) still excluded with a stated
-reason, not silently.
+existing metadata/attachments/comments/scripts checkboxes. Flatten PDF and
+Extract Fonts both shipped one turn later than the rest, after directly
+correcting this same document's first-pass reasoning for excluding them —
+Extract Fonts specifically after asking the user to weigh in on the
+licensing risk (embedding a font for display and reusing the font file
+elsewhere are governed by different rights); the tool ships with that
+disclosed directly in its own copy. See `docs/NEXT_FEATURES.md` item 14 for
+the full account, including Request Signature, the one item still excluded
+with a stated reason, not silently.
 
 Repair re-saves whatever PDFBox's own recovery-capable parser was able to
 read from a damaged file — it doesn't have separate "repair logic," the

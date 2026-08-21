@@ -55,7 +55,8 @@ const groups = [
       { name: "Grayscale PDF", href: "/tools/grayscale-pdf" },
       { name: "Extract Images", href: "/tools/extract-images" },
       { name: "Extract Links", href: "/tools/extract-links" },
-      { name: "Extract Attachments", href: "/tools/extract-attachments" }
+      { name: "Extract Attachments", href: "/tools/extract-attachments" },
+      { name: "Extract Fonts", href: "/tools/extract-fonts" }
     ]
   },
   {

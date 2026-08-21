@@ -16,6 +16,7 @@ import com.utilnexa.pdf.service.PdfCompressService;
 import com.utilnexa.pdf.service.PdfCropService;
 import com.utilnexa.pdf.service.PdfExtractAttachmentsService;
 import com.utilnexa.pdf.service.PdfExtractImagesService;
+import com.utilnexa.pdf.service.PdfExtractFontsService;
 import com.utilnexa.pdf.service.PdfExtractLinksService;
 import com.utilnexa.pdf.service.PdfFlattenService;
 import com.utilnexa.pdf.service.PdfGrayscaleService;
@@ -80,6 +81,7 @@ public class PdfController {
   private final PdfExtractImagesService extractImagesService;
   private final PdfExtractLinksService extractLinksService;
   private final PdfExtractAttachmentsService extractAttachmentsService;
+  private final PdfExtractFontsService extractFontsService;
   private final PdfCropService cropService;
   private final PdfSignService signService;
   private final PdfRedactService redactService;
@@ -255,6 +257,11 @@ public class PdfController {
   @PostMapping(value = "/extract-attachments", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
   public ResponseEntity<byte[]> extractAttachments(@RequestPart("file") MultipartFile file) throws IOException {
     return respondWithFiles(extractAttachmentsService.extract(file), "attachments.zip");
+  }
+
+  @PostMapping(value = "/extract-fonts", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+  public ResponseEntity<byte[]> extractFonts(@RequestPart("file") MultipartFile file) throws IOException {
+    return respondWithFiles(extractFontsService.extract(file), "fonts.zip");
   }
 
   @PostMapping(

@@ -37,6 +37,7 @@ const TOOL_ROUTES = [
   "html-to-pdf",
   "extract-links",
   "extract-attachments",
+  "extract-fonts",
   "flatten-pdf"
 ];
 
