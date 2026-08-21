@@ -29,7 +29,8 @@ const groups = [
       { name: "Image to PDF", href: "/tools/image-to-pdf" },
       { name: "PDF to Image", href: "/tools/pdf-to-image" },
       { name: "PDF to Text", href: "/tools/pdf-to-text" },
-      { name: "Text to PDF", href: "/tools/text-to-pdf" }
+      { name: "Text to PDF", href: "/tools/text-to-pdf" },
+      { name: "Markdown to PDF", href: "/tools/markdown-to-pdf" }
     ]
   },
   {

@@ -16,6 +16,7 @@ import com.utilnexa.pdf.service.PdfCropService;
 import com.utilnexa.pdf.service.PdfExtractImagesService;
 import com.utilnexa.pdf.service.PdfGrayscaleService;
 import com.utilnexa.pdf.service.PdfHeaderFooterService;
+import com.utilnexa.pdf.service.PdfMarkdownService;
 import com.utilnexa.pdf.service.PdfMergeService;
 import com.utilnexa.pdf.service.PdfMetadataService;
 import com.utilnexa.pdf.service.PdfNUpService;
@@ -83,6 +84,7 @@ public class PdfController {
   private final PdfSanitizeService sanitizeService;
   private final PdfHeaderFooterService headerFooterService;
   private final PdfTextToPdfService textToPdfService;
+  private final PdfMarkdownService markdownService;
   private final ObjectMapper objectMapper;
 
   @PostMapping(
@@ -384,6 +386,17 @@ public class PdfController {
       @RequestParam(value = "pageSize", required = false) String pageSize)
       throws IOException {
     return pdfResponse(textToPdfService.convert(text, pageSize), "text.pdf");
+  }
+
+  @PostMapping(
+      value = "/markdown-to-pdf",
+      consumes = MediaType.MULTIPART_FORM_DATA_VALUE,
+      produces = MediaType.APPLICATION_PDF_VALUE)
+  public ResponseEntity<byte[]> markdownToPdf(
+      @RequestParam("markdown") String markdown,
+      @RequestParam(value = "pageSize", required = false) String pageSize)
+      throws IOException {
+    return pdfResponse(markdownService.convert(markdown, pageSize), "document.pdf");
   }
 
   private ResponseEntity<byte[]> pdfResponse(byte[] content, String filename) {

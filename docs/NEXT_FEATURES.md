@@ -383,6 +383,89 @@
       Hindi PDF" claim) — Markdown to PDF (next in this round) inherits the
       same limitation for the same reason and doesn't need to re-solve it
       first, since it's a display/print tool too, not an extraction one.
+    - **Markdown to PDF** — new tool, new dependency
+      (`org.commonmark:commonmark:0.30.0`, BSD-2-Clause) plus 3 new bundled
+      fonts (`NotoSans-Bold.ttf`, `NotoSans-Italic.ttf`,
+      `NotoSansDevanagari-Bold.ttf`, sourced from the same `notofonts`
+      GitHub org's current monthly release, downloaded only after explicit
+      user sign-off with filenames/source/sizes stated up front). No layout
+      engine existed anywhere in this repo before this — commonmark parses
+      to an AST, a custom `AbstractVisitor` walks it into a flat internal
+      `Block` list (heading/paragraph/list-item/code-block/rule, each
+      carrying styled inline runs), and a renderer word-wraps and paginates
+      that list, reusing Text to PDF's proven per-character font-resolution
+      and greedy-token-wrap algorithm, generalized from "one font" to a
+      12-way matrix: Devanagari (Regular/Bold — no italic form) × Standard14
+      Helvetica (Regular/Bold/Oblique/BoldOblique, tried first for anything
+      WinAnsi-safe) × NotoSans Unicode fallback (Regular/Bold/Italic — no
+      bundled BoldItalic; bold wins when both are requested, a disclosed,
+      minor simplification) × Courier for code spans/blocks (always
+      monospace regardless of surrounding emphasis, with its own
+      Noto-then-`?` fallback chain for non-Latin text pasted into a code
+      span). Verified against the real commonmark-java jar before writing
+      the visitor, not assumed: confirmed via a throwaway probe that
+      `ListItem` children are always wrapped in `Paragraph` nodes regardless
+      of the list's tight/loose-ness, that blockquotes and fenced/indented
+      code blocks carry a trailing `\n` in their literal, and that
+      `HardLineBreak`/`SoftLineBreak` are separate sibling nodes rather than
+      embedded in adjacent `Text` literals. Links only become a clickable
+      `PDAnnotationLink`+`PDActionURI` for `http(s)://`/`mailto:` — anything
+      else (`javascript:`, `data:`, relative paths meaningless outside the
+      source document) is dropped rather than embedded, since a generated
+      PDF should never carry an executable/data URI a reader could be
+      tricked into invoking; covered by a test that a `javascript:` link
+      renders as plain text with no annotation. Same two abuse-shaped caps
+      as Text to PDF (500,000 characters; abort past 500 pages), since
+      Markdown has the identical "arbitrary pasted content, no natural size
+      limit" shape.
+      **Two real bugs found by actually rendering the output to an image and
+      looking at it, not by unit tests alone** (unit tests only assert text
+      *content* survived extraction — they can't catch a purely geometric
+      layout bug, which is exactly what these were):
+      - **Severe line overlap between consecutive short blocks** — headings
+        stacked on top of each other, list items piled up nearly unreadable.
+        Root cause: the gap-before-a-new-block step only subtracted the
+        block's extra breathing-room constant (e.g. 5–15pt), never a full
+        line-height step first — fine for a multi-line paragraph, whose own
+        internal line-wrapping already consumes real vertical space, but
+        badly wrong for single-line blocks (headings, most list items) that
+        never get that internal step. Fixed by making every block consume
+        one full `leading` step *plus* its extra gap before drawing,
+        mirroring how continuation lines inside a block already correctly
+        do `y -= leading`. Applied consistently to headings/paragraphs/list
+        items, code blocks, and rules — verified by re-rendering the same
+        fixture and diffing the before/after images, not just re-reading
+        the code.
+      - **Substituted glyphs were measured correctly but drawn incorrectly**
+        — `resolveFontChoice()`'s final `?`-substitution fallback correctly
+        *measured* width using `"?"`, but the glyph's actual drawn text was
+        reconstructed from the original (unencodable) character at the call
+        site, so an unsupported character (CJK, emoji) still reached
+        `showText()` unchanged and threw. Caught by a unit test, not
+        review — fixed by having the font-resolution result carry the
+        *actual text to draw* end to end, matching how Text to PDF already
+        did this correctly (a design Markdown's rewrite had accidentally
+        narrowed to font+width only).
+      **One deliberately-added polish item, not in the original plan
+      wording, added because an invisible link is a real usability gap, not
+      cosmetic**: link text renders in blue with an underline (`#2563EB`)
+      instead of plain body-color text — the plan only specified "rendered
+      as text *and* a real `PDAnnotationLink`", which technically ships a
+      clickable region with zero visual affordance that it's clickable.
+      Cheap to add once runs were already being colored per-style; fixed
+      before shipping rather than filed as a follow-up.
+      **Verification**: 18 backend tests (headings, bold/italic/code spans,
+      bullet/ordered/nested lists, fenced/indented code blocks, blockquotes,
+      http vs. non-http links, thematic breaks, mixed Devanagari+Latin,
+      multi-page pagination, both page sizes, all four rejection paths,
+      glyph substitution) plus three full render-and-look passes against a
+      fixture covering every block type at once, using a real PDF renderer
+      (not PDFBox's own headless rasterizer, which was independently
+      confirmed — by checking the actual font resource dictionary — to
+      substitute one generic font for all four Helvetica weights in this
+      Docker image specifically, making bold/italic invisible in *that*
+      diagnostic tool alone while the PDF itself, and every other viewer,
+      renders them correctly).
 
 ## Architecture (as shipped)
 

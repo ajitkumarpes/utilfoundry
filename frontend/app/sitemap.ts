@@ -32,7 +32,8 @@ const TOOL_ROUTES = [
   "bookmarks-pdf",
   "sanitize-pdf",
   "header-footer-pdf",
-  "text-to-pdf"
+  "text-to-pdf",
+  "markdown-to-pdf"
 ];
 
 export default function sitemap(): MetadataRoute.Sitemap {
