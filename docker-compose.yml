@@ -45,6 +45,10 @@ services:
     environment:
       SPRING_PROFILES_ACTIVE: docker
       S3_ENDPOINT: http://minio:9000
+      # Deliberately not http://minio:9000 - this one signs URLs a browser on the host follows
+      # directly, and the host resolves MinIO through its published port, not the compose
+      # network's internal service name.
+      S3_PUBLIC_ENDPOINT: http://localhost:9000
       S3_ACCESS_KEY: minioadmin
       S3_SECRET_KEY: minioadmin123
       S3_BUCKET: pdf-files

@@ -11,7 +11,11 @@ spring:
     password: pdf_password
   jpa:
     hibernate:
-      ddl-auto: update
+      ddl-auto: validate
+  flyway:
+    baseline-on-migrate: true
+    baseline-version: 1
+    baseline-description: "Schema created by Hibernate ddl-auto before Flyway adoption"
 management:
   endpoints:
     web:
@@ -22,6 +26,13 @@ server:
 app:
   s3:
     endpoint: ${S3_ENDPOINT:http://localhost:9000}
+    # Used only to SIGN download URLs, never to reach storage server-to-server - must be an
+    # address the requesting browser can resolve. Same value as `endpoint` here because nothing
+    # is containerized in this default profile; the docker profile below points it at MinIO's
+    # host-mapped port instead of the internal `minio` service name `endpoint` resolves to
+    # there. In a real deployment this is the storage's actual public URL, which may differ from
+    # both.
+    public-endpoint: ${S3_PUBLIC_ENDPOINT:http://localhost:9000}
     access-key: ${S3_ACCESS_KEY:minioadmin}
     secret-key: ${S3_SECRET_KEY:minioadmin123}
     bucket: ${S3_BUCKET:pdf-files}

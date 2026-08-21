@@ -36,7 +36,7 @@ export default function JobToolWorkspace({
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [jobId, setJobId] = useState<string | null>(null);
-  const [downloadUrl, setDownloadUrl] = useState<string | null>(null);
+  const [downloadTriggered, setDownloadTriggered] = useState(false);
 
   const { status, error: pollError, resultFilename } = useJobPoll(jobId);
 
@@ -90,20 +90,15 @@ export default function JobToolWorkspace({
     }
   };
 
-  const download = async () => {
+  const download = () => {
     if (!jobId) return;
-    const response = await fetch(`${API_BASE_URL}/api/v1/pdf/jobs/${jobId}/download`);
-    if (!response.ok) return;
-    const blob = await response.blob();
-    const url = URL.createObjectURL(blob);
-    setDownloadUrl(url);
-
-    const anchor = document.createElement("a");
-    anchor.href = url;
-    anchor.download = resultFilename || "download";
-    document.body.appendChild(anchor);
-    anchor.click();
-    anchor.remove();
+    // A plain navigation, not fetch().blob() - the backend 302s straight to a presigned MinIO
+    // URL on a different origin, and a script-mediated fetch of that redirect would need MinIO's
+    // CORS to allow reading the response. Top-level navigation isn't subject to that: the browser
+    // follows the redirect and MinIO's own Content-Disposition header drives the save, no JS
+    // blob-handling required.
+    window.location.href = `${API_BASE_URL}/api/v1/pdf/jobs/${jobId}/download`;
+    setDownloadTriggered(true);
   };
 
   useEffect(() => {
@@ -114,10 +109,9 @@ export default function JobToolWorkspace({
   }, [status, jobId]);
 
   const reset = () => {
-    if (downloadUrl) URL.revokeObjectURL(downloadUrl);
     setFile(null);
     setJobId(null);
-    setDownloadUrl(null);
+    setDownloadTriggered(false);
     setSubmitError(null);
 
     const url = new URL(window.location.href);
@@ -189,15 +183,9 @@ export default function JobToolWorkspace({
             <h2>Your file is ready</h2>
             <p>Your download should start automatically.{resultNote ? ` ${resultNote}` : ""}</p>
 
-            {downloadUrl ? (
-              <a className="primary-btn" href={downloadUrl} download={resultFilename || "download"}>
-                <Download size={18} /> Download {resultFilename}
-              </a>
-            ) : (
-              <button type="button" className="primary-btn" onClick={download}>
-                <Download size={18} /> Download {resultFilename}
-              </button>
-            )}
+            <button type="button" className="primary-btn" onClick={download}>
+              <Download size={18} /> {downloadTriggered ? "Download again" : "Download"} {resultFilename}
+            </button>
 
             <button type="button" className="secondary-btn" onClick={reset}>
               <XCircle size={17} /> Convert another

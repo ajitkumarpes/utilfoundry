@@ -1,8 +1,7 @@
 package com.utilnexa.pdf.job;
 
+import java.net.URI;
 import java.util.UUID;
-import org.springframework.http.ContentDisposition;
-import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
@@ -70,17 +69,12 @@ public class JobController {
   }
 
   @GetMapping("/jobs/{id}/download")
-  public ResponseEntity<byte[]> download(@PathVariable UUID id) {
-    JobService.DownloadableResult result = jobService.getDownloadableResult(id);
-
-    HttpHeaders headers = new HttpHeaders();
-    headers.setContentType(MediaType.parseMediaType(result.contentType()));
-    headers.setContentLength(result.content().length);
-    headers.setContentDisposition(
-        ContentDisposition.attachment().filename(result.filename()).build());
-    headers.setCacheControl("no-store, max-age=0");
-
-    return ResponseEntity.ok().headers(headers).body(result.content());
+  public ResponseEntity<Void> download(@PathVariable UUID id) {
+    JobService.DownloadUrl result = jobService.getDownloadUrl(id);
+    // Redirects the browser straight to MinIO instead of this service reading the whole
+    // object into memory and re-streaming it - the presigned URL itself carries the
+    // Content-Disposition/Content-Type MinIO responds with, so nothing else is needed here.
+    return ResponseEntity.status(HttpStatus.FOUND).location(URI.create(result.url())).build();
   }
 
   private ResponseEntity<JobSubmittedResponse> accepted(Job job) {

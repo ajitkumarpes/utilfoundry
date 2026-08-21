@@ -131,9 +131,9 @@ public class JobService {
     return jobRepository.findById(id).orElseThrow(() -> new JobNotFoundException(id));
   }
 
-  public record DownloadableResult(byte[] content, String filename, String contentType) {}
+  public record DownloadUrl(String url, String filename) {}
 
-  public DownloadableResult getDownloadableResult(UUID id) {
+  public DownloadUrl getDownloadUrl(UUID id) {
     Job job = getStatus(id);
     if (job.getStatus() == JobStatus.FAILED) {
       throw new JobNotReadyException(
@@ -142,8 +142,9 @@ public class JobService {
     if (job.getStatus() != JobStatus.SUCCEEDED || job.getResultKey() == null) {
       throw new JobNotReadyException("This job is still processing.");
     }
-    byte[] content = storage.get(job.getResultKey());
-    return new DownloadableResult(content, resultFilenameFor(job), contentTypeFor(job.getType()));
+    String filename = resultFilenameFor(job);
+    String url = storage.presignGet(job.getResultKey(), filename, contentTypeFor(job.getType()));
+    return new DownloadUrl(url, filename);
   }
 
   public String resultFilenameFor(Job job) {

@@ -104,4 +104,53 @@ class JobServiceTest {
 
     assertThrows(JobNotFoundException.class, () -> service.getStatus(id));
   }
+
+  @Test
+  void getDownloadUrlReturnsAPresignedUrlForASucceededJob() {
+    Job job = succeededJob();
+    when(jobRepository.findById(job.getId())).thenReturn(java.util.Optional.of(job));
+    when(storage.presignGet("results/1", "report.pdf", "application/pdf"))
+        .thenReturn("https://minio.example/results/1?X-Amz-Signature=abc");
+
+    JobService.DownloadUrl result = service.getDownloadUrl(job.getId());
+
+    assertEquals("https://minio.example/results/1?X-Amz-Signature=abc", result.url());
+    assertEquals("report.pdf", result.filename());
+  }
+
+  @Test
+  void getDownloadUrlThrowsForAFailedJob() {
+    Job job = succeededJob();
+    job.setStatus(JobStatus.FAILED);
+    job.setErrorMessage("The source file was corrupted.");
+    when(jobRepository.findById(job.getId())).thenReturn(java.util.Optional.of(job));
+
+    JobNotReadyException thrown =
+        assertThrows(JobNotReadyException.class, () -> service.getDownloadUrl(job.getId()));
+    assertEquals("The source file was corrupted.", thrown.getMessage());
+  }
+
+  @Test
+  void getDownloadUrlThrowsWhileStillProcessing() {
+    Job job = succeededJob();
+    job.setStatus(JobStatus.PROCESSING);
+    job.setResultKey(null);
+    when(jobRepository.findById(job.getId())).thenReturn(java.util.Optional.of(job));
+
+    assertThrows(JobNotReadyException.class, () -> service.getDownloadUrl(job.getId()));
+  }
+
+  private Job succeededJob() {
+    Job job = new Job();
+    job.setId(java.util.UUID.randomUUID());
+    job.setType(JobType.WORD_TO_PDF);
+    job.setStatus(JobStatus.SUCCEEDED);
+    job.setInputKey("inputs/1");
+    job.setResultKey("results/1");
+    job.setOriginalFilename("report.docx");
+    job.setAttempts((short) 1);
+    job.setCreatedAt(java.time.Instant.now());
+    job.setUpdatedAt(java.time.Instant.now());
+    return job;
+  }
 }
