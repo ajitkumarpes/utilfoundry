@@ -99,8 +99,10 @@ Extract Fonts specifically after asking the user to weigh in on the
 licensing risk (embedding a font for display and reusing the font file
 elsewhere are governed by different rights); the tool ships with that
 disclosed directly in its own copy. See `docs/NEXT_FEATURES.md` item 14 for
-the full account, including Request Signature, the one item still excluded
-with a stated reason, not silently.
+the full account, including Request Signature — the one item excluded from
+this batch, now fully scoped (email provider, durable-state schema, signer
+flow, abuse-prevention model) but still not built, pending a separate
+go-ahead.
 
 Repair re-saves whatever PDFBox's own recovery-capable parser was able to
 read from a damaged file — it doesn't have separate "repair logic," the

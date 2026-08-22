@@ -611,7 +611,8 @@
         not once per page reference (`PdfExtractFontsServiceTest`, 3 tests,
         including one fixture with the font used across two pages asserting
         a single result).
-      One item remains excluded **with a stated reason**, not silently:
+      One item was excluded **with a stated reason**, not silently, then
+      scoped (not built) once asked directly:
       - **Request Signature** (send a PDF to someone else to sign, track
         who has/hasn't signed) — not offered, and not comparable in size to
         anything else in this document. Every tool in this repo, sync and
@@ -631,8 +632,84 @@
         Forms exclusion the first time around. Put to the user directly, who
         chose to scope this as its own project (email provider selection,
         durable state model, signer-facing flow, all designed before any
-        code) rather than skip it outright — **not started**; revisit when
-        that planning conversation happens.
+        code) rather than skip it outright. Scoping done 2026-08-22 — full
+        design below; **still not started**, code awaits a separate
+        go-ahead.
+
+        **Identity in one sentence**: a way to get one other person's
+        visual signature on a PDF via an emailed link, with an audit trail
+        of who signed and when — not a certified e-signature platform, not
+        a multi-party workflow engine. Carries the same disclosure Sign PDF
+        already does (a visual stamp, not a certified e-signature), so it
+        never implies more legal weight than it actually has.
+
+        **Reused, not rebuilt**: the signer's signature capture is the
+        existing draw/upload canvas already in `sign-pdf/page.tsx`
+        (`canvasRef`-based drawing, PNG/JPEG upload as the alternative);
+        applying it to the PDF is the existing `PdfSignService.sign(file,
+        signatureImage, placement)`. Confirmed both exist and fit before
+        proposing reuse, not assumed — nothing new needed there. The new
+        work is entirely the request lifecycle around them.
+
+        **Schema** (new tables, deliberately outside the async job system —
+        that one purges after at most an hour; this needs days):
+        - `signature_requests`: id, creator identity (see verification
+          below), original PDF's S3 key, an optional message, status,
+          `created_at`, `expires_at` (30 days unsigned, proposed default —
+          a maintenance task purges expired requests and their PDFs from
+          storage, mirroring `JobMaintenanceTask`'s shape but on a
+          days-not-hours timescale, and as its own scheduled task, not a
+          parameter change to the existing one).
+        - `signature_signers`: id, `request_id` FK, email, a long random
+          bearer token (same shape as every token-gated link elsewhere on
+          the web — the token *is* the credential, no login involved),
+          status (PENDING/VIEWED/SIGNED/DECLINED), `signed_at`, signer IP
+          for the audit trail.
+        Separate signer table even though V1 ships single-signer-only
+        (simpler flow, simpler UI) — costs nothing to design in now, avoids
+        a painful migration if multi-signer demand ever shows up. Sequential
+        vs. parallel multi-signer signing stays out of scope unless asked
+        for later — flagged, not silently assumed away.
+
+        **Abuse prevention — the real new risk this feature introduces**:
+        every other tool in this app is symmetric (upload, get output back,
+        nobody else is ever contacted); this is the first one that lets
+        someone anonymously email a third party. Put to the user directly,
+        who chose to verify the requester's own email before they can
+        create a request, over staying fully anonymous (matching the rest
+        of the site's no-accounts philosophy) or a CAPTCHA-only middle
+        ground. Designed to need zero new database tables: a stateless,
+        HMAC-signed magic-link token (email + expiry, no DB row) emailed to
+        the requester via the same provider below; clicking it sets a
+        long-lived (90 days, proposed) HttpOnly signed cookie carrying the
+        verified email, so a returning requester skips straight to creating
+        a request — one extra step before the *first* request, none after,
+        matching the option the user picked. Still not an account (no
+        password, nothing to log into) — a device-level trust marker, not
+        different in kind from how `useJobPoll` already persists job state
+        via the URL rather than a login.
+
+        **Signer flow**: email link → public unauthenticated page gated by
+        the signer's own bearer token → view the PDF → sign via the
+        existing canvas → `PdfSignService` stamps it → status flips to
+        SIGNED, requester gets emailed. Signing is one-time and idempotent;
+        the link stays valid read-only (view status/result) until expiry.
+
+        **Email provider**: Resend, chosen directly by the user after a
+        fresh comparison, not the model's own prior knowledge — pricing
+        shifted in 2025 (SendGrid retired its free tier, so reasoning from
+        stale numbers would have been wrong). 3,000 free emails/month, an
+        official Java SDK with Spring Boot examples, no onboarding
+        friction. AWS SES was the cheaper-at-scale alternative but starts
+        in sandbox mode requiring an AWS support request before it can send
+        beyond verified addresses — real friction given this stack has no
+        existing AWS account (it uses the AWS SDK today only against
+        self-hosted MinIO). Postmark has the best transactional
+        deliverability but no meaningful free tier ($15/mo from the first
+        email sent, before this feature has proven any real demand).
+
+        **Not started** — this is the design, not the build. Revisit when
+        the user asks for implementation.
 
 ## Architecture (as shipped)
 
