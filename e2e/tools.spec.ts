@@ -35,7 +35,7 @@ test.describe("developer tools browser coverage", () => {
     await page.goto("/");
     await page.getByRole("button", { name: /View all 70 tools/ }).click();
     const cases = [
-      ["base64", "decode", "VXRpbE5leGE=", "UtilNexa"],
+      ["base64", "decode", "VXRpbEZvdW5kcnk=", "UtilFoundry"],
       ["hex", "decode", "41 42 43", '"text": "ABC"'],
       ["binary", "binary-to-hex", "01000001", "41"],
       ["bcd", "decode", "12 34 5F", "12345"],

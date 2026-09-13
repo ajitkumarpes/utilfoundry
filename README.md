@@ -1,4 +1,4 @@
-# UtilNexa Developer Tools
+# UtilFoundry Developer Tools
 
 A privacy-first developer toolbox built with Next.js, React, and TypeScript. Tool processing runs in the browser; no input is uploaded by the application.
 

@@ -3,6 +3,7 @@
 /* eslint-disable @next/next/no-img-element */
 
 import { useEffect, useMemo, useRef, useState } from "react";
+import { BrandMark } from "@/components/BrandMark";
 import { load as parseYaml, dump as dumpYaml } from "js-yaml";
 import Papa from "papaparse";
 import {
@@ -728,24 +729,24 @@ const tools: Tool[] = [
 ];
 
 const starterValues: Record<string, string> = {
-  json: '{"project":"UtilNexa","private":true,"tools":["json","jwt"]}',
-  base64: "UtilNexa developer tools",
-  url: "https://utilnexa.com/tools?q=hello world",
+  json: '{"project":"UtilFoundry","private":true,"tools":["json","jwt"]}',
+  base64: "UtilFoundry developer tools",
+  url: "https://utilfoundry.com/tools?q=hello world",
   jwt: "eyJhbGciOiJub25lIiwidHlwIjoiSldUIn0.eyJzdWIiOiJ1c2VyIiwicm9sZSI6ImRldmVsb3BlciJ9.",
   hash: "Hash this text locally",
   uuid: "",
   timestamp: "",
   regex: "The quick brown fox jumps over the lazy dog.",
   markdown: "# Hello, developer\n\nWrite Markdown and see a **live preview**.",
-  yaml: "name: UtilNexa\nprivate: true\ntools:\n  - json\n  - jwt",
+  yaml: "name: UtilFoundry\nprivate: true\ntools:\n  - json\n  - jwt",
   curl: '{"method":"GET","url":"https://api.example.com/users"}',
   diff: "before\n---\nafter",
-  xml: "<project><name>UtilNexa</name><private>true</private></project>",
+  xml: "<project><name>UtilFoundry</name><private>true</private></project>",
   csv: "name,phase,private\nJSON,1,true\nJWT,1,true",
-  html: '<section class="hero">UtilNexa & tools</section>',
+  html: '<section class="hero">UtilFoundry & tools</section>',
   sql: "select id, email from users where active = true order by created_at desc;",
   graphql: "query User($id: ID!) { user(id: $id) { id email } }",
-  query: "https://utilnexa.com/tools?category=security&phase=1&private=true",
+  query: "https://utilfoundry.com/tools?category=security&phase=1&private=true",
   number: "255",
   color: "#4263EB",
   status: "404",
@@ -755,14 +756,14 @@ const starterValues: Record<string, string> = {
   jsonpath: '{"user":{"name":"Asha","roles":["admin"]}}',
   "json-diff": '{"name":"before"}\n---\n{"name":"after","active":true}',
   "xml-validator": "<root><item>Valid</item></root>",
-  "yaml-formatter": "name: UtilNexa\nprivate: true\ntools:\n  - json\n  - jwt",
+  "yaml-formatter": "name: UtilFoundry\nprivate: true\ntools:\n  - json\n  - jwt",
   password: "",
   whitespace: "hello   world\n\n\nnext line  ",
   "line-sort": "zebra\napple\nBanana\napple",
   "line-dedupe": "apple\nbanana\napple\ncarrot",
   "iso-date": "2026-09-05 14:30",
   timezone: "2026-09-05T14:30:00Z",
-  "url-parser": "https://api.utilnexa.com:443/v1/users?active=true#top",
+  "url-parser": "https://api.utilfoundry.com:443/v1/users?active=true#top",
   "code-formatter": "function hello(name){return {message:'Hello '+name};}",
   "csv-viewer": "name,role\nAsha,admin\nDev,member",
   mime: "application/json",
@@ -783,7 +784,7 @@ const starterValues: Record<string, string> = {
   "api-request":
     '{"method":"POST","url":"https://api.example.com/users","headers":{"content-type":"application/json"},"body":{"name":"Asha"}}',
   "image-base64": "data:image/svg+xml;base64,PHN2Zy8+",
-  qr: "https://utilnexa.com",
+  qr: "https://utilfoundry.com",
   semver: "1.4.0 1.3.9",
   env: "PORT=3000\nNODE_ENV=production\n# comment\nAPI_URL=https://api.example.com",
   "openapi-diff":
@@ -794,7 +795,7 @@ const starterValues: Record<string, string> = {
   protobuf: "08 96 01 12 05 48 65 6C 6C 6F",
   asn1: "30 0A 02 01 05 04 05 48 65 6C 6C 6F",
   "regex-safe": "aaaaaaaaaaaaaaaaaaaaaaaa",
-  hex: "UtilNexa payments",
+  hex: "UtilFoundry payments",
   binary: "4A 53 4F 4E",
   bcd: "1234567890",
   ebcdic: "C1 C2 C3 40 F1 F2 F3",
@@ -1331,7 +1332,7 @@ export default function Home() {
 
   function saveWorkspace() {
     try {
-      localStorage.setItem("utilnexa-dev-workspace", workspaceSnapshot());
+      localStorage.setItem("utilfoundry-dev-workspace", workspaceSnapshot());
       setNotice("Workspace saved locally");
     } catch {
       setNotice("Local workspace storage is unavailable");
@@ -1343,7 +1344,7 @@ export default function Home() {
     link.href = URL.createObjectURL(
       new Blob([workspaceSnapshot()], { type: "application/json" }),
     );
-    link.download = "utilnexa-workspace.json";
+    link.download = "utilfoundry-workspace.json";
     link.click();
     URL.revokeObjectURL(link.href);
     setNotice("Workspace exported locally");
@@ -1395,8 +1396,8 @@ export default function Home() {
     <main className="shell">
       <aside className={`sidebar ${mobileOpen ? "is-open" : ""}`}>
         <div className="brand">
-          <div className="brand-mark">U</div>
-          <span>UtilNexa</span>
+          <BrandMark />
+          <span>UtilFoundry</span>
           <span className="brand-pill">DEV</span>
         </div>
         <div className="sidebar-heading">Workspace</div>
