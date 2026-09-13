@@ -3,6 +3,7 @@
 .vscode/
 *.iml
 node_modules/
+.processor-venv/
 .next/
 target/
 .DS_Store

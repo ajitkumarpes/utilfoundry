@@ -1,0 +1,42 @@
+spring:
+  datasource:
+    url: ${JDBC_DATABASE_URL:jdbc:postgresql://postgres:5432/pdf_platform}
+    username: ${POSTGRES_USER}
+    password: ${POSTGRES_PASSWORD}
+  data:
+    redis:
+      host: ${REDIS_HOST:redis}
+      port: ${REDIS_PORT:6379}
+
+management:
+  endpoint:
+    health:
+      show-components: never
+      show-details: never
+  endpoints:
+    web:
+      exposure:
+        include: health,info
+
+springdoc:
+  api-docs:
+    enabled: false
+  swagger-ui:
+    enabled: false
+
+app:
+  ops:
+    enabled: false
+  s3:
+    endpoint: ${S3_ENDPOINT}
+    public-endpoint: ${S3_PUBLIC_ENDPOINT}
+    access-key: ${S3_ACCESS_KEY}
+    secret-key: ${S3_SECRET_KEY}
+    bucket: ${S3_BUCKET:pdf-files}
+  processor:
+    base-url: ${PROCESSOR_BASE_URL}
+    token: ${PROCESSOR_TOKEN}
+  cors:
+    allowed-origins: ${CORS_ALLOWED_ORIGINS}
+  rate-limit:
+    requests-per-minute: ${RATE_LIMIT_PER_MINUTE:20}

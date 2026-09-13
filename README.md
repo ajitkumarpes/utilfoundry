@@ -134,12 +134,12 @@ downloaded.
 ## Stack
 - Next.js + TypeScript frontend, drag-and-drop reordering via `@dnd-kit`,
   client-side page thumbnails via `pdfjs-dist`, job polling via a shared hook
-- Java 21 + Spring Boot backend — PDFBox for sync tools, a Redis-queued job
-  dispatcher for async tools
+- Java 21 + Spring Boot backend — PDFBox for sync tools, a durable Postgres-backed
+  job dispatcher for async tools
 - Python/FastAPI processor shim (`processor/app.py`) — stateless executor
   running `ocrmypdf`/Tesseract and LibreOffice headless, no DB/queue access
-- PostgreSQL for job state, Redis as the job queue, MinIO (S3-compatible)
-  for job input/output storage
+- PostgreSQL for job state and its atomic work queue, Redis for distributed rate
+  limiting, MinIO (S3-compatible) for job input/output storage
 - Docker Compose for local development
 
 ## Run
@@ -161,7 +161,7 @@ which defaults to `http://localhost:8091`.
 
 ## Site essentials
 Beyond the tools themselves: CORS origins and the per-IP rate limit (default
-20 requests/minute on `/api/**`, in-memory token bucket via Bucket4j — see
+20 requests/minute on `/api/**`, Redis-backed token bucket via Bucket4j — see
 `RateLimitFilter`) are both environment-configurable (`CORS_ALLOWED_ORIGINS`,
 `RATE_LIMIT_PER_MINUTE` — see `.env.example`), not hardcoded to localhost.
 Every tool page has its own SEO title/description (client-component pages
@@ -174,8 +174,15 @@ files, but **both have `[CONTACT_EMAIL]` / `[JURISDICTION]` placeholders
 that need real values filled in before this goes live**; nothing here
 fabricates a company identity that doesn't exist yet.
 
+## Production deployment
+
+For the production topology (landing page, developer tools, PDF backend, processor, PostgreSQL, Redis,
+MinIO, and Caddy), see [docs/PRODUCTION.md](docs/PRODUCTION.md) and the sibling `utilnexa-web/deployment`
+Compose project. The local `docker-compose.yml` is intended for development only.
+
 ## Production readiness
-The synchronous tools process everything in memory; the async tools (OCR,
+The synchronous tools process within the request (Merge uses immediately deleted
+temporary files); the async tools (OCR,
 Office conversion) already run through a real job queue with retry, timeout,
 and stale-job reaping — see `docs/NEXT_FEATURES.md` for the full design.
 
@@ -185,11 +192,12 @@ through real Flyway migrations (`backend/src/main/resources/db/migration/`,
 redirects to a short-lived presigned MinIO URL instead of proxying file
 bytes through the API's own memory; and the rate limiter is now Redis-backed
 (`RedisRateLimiter`, shared across however many backend replicas are
-running, not a per-instance `ConcurrentHashMap`) — fails open, not closed,
-on a Redis outage, verified live: a stopped Redis container returns a fast
-(sub-second) pass-through instead of the ~2-minute hang Lettuce's own
-defaults produced before a short command timeout and `REJECT_COMMANDS`
-were configured explicitly.
+running, not a per-instance `ConcurrentHashMap`). On a Redis outage it moves
+to bounded per-instance emergency buckets, preserving availability without
+silently removing abuse protection; a short command timeout and
+`REJECT_COMMANDS` prevent the multi-minute request hangs caused by Lettuce's
+reconnection defaults.
 
-Still open: this has never been deployed anywhere — no CI/CD, no hosting
-target, no TLS — only ever run via local `docker compose up`.
+Still open: this has never been deployed anywhere — CI now verifies every
+push and pull request, but a hosting target, deployment pipeline, domain and
+TLS configuration still need to be selected.
