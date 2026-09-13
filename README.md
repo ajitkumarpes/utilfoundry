@@ -1,9 +1,9 @@
-# UtilNexa landing page
+# UtilFoundry landing page
 
-The main `utilnexa.com` landing page for the UtilNexa platform. It links to the independent PDF and developer-tool workspaces:
+The main `utilfoundry.com` landing page for the UtilFoundry platform. It links to the independent PDF and developer-tool workspaces:
 
-- `pdf.utilnexa.com`
-- `dev.utilnexa.com`
+- `pdf.utilfoundry.com`
+- `dev.utilfoundry.com`
 
 ## Local development
 
@@ -15,7 +15,6 @@ npm run dev
 ## Container
 
 ```bash
-docker build -t utilnexa-web .
-docker run --rm -p 3000:3000 utilnexa-web
+docker build -t utilfoundry-web .
+docker run --rm -p 3000:3000 utilfoundry-web
 ```
-
