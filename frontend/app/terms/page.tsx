@@ -4,7 +4,7 @@ import SiteFooter from "@/components/SiteFooter";
 
 export const metadata: Metadata = {
   title: "Terms of Service",
-  description: "The terms that apply to using PDFLab's free PDF tools."
+  description: "The terms that apply to using UtilFoundry PDF's free PDF tools."
 };
 
 export default function TermsPage() {
@@ -16,13 +16,13 @@ export default function TermsPage() {
         <p className="updated">Last updated: 20 August 2026</p>
 
         <p>
-          These terms apply when you use PDFLab (part of the UtilNexa toolbox, &quot;we&quot;, &quot;us&quot;) at
+          These terms apply when you use UtilFoundry PDF (part of the UtilFoundry toolbox, &quot;we&quot;, &quot;us&quot;) at
           this website. By uploading a file or using a tool here, you agree to them.
         </p>
 
         <h2>What this service is</h2>
         <p>
-          PDFLab offers free, browser-based tools for working with PDF files — merging, splitting, converting,
+          UtilFoundry PDF offers free, browser-based tools for working with PDF files — merging, splitting, converting,
           compressing, watermarking, signing, redacting, and similar operations. No account is required and there
           is no charge to use any tool listed on this site.
         </p>

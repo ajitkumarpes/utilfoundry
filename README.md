@@ -1,6 +1,6 @@
 # PDF Utility Platform
 
-The PDF vertical of the UtilNexa toolbox — a standalone app, own codebase.
+The PDF vertical of the UtilFoundry toolbox — a standalone app, own codebase.
 Other tool families (developer tools, image tools, calculators, AI tools) are
 separate apps, linked together from a master site later. This repo only
 builds PDF tools.

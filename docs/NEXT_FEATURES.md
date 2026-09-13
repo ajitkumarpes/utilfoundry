@@ -130,11 +130,11 @@
       Next.js forbids from exporting metadata at all, so each got a new
       sibling `layout.tsx` carrying the metadata instead — **zero changes to
       any of the 15 already-working client page.tsx files.** Root layout now
-      defines a title template (`"%s | PDFLab"`) so child pages only need a
+      defines a title template (`"%s | UtilFoundry PDF"`) so child pages only need a
       short unique title. Verified in a real, rebuilt-from-scratch browser
       session: correct tab title for both a direct-metadata page
-      (`Merge PDF | PDFLab`) and a sibling-layout page
-      (`Redact PDF | PDFLab`), `/robots.txt` and `/sitemap.xml` serving valid
+      (`Merge PDF | UtilFoundry PDF`) and a sibling-layout page
+      (`Redact PDF | UtilFoundry PDF`), `/robots.txt` and `/sitemap.xml` serving valid
       content, the favicon and OG image both returning real PNGs, the custom
       404 page rendering for an unknown route, and — to close the loop that
       none of this broke the actual product — a real file drop through

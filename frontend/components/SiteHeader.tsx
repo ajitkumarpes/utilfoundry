@@ -1,10 +1,11 @@
 import Link from "next/link";
+import { BrandMark } from "./BrandMark";
 
 export default function SiteHeader() {
   return (
     <header className="site-header">
       <Link href="/" className="brand">
-        <b>P</b> PDF<span>Lab</span>
+        <BrandMark size={32} /> <span>UtilFoundry <em>PDF</em></span>
       </Link>
       <nav className="desktop-nav" aria-label="Tool categories">
         <Link href="/#organize-tools">Organize</Link>

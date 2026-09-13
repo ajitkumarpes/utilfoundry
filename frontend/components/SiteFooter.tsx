@@ -5,7 +5,7 @@ export default function SiteFooter() {
     <footer>
       <div style={{ display: "flex", justifyContent: "space-between", flexWrap: "wrap", gap: 12 }}>
         <span>
-          PDFLab · Part of the UtilNexa toolbox · Files are processed privately and
+          UtilFoundry PDF · Part of the UtilFoundry toolbox · Files are processed privately and
           removed automatically.
         </span>
         <div style={{ display: "flex", gap: 18 }}>

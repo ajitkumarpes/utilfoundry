@@ -16,14 +16,14 @@ public class OpenApiConfig {
     return new OpenAPI()
         .info(
             new Info()
-                .title("PDFLab API")
+                .title("UtilFoundry PDF API")
                 .description("PDF processing, conversion, OCR, organization, and protection APIs.")
                 .version("v1")
-                .contact(new Contact().name("PDFLab"))
+                .contact(new Contact().name("UtilFoundry"))
                 .license(new License().name("Proprietary")))
         .externalDocs(
             new ExternalDocumentation()
-                .description("PDFLab web application")
+                .description("UtilFoundry PDF web application")
                 .url("http://localhost:3000"));
   }
 }

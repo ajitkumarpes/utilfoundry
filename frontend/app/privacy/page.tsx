@@ -4,7 +4,7 @@ import SiteFooter from "@/components/SiteFooter";
 
 export const metadata: Metadata = {
   title: "Privacy Policy",
-  description: "How PDFLab handles the files and data you give it."
+  description: "How UtilFoundry PDF handles the files and data you give it."
 };
 
 export default function PrivacyPage() {
@@ -16,7 +16,7 @@ export default function PrivacyPage() {
         <p className="updated">Last updated: 20 August 2026</p>
 
         <p>
-          PDFLab (part of the UtilNexa toolbox, &quot;we&quot;, &quot;us&quot;) provides free PDF tools at this
+          UtilFoundry PDF (part of the UtilFoundry toolbox, &quot;we&quot;, &quot;us&quot;) provides free PDF tools at this
           website. This page explains what happens to your files and any other data when you use them.
         </p>
 
@@ -33,7 +33,7 @@ export default function PrivacyPage() {
             <strong>Most tools</strong> (Merge, Split, Organize, Rotate, Crop, Compress, Watermark, Page Numbers,
             Lock PDF, Unlock, Grayscale, Extract Images, Sign, Redact, Image ↔ PDF) process your file
             during the request. Most stay in memory; Merge may use operating-system temporary files, which are
-            deleted immediately after the request completes. Once the result is returned, PDFLab does not retain a
+            deleted immediately after the request completes. Once the result is returned, UtilFoundry PDF does not retain a
             reusable copy of the upload.
           </li>
           <li>
