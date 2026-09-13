@@ -10,9 +10,12 @@ import {
   cleanWhitespace,
   compareVersions,
   convertTimezone,
+  decodeAsn1,
+  decodeProtobuf,
   decodePem,
   dedupeLines,
   diffJson,
+  diffOpenApi,
   diffText,
   explainCron,
   explainRegex,
@@ -27,11 +30,14 @@ import {
   convertNumber,
   convertColor,
   generateGitignore,
+  generateJsonSchema,
   generatePassword,
   generateQr,
   imageToBase64,
   lookupMime,
   parseUrl,
+  redactSecrets,
+  safeRegexTest,
   signJwtHmac,
   sortLines,
   summarizeCsv,
@@ -42,6 +48,7 @@ import {
   validateSchema,
   validateXml,
   verifyJwtHmac,
+  verifyJwtRsa,
   formatWebhook,
 } from "../lib/extra-tools";
 import {
@@ -575,6 +582,69 @@ const tools: Tool[] = [
     accent: "teal",
   },
   {
+    id: "openapi-diff",
+    name: "OpenAPI Diff",
+    description: "Detect potentially breaking API changes",
+    category: "API",
+    icon: ShieldCheck,
+    phase: 2,
+    accent: "pink",
+  },
+  {
+    id: "json-schema-generator",
+    name: "JSON Schema Generator",
+    description: "Generate a draft schema from JSON",
+    category: "JSON",
+    icon: Braces,
+    phase: 2,
+    accent: "violet",
+  },
+  {
+    id: "jwt-rsa",
+    name: "JWT RS256 Verifier",
+    description: "Verify JWTs with a local JWK",
+    category: "Security",
+    icon: KeyRound,
+    phase: 2,
+    accent: "amber",
+  },
+  {
+    id: "log-redactor",
+    name: "Log Secret Redactor",
+    description: "Remove common secrets from logs",
+    category: "Security",
+    icon: ShieldCheck,
+    phase: 2,
+    accent: "rose",
+  },
+  {
+    id: "protobuf",
+    name: "Protobuf Wire Decoder",
+    description: "Inspect protobuf bytes without a schema",
+    category: "Encoding",
+    icon: Braces,
+    phase: 2,
+    accent: "blue",
+  },
+  {
+    id: "asn1",
+    name: "ASN.1 DER Inspector",
+    description: "Inspect DER TLV structure locally",
+    category: "Encoding",
+    icon: Braces,
+    phase: 2,
+    accent: "orange",
+  },
+  {
+    id: "regex-safe",
+    name: "Safe Regex Tester",
+    description: "Test patterns with abuse safeguards",
+    category: "Text",
+    icon: Terminal,
+    phase: 2,
+    accent: "indigo",
+  },
+  {
     id: "hex",
     name: "Hex Encoder / Decoder",
     description: "Convert text and protocol hexadecimal bytes",
@@ -716,6 +786,14 @@ const starterValues: Record<string, string> = {
   qr: "https://utilnexa.com",
   semver: "1.4.0 1.3.9",
   env: "PORT=3000\nNODE_ENV=production\n# comment\nAPI_URL=https://api.example.com",
+  "openapi-diff":
+    '{"openapi":"3.0.3","info":{"title":"Demo","version":"1"},"paths":{"/users":{"get":{"responses":{"200":{"description":"ok"},"404":{"description":"missing"}}}}}}\n---\n{"openapi":"3.0.3","info":{"title":"Demo","version":"2"},"paths":{"/users":{"get":{"responses":{"200":{"description":"ok"}}}}}}',
+  "json-schema-generator": '{"name":"Asha","age":30,"active":true}',
+  "jwt-rsa": "eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxMjMifQ.signature\n---\n{\"kty\":\"RSA\",\"n\":\"\",\"e\":\"AQAB\"}",
+  "log-redactor": "INFO authorization: Bearer eyJhbGciOiJub25lIn0.secret\nuser email=a@example.com api_key=sk_live_example",
+  protobuf: "08 96 01 12 05 48 65 6C 6C 6F",
+  asn1: "30 0A 02 01 05 04 05 48 65 6C 6C 6F",
+  "regex-safe": "aaaaaaaaaaaaaaaaaaaaaaaa",
   hex: "UtilNexa payments",
   binary: "4A 53 4F 4E",
   bcd: "1234567890",
@@ -865,6 +943,7 @@ export default function Home() {
   const [mobileOpen, setMobileOpen] = useState(false);
   const [showAll, setShowAll] = useState(false);
   const searchRef = useRef<HTMLInputElement>(null);
+  const workspaceFileRef = useRef<HTMLInputElement>(null);
   const selected = tools.find((tool) => tool.id === selectedId) ?? tools[0];
 
   const categories = [
@@ -1140,6 +1219,11 @@ export default function Home() {
       else if (selectedId === "mime") setOutput(lookupMime(input));
       else if (selectedId === "openapi-viewer")
         setOutput(summarizeOpenApi(input));
+      else if (selectedId === "openapi-diff") {
+        const [before, after] = input.split(/\r?\n---\r?\n/);
+        if (!after) throw new Error("Separate the old and new OpenAPI documents with a line containing ---.");
+        setOutput(diffOpenApi(before, after));
+      }
       else if (selectedId === "openapi-validator")
         setOutput(await validateOpenApi(input));
       else if (selectedId === "json-schema") {
@@ -1151,6 +1235,17 @@ export default function Home() {
         setOutput(validateSchema(data, schema));
       } else if (selectedId === "regex-visualizer")
         setOutput(JSON.stringify(explainRegex(input), null, 2));
+      else if (selectedId === "json-schema-generator")
+        setOutput(generateJsonSchema(input));
+      else if (selectedId === "jwt-rsa") {
+        const [token, jwk] = input.split(/\r?\n---\r?\n/);
+        if (!jwk) throw new Error("Separate the JWT and JWK JSON with a line containing ---.");
+        setOutput(await verifyJwtRsa(token, jwk));
+      } else if (selectedId === "log-redactor") setOutput(redactSecrets(input));
+      else if (selectedId === "protobuf") setOutput(decodeProtobuf(input));
+      else if (selectedId === "asn1") setOutput(decodeAsn1(input));
+      else if (selectedId === "regex-safe")
+        setOutput(safeRegexTest(pattern, input, flags));
       else if (selectedId === "docker-compose")
         setOutput(validateCompose(input));
       else if (selectedId === "gitignore") setOutput(generateGitignore(input));
@@ -1216,6 +1311,64 @@ export default function Home() {
     link.click();
     if (objectUrl) URL.revokeObjectURL(objectUrl);
     setNotice("Downloaded locally");
+  }
+
+  function workspaceSnapshot() {
+    return JSON.stringify(
+      {
+        version: 1,
+        tool: selectedId,
+        input,
+        option,
+        pattern,
+        flags,
+        exportedAt: new Date().toISOString(),
+      },
+      null,
+      2,
+    );
+  }
+
+  function saveWorkspace() {
+    try {
+      localStorage.setItem("utilnexa-dev-workspace", workspaceSnapshot());
+      setNotice("Workspace saved locally");
+    } catch {
+      setNotice("Local workspace storage is unavailable");
+    }
+  }
+
+  function exportWorkspace() {
+    const link = document.createElement("a");
+    link.href = URL.createObjectURL(
+      new Blob([workspaceSnapshot()], { type: "application/json" }),
+    );
+    link.download = "utilnexa-workspace.json";
+    link.click();
+    URL.revokeObjectURL(link.href);
+    setNotice("Workspace exported locally");
+  }
+
+  function importWorkspace(file: File | undefined) {
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = () => {
+      try {
+        const saved = JSON.parse(String(reader.result)) as Record<string, unknown>;
+        const tool = typeof saved.tool === "string" && tools.some((item) => item.id === saved.tool)
+          ? saved.tool
+          : "json";
+        setSelectedId(tool);
+        setInput(typeof saved.input === "string" ? saved.input : starterValues[tool] ?? "");
+        if (typeof saved.option === "string") setOption(saved.option);
+        if (typeof saved.pattern === "string") setPattern(saved.pattern);
+        if (typeof saved.flags === "string") setFlags(saved.flags);
+        setNotice("Workspace imported locally");
+      } catch {
+        setNotice("Workspace file is not valid JSON");
+      }
+    };
+    reader.readAsText(file);
   }
 
   function loadImageFile(file: File | undefined) {
@@ -1413,6 +1566,25 @@ export default function Home() {
                 >
                   Clear
                 </button>
+                <button className="ghost-button" onClick={saveWorkspace}>
+                  Save local
+                </button>
+                <button className="ghost-button" onClick={exportWorkspace}>
+                  Export
+                </button>
+                <button
+                  className="ghost-button"
+                  onClick={() => workspaceFileRef.current?.click()}
+                >
+                  Import
+                </button>
+                <input
+                  ref={workspaceFileRef}
+                  type="file"
+                  accept="application/json,.json"
+                  hidden
+                  onChange={(event) => importWorkspace(event.target.files?.[0])}
+                />
                 <button className="primary-button" onClick={runTool}>
                   Run tool <ArrowRight size={16} />
                 </button>
@@ -1472,7 +1644,7 @@ export default function Home() {
                   </select>
                 </label>
               )}
-              {selectedId === "regex" && (
+              {(selectedId === "regex" || selectedId === "regex-safe") && (
                 <>
                   <label>
                     Pattern

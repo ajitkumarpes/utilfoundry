@@ -1,10 +1,13 @@
 import { describe, expect, it } from "vitest";
 import {
   buildApiRequest,
+  decodeAsn1,
+  decodeProtobuf,
   cleanWhitespace,
   compareVersions,
   convertTimezone,
   diffJson,
+  diffOpenApi,
   diffText,
   decodePem,
   dedupeLines,
@@ -21,16 +24,20 @@ import {
   explainRegex,
   formatWebhook,
   generateGitignore,
+  generateJsonSchema,
   generateQr,
   generatePassword,
   imageToBase64,
   lookupMime,
   sortLines,
   renderMarkdown,
+  redactSecrets,
+  safeRegexTest,
   summarizeCsv,
   summarizeOpenApi,
   signJwtHmac,
   verifyJwtHmac,
+  verifyJwtRsa,
   validateCompose,
   validateOpenApi,
   parseUrl,
@@ -201,6 +208,19 @@ describe("developer tool processors", () => {
     );
     await expect(signJwtHmac("[]", "test-secret")).rejects.toThrow();
     await expect(signJwtHmac("{}", "")).rejects.toThrow();
+  });
+
+  it("covers enterprise API, security, and wire-format utilities", async () => {
+    const oldSpec = '{"openapi":"3.0.3","info":{"title":"A","version":"1"},"paths":{"/users":{"get":{"responses":{"200":{"description":"ok"},"404":{"description":"missing"}}}}}}';
+    const newSpec = '{"openapi":"3.0.3","info":{"title":"A","version":"2"},"paths":{"/users":{"get":{"responses":{"200":{"description":"ok"}}}}}}';
+    expect(JSON.parse(diffOpenApi(oldSpec, newSpec)).breaking).toBe(true);
+    expect(JSON.parse(generateJsonSchema('{"name":"Asha","age":3}')).required).toEqual(["name", "age"]);
+    expect(JSON.parse(redactSecrets("authorization: Bearer abc api_key=secret")).redacted).toContain("[REDACTED]");
+    expect(JSON.parse(decodeProtobuf("08 96 01 12 05 48 65 6C 6C 6F")).fields).toHaveLength(2);
+    expect(JSON.parse(decodeAsn1("30 0A 02 01 05 04 05 48 65 6C 6C 6F")).nodes[0].constructed).toBe(true);
+    expect(JSON.parse(safeRegexTest("a+", "aaaa", "g")).count).toBe(1);
+    expect(() => safeRegexTest("(a+)+", "aaaa", "g")).toThrow();
+    await expect(verifyJwtRsa("bad", "{}")).rejects.toThrow();
   });
 
   it("generates bounded passwords with a cryptographic source", () => {

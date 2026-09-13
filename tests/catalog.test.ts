@@ -17,7 +17,7 @@ describe("tool catalog integrity", () => {
         (match) => match[1],
       ),
     );
-    expect(ids).toHaveLength(63);
+    expect(ids).toHaveLength(70);
     expect(new Set(ids).size).toBe(ids.length);
     for (const id of ids)
       expect(handlers.has(id), `${id} has no runTool branch`).toBe(true);

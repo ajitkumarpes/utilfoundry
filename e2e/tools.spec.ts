@@ -10,12 +10,12 @@ test.describe("developer tools browser coverage", () => {
       "The complete 63-tool sweep runs in Chromium; representative workflows cover other engines.",
     );
     await page.goto("/");
-    await page.getByRole("button", { name: /View all 63 tools/ }).click();
+    await page.getByRole("button", { name: /View all 70 tools/ }).click();
 
     const cards = page.locator("button.tool-card");
-    await expect(cards).toHaveCount(63);
+    await expect(cards).toHaveCount(70);
 
-    for (let index = 0; index < 63; index += 1) {
+    for (let index = 0; index < 70; index += 1) {
       const card = cards.nth(index);
       const toolId = await card.getAttribute("data-tool-id");
       expect(toolId).toBeTruthy();
@@ -33,7 +33,7 @@ test.describe("developer tools browser coverage", () => {
     page,
   }) => {
     await page.goto("/");
-    await page.getByRole("button", { name: /View all 63 tools/ }).click();
+    await page.getByRole("button", { name: /View all 70 tools/ }).click();
     const cases = [
       ["base64", "decode", "VXRpbE5leGE=", "UtilNexa"],
       ["hex", "decode", "41 42 43", '"text": "ABC"'],
@@ -42,6 +42,12 @@ test.describe("developer tools browser coverage", () => {
       ["number", "16", "ff", '"decimal": 255'],
       ["jsonpath", "$.user.name", '{"user":{"name":"Asha"}}', "Asha"],
       ["color", "", "#4263EB80", '"hex8": "#4263EB80"'],
+      ["openapi-diff", "", '{"openapi":"3.0.3","info":{"title":"A","version":"1"},"paths":{"/users":{"get":{"responses":{"200":{"description":"ok"},"404":{"description":"missing"}}}}}}\n---\n{"openapi":"3.0.3","info":{"title":"A","version":"2"},"paths":{"/users":{"get":{"responses":{"200":{"description":"ok"}}}}}}', "removed-response"],
+      ["json-schema-generator", "", '{"name":"Asha","age":30}', '"$schema"'],
+      ["log-redactor", "", "authorization: Bearer abc api_key=secret", "REDACTED"],
+      ["protobuf", "", "08 96 01 12 05 48 65 6C 6C 6F", '"wireType": 0'],
+      ["asn1", "", "30 0A 02 01 05 04 05 48 65 6C 6C 6F", '"constructed": true'],
+      ["regex-safe", "", "aaaaaaaaaaaaaaaaaaaaaaaa", '"safe": true'],
     ] as const;
 
     for (const [toolId, option, input, expected] of cases) {

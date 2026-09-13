@@ -4,7 +4,7 @@ A privacy-first developer toolbox built with Next.js, React, and TypeScript. Too
 
 ## Included tools
 
-63 tools are included across the Phase 1 and Phase 2 roadmap (26 Phase 1 tools and 37 Phase 2 tools), including a payments/protocol diagnostics set:
+70 tools are included across the Phase 1 and Phase 2 roadmap, including a payments/protocol diagnostics set and enterprise API/security diagnostics:
 
 - JSON formatting, validation, minification, JSONPath extraction, and diffing
 - XML/YAML formatting and validation, Base64, URL encoding, and HTML entities
@@ -15,6 +15,8 @@ A privacy-first developer toolbox built with Next.js, React, and TypeScript. Too
 - HTTP status/MIME lookup, OpenAPI viewing/validation, JSON Schema validation
 - SQL, GraphQL, cron, Docker Compose, `.gitignore`, Nginx, webhook, QR, image Base64, semantic versions, and environment formatting
 - Hex, binary/bitfields, BCD, IBM037 EBCDIC, ISO 8583 bitmap/message inspection, EMV TLV, Luhn/PAN masking, and masked Track 2 parsing
+- OpenAPI breaking-change diffing, JSON Schema generation, JWT RS256/JWK verification, log secret redaction, protobuf wire decoding, ASN.1 DER inspection, and guarded regex testing
+- Explicit local workspace save/export/import is available from the workbench; no workspace is persisted unless the user chooses it.
 
 The processors use maintained parsers rather than string placeholders: Prettier for browser code formatting, Papa Parse for quoted CSV, GraphQL's AST printer, SQL Formatter, Marked plus DOMPurify for sanitized Markdown, JSONPath Plus, regexpp, Ajv for JSON Schema, and an OpenAPI schema validator for OpenAPI 2/3 documents. Payment tools are intentionally generic and local-only. ISO 8583 field definitions and Visa/Mastercard network profiles vary by acquirer, issuer, region, and certification environment; the app does not claim to validate a proprietary scheme profile.
 
@@ -40,7 +42,7 @@ npm run start
 ```
 
 The build script uses Next's Webpack production compiler for a stable browser bundle with the current parser dependency graph.
-The Playwright suite opens every catalog tool, exercises representative modes, checks deep links and sensitive-input warnings, and runs an Axe accessibility scan. CI additionally runs the suite against Chromium, Firefox, and WebKit.
+The Playwright suite opens every catalog tool, exercises representative modes, checks deep links and sensitive-input warnings, and runs an Axe accessibility scan. CI additionally runs representative workflows against Chromium, Firefox, and WebKit.
 
 See [`docs/release-readiness.md`](docs/release-readiness.md) for the enterprise release boundary and deployment checklist.
 

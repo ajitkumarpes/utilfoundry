@@ -646,14 +646,16 @@ function bytesBase64Url(bytes: Uint8Array) {
 }
 
 function decodeBase64Url(value: string) {
+  return new TextDecoder().decode(decodeBase64UrlBytes(value));
+}
+
+function decodeBase64UrlBytes(value: string) {
   const normalized = value
     .replace(/-/g, "+")
     .replace(/_/g, "/")
     .padEnd(Math.ceil(value.length / 4) * 4, "=");
   const binary = atob(normalized);
-  return new TextDecoder().decode(
-    Uint8Array.from(binary, (char) => char.charCodeAt(0)),
-  );
+  return Uint8Array.from(binary, (char) => char.charCodeAt(0));
 }
 
 export async function signJwtHmac(payload: string, secret: string) {
@@ -1055,4 +1057,251 @@ export function explainCron(value: string) {
     null,
     2,
   );
+}
+
+function openApiOperations(document: Record<string, unknown>) {
+  const paths = asRecord(document.paths) ?? {};
+  const operations = new Map<string, Record<string, unknown>>();
+  for (const [path, value] of Object.entries(paths)) {
+    const pathItem = asRecord(value);
+    if (!pathItem) continue;
+    for (const method of [
+      "get",
+      "put",
+      "post",
+      "delete",
+      "options",
+      "head",
+      "patch",
+      "trace",
+    ]) {
+      const operation = asRecord(pathItem[method]);
+      if (operation) operations.set(`${method.toUpperCase()} ${path}`, operation);
+    }
+  }
+  return operations;
+}
+
+export function diffOpenApi(left: string, right: string) {
+  const before = parseStructuredDocument(left);
+  const after = parseStructuredDocument(right);
+  const oldOperations = openApiOperations(before);
+  const newOperations = openApiOperations(after);
+  const breakingChanges: Array<Record<string, unknown>> = [];
+  for (const [operation] of oldOperations) {
+    if (!newOperations.has(operation))
+      breakingChanges.push({ type: "removed-operation", operation });
+  }
+  for (const [operation, oldValue] of oldOperations) {
+    const newValue = newOperations.get(operation);
+    if (!newValue) continue;
+    const oldParameters = (oldValue.parameters as unknown[]) ?? [];
+    const newParameters = (newValue.parameters as unknown[]) ?? [];
+    const newParameterKeys = new Set(
+      newParameters.map((parameter) => {
+        const item = asRecord(parameter);
+        return `${item?.in ?? ""}:${item?.name ?? ""}`;
+      }),
+    );
+    for (const parameter of oldParameters) {
+      const item = asRecord(parameter);
+      const key = `${item?.in ?? ""}:${item?.name ?? ""}`;
+      if (item && !newParameterKeys.has(key))
+        breakingChanges.push({
+          type: "removed-parameter",
+          operation,
+          parameter: key,
+        });
+    }
+    const oldResponses = asRecord(oldValue.responses) ?? {};
+    const newResponses = asRecord(newValue.responses) ?? {};
+    for (const status of Object.keys(oldResponses)) {
+      if (!(status in newResponses))
+        breakingChanges.push({
+          type: "removed-response",
+          operation,
+          status,
+        });
+    }
+  }
+  return JSON.stringify(
+    {
+      breaking: breakingChanges.length > 0,
+      breakingChanges,
+      summary: `${breakingChanges.length} potentially breaking change(s)`,
+    },
+    null,
+    2,
+  );
+}
+
+function schemaForValue(value: unknown, depth = 0): Record<string, unknown> {
+  if (depth > 12) return { type: "object", description: "Maximum nesting depth reached" };
+  if (value === null) return { type: "null" };
+  if (Array.isArray(value)) {
+    const first = value[0];
+    return { type: "array", items: first === undefined ? {} : schemaForValue(first, depth + 1) };
+  }
+  if (typeof value === "object") {
+    const properties: Record<string, unknown> = {};
+    const required: string[] = [];
+    for (const [key, child] of Object.entries(value as Record<string, unknown>)) {
+      properties[key] = schemaForValue(child, depth + 1);
+      required.push(key);
+    }
+    return { type: "object", properties, ...(required.length ? { required } : {}) };
+  }
+  return { type: typeof value === "number" && Number.isInteger(value) ? "integer" : typeof value };
+}
+
+export function generateJsonSchema(value: string) {
+  const parsed = JSON.parse(value);
+  return JSON.stringify({ $schema: "https://json-schema.org/draft/2020-12/schema", ...schemaForValue(parsed) }, null, 2);
+}
+
+export async function verifyJwtRsa(token: string, jwkValue: string) {
+  const [headerPart, payloadPart, signaturePart] = token.trim().split(".");
+  if (!headerPart || !payloadPart || !signaturePart) throw new Error("Expected a three-part JWT.");
+  const header = JSON.parse(decodeBase64Url(headerPart)) as { alg?: string };
+  if (header.alg !== "RS256") throw new Error("Only RS256 verification is supported.");
+  const jwk = JSON.parse(jwkValue) as JsonWebKey;
+  const key = await crypto.subtle.importKey(
+    "jwk",
+    jwk,
+    { name: "RSASSA-PKCS1-v1_5", hash: "SHA-256" },
+    false,
+    ["verify"],
+  );
+  const valid = await crypto.subtle.verify(
+    "RSASSA-PKCS1-v1_5",
+    key,
+    decodeBase64UrlBytes(signaturePart),
+    new TextEncoder().encode(`${headerPart}.${payloadPart}`),
+  );
+  return JSON.stringify({ valid, header, payload: JSON.parse(decodeBase64Url(payloadPart)) }, null, 2);
+}
+
+export function redactSecrets(value: string) {
+  let redacted = value;
+  const findings: string[] = [];
+  const replace = (pattern: RegExp, label: string, replacement: string) => {
+    pattern.lastIndex = 0;
+    if (pattern.test(redacted)) findings.push(label);
+    pattern.lastIndex = 0;
+    redacted = redacted.replace(pattern, replacement);
+  };
+  replace(/(authorization\s*:\s*bearer\s+)[^\s,;]+/gi, "bearer token", "$1[REDACTED]");
+  replace(/(api[_-]?key\s*[:=]\s*)[^\s,;]+/gi, "API key", "$1[REDACTED]");
+  replace(/(secret|password|token)\s*[:=]\s*([^\s,;]+)/gi, "credential", "$1=[REDACTED]");
+  replace(/\b(?:AKIA|ASIA)[A-Z0-9]{16}\b/g, "AWS access key", "[REDACTED_AWS_KEY]");
+  replace(/\b(?:\d[ -]*?){13,19}\b/g, "card-like number", "[REDACTED_CARD]");
+  return JSON.stringify({ redacted, findings: Array.from(new Set(findings)) }, null, 2);
+}
+
+function hexBytes(value: string) {
+  const clean = value.replace(/0x/gi, "").replace(/[\s,:-]/g, "");
+  if (!clean || clean.length % 2 || !/^[0-9a-f]+$/i.test(clean)) throw new Error("Enter even-length hexadecimal bytes.");
+  return Uint8Array.from({ length: clean.length / 2 }, (_, index) => parseInt(clean.slice(index * 2, index * 2 + 2), 16));
+}
+
+function bytesToHex(bytes: Uint8Array) {
+  return Array.from(bytes, (byte) => byte.toString(16).padStart(2, "0")).join("");
+}
+
+export function decodeProtobuf(value: string) {
+  const bytes = hexBytes(value);
+  const fields: Array<Record<string, unknown>> = [];
+  let offset = 0;
+  const readVarint = () => {
+    let result = 0;
+    let multiplier = 1;
+    while (offset < bytes.length && multiplier <= 0x20_0000_0000_0000) {
+      const byte = bytes[offset++];
+      result += (byte & 0x7f) * multiplier;
+      if (!(byte & 0x80)) return result;
+      multiplier *= 128;
+    }
+    throw new Error("Invalid or oversized protobuf varint.");
+  };
+  while (offset < bytes.length && fields.length < 200) {
+    const key = readVarint();
+    const number = Math.floor(key / 8);
+    const wireType = key % 8;
+    if (!number) throw new Error("Invalid protobuf field number.");
+    if (wireType === 0) fields.push({ number, wireType, value: readVarint().toString() });
+    else if (wireType === 1) {
+      if (offset + 8 > bytes.length) throw new Error("Truncated protobuf 64-bit field.");
+      fields.push({ number, wireType, hex: bytesToHex(bytes.slice(offset, offset + 8)) });
+      offset += 8;
+    } else if (wireType === 2) {
+      const length = Number(readVarint());
+      if (!Number.isSafeInteger(length) || offset + length > bytes.length) throw new Error("Truncated protobuf length-delimited field.");
+      const data = bytes.slice(offset, offset + length);
+      offset += length;
+      const text = new TextDecoder().decode(data);
+      fields.push({ number, wireType, length, text: /^[\x20-\x7e\r\n\t]*$/.test(text) ? text : undefined, hex: bytesToHex(data) });
+    } else if (wireType === 5) {
+      if (offset + 4 > bytes.length) throw new Error("Truncated protobuf 32-bit field.");
+      fields.push({ number, wireType, hex: bytesToHex(bytes.slice(offset, offset + 4)) });
+      offset += 4;
+    } else throw new Error(`Unsupported protobuf wire type ${wireType}.`);
+  }
+  return JSON.stringify({ byteLength: bytes.length, fields, remainingBytes: bytes.length - offset }, null, 2);
+}
+
+export function decodeAsn1(value: string) {
+  const bytes = hexBytes(value);
+  const parseNode = (start: number, depth: number): { node: Record<string, unknown>; next: number } => {
+    if (depth > 16 || start >= bytes.length) throw new Error("ASN.1 nesting or offset limit exceeded.");
+    let offset = start;
+    const tag = bytes[offset++];
+    if ((tag & 0x1f) === 0x1f) throw new Error("High-tag-number ASN.1 form is not supported in this local inspector.");
+    if (offset >= bytes.length) throw new Error("Truncated ASN.1 length.");
+    const lengthByte = bytes[offset++];
+    let length = lengthByte;
+    if (lengthByte & 0x80) {
+      const count = lengthByte & 0x7f;
+      if (!count || count > 4 || offset + count > bytes.length) throw new Error("Invalid ASN.1 length.");
+      length = 0;
+      for (let index = 0; index < count; index++) length = length * 256 + bytes[offset++];
+    }
+    const end = offset + length;
+    if (end > bytes.length) throw new Error("ASN.1 value exceeds the input length.");
+    const constructed = Boolean(tag & 0x20);
+    const node: Record<string, unknown> = { tag: `0x${tag.toString(16).padStart(2, "0").toUpperCase()}`, constructed, length };
+    if (constructed) {
+      const children: Record<string, unknown>[] = [];
+      while (offset < end) {
+        const child = parseNode(offset, depth + 1);
+        children.push(child.node);
+        offset = child.next;
+      }
+      node.children = children;
+    } else {
+      const data = bytes.slice(offset, end);
+      node.hex = bytesToHex(data).toUpperCase();
+      const text = new TextDecoder().decode(data);
+      if (/^[\x20-\x7e\r\n\t]*$/.test(text) && text.trim()) node.text = text;
+    }
+    return { node, next: end };
+  };
+  const roots: Record<string, unknown>[] = [];
+  let offset = 0;
+  while (offset < bytes.length) {
+    const result = parseNode(offset, 0);
+    roots.push(result.node);
+    offset = result.next;
+  }
+  return JSON.stringify({ byteLength: bytes.length, nodes: roots }, null, 2);
+}
+
+export function safeRegexTest(pattern: string, input: string, flags: string) {
+  if (pattern.length > 500) throw new Error("Regex patterns are limited to 500 characters.");
+  if (input.length > 100_000) throw new Error("Regex input is limited to 100,000 characters.");
+  if (/\([^)]*[+*][^)]*\)[+*{]/.test(pattern) || /(\.[+*]){2,}/.test(pattern))
+    throw new Error("Potentially catastrophic backtracking pattern rejected.");
+  const safeFlags = Array.from(new Set(flags.replace(/[^dgimsuvy]/g, ""))).join("");
+  const regex = new RegExp(pattern, safeFlags.includes("g") ? safeFlags : `${safeFlags}g`);
+  const matches = Array.from(input.matchAll(regex)).slice(0, 500).map((match) => ({ match: match[0], index: match.index }));
+  return JSON.stringify({ safe: true, count: matches.length, matches }, null, 2);
 }
