@@ -6,6 +6,9 @@ RUN npm ci
 FROM deps AS builder
 WORKDIR /app
 COPY . .
+# Next.js permits an application without static assets, but a multi-stage
+# image still needs the directory to exist for the runtime copy below.
+RUN mkdir -p public
 RUN npm run build
 
 FROM deps AS prod-deps
