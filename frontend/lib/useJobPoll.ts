@@ -17,17 +17,17 @@ type JobStatusPayload = {
 };
 
 export function useJobPoll(jobId: string | null) {
-  const [status, setStatus] = useState<JobStatusValue | null>(null);
-  const [error, setError] = useState<string | null>(null);
-  const [resultFilename, setResultFilename] = useState<string | null>(null);
+  const [snapshot, setSnapshot] = useState<{
+    jobId: string;
+    status: JobStatusValue | null;
+    error: string | null;
+    resultFilename: string | null;
+  }>({ jobId: "", status: null, error: null, resultFilename: null });
 
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   useEffect(() => {
     if (!jobId) {
-      setStatus(null);
-      setError(null);
-      setResultFilename(null);
       return;
     }
 
@@ -46,7 +46,12 @@ export function useJobPoll(jobId: string | null) {
         if (cancelled) return;
 
         if (!response.ok) {
-          setError(`Could not check job status (HTTP ${response.status}).`);
+          setSnapshot({
+            jobId,
+            status: null,
+            error: `Could not check job status (HTTP ${response.status}).`,
+            resultFilename: null
+          });
           clear();
           return;
         }
@@ -54,16 +59,24 @@ export function useJobPoll(jobId: string | null) {
         const data: JobStatusPayload = await response.json();
         if (cancelled) return;
 
-        setStatus(data.status);
-        setResultFilename(data.resultFilename);
+        setSnapshot({
+          jobId,
+          status: data.status,
+          error: data.status === "FAILED" ? data.errorMessage || "This job failed." : null,
+          resultFilename: data.resultFilename
+        });
 
         if (data.status === "SUCCEEDED" || data.status === "FAILED") {
-          if (data.status === "FAILED") setError(data.errorMessage || "This job failed.");
           clear();
         }
       } catch {
         if (!cancelled) {
-          setError("Could not reach the server to check job status.");
+          setSnapshot({
+            jobId,
+            status: null,
+            error: "Could not reach the server to check job status.",
+            resultFilename: null
+          });
           clear();
         }
       }
@@ -78,5 +91,13 @@ export function useJobPoll(jobId: string | null) {
     };
   }, [jobId]);
 
-  return { status, error, resultFilename };
+  if (!jobId || snapshot.jobId !== jobId) {
+    return { status: null, error: null, resultFilename: null };
+  }
+
+  return {
+    status: snapshot.status,
+    error: snapshot.error,
+    resultFilename: snapshot.resultFilename
+  };
 }

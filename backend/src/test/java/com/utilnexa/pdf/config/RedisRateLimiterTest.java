@@ -42,7 +42,7 @@ class RedisRateLimiterTest {
 
   @SuppressWarnings("unchecked")
   @Test
-  void failsOpenWhenRedisIsUnreachable() {
+  void fallsBackToBoundedLocalProtectionWhenRedisIsUnreachable() {
     // The timing characteristics of a real outage (how fast this throws, how long recovery
     // takes) are covered by live testing against docker compose, not here - a mocked exception
     // is enough to prove the contract this class actually owns: never let a Redis problem
@@ -50,6 +50,9 @@ class RedisRateLimiterTest {
     ProxyManager<String> proxyManager = mock(ProxyManager.class);
     when(proxyManager.builder()).thenThrow(new RuntimeException("simulated Redis outage"));
 
-    assertTrue(new RedisRateLimiter(proxyManager, 20).tryConsume("203.0.113.10"));
+    RedisRateLimiter limiter = new RedisRateLimiter(proxyManager, 2);
+    assertTrue(limiter.tryConsume("203.0.113.10"));
+    assertTrue(limiter.tryConsume("203.0.113.10"));
+    assertFalse(limiter.tryConsume("203.0.113.10"));
   }
 }

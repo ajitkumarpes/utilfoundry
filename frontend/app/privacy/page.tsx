@@ -32,14 +32,15 @@ export default function PrivacyPage() {
           <li>
             <strong>Most tools</strong> (Merge, Split, Organize, Rotate, Crop, Compress, Watermark, Page Numbers,
             Lock PDF, Unlock, Grayscale, Extract Images, Sign, Redact, Image ↔ PDF) process your file
-            entirely in memory on our server for the duration of the request and never write it to disk. Once the
-            result is sent back to your browser, the file is gone.
+            during the request. Most stay in memory; Merge may use operating-system temporary files, which are
+            deleted immediately after the request completes. Once the result is returned, PDFLab does not retain a
+            reusable copy of the upload.
           </li>
           <li>
             <strong>OCR and Office conversions</strong> (Word, Excel, PowerPoint ↔ PDF) run as a background job, so
             your uploaded file and the converted result are held in temporary storage while the job runs. That
-            storage is automatically and permanently deleted no later than <strong>1 hour</strong> after upload,
-            whether or not you downloaded the result.
+            storage becomes eligible for permanent deletion after <strong>1 hour</strong> and scheduled cleanup runs
+            every 15 minutes, whether or not you downloaded the result.
           </li>
         </ul>
         <p>

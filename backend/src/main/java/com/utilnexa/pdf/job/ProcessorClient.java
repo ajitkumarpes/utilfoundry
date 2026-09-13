@@ -22,9 +22,13 @@ public class ProcessorClient {
   private static final Duration CONNECT_TIMEOUT = Duration.ofSeconds(10);
 
   private final String baseUrl;
+  private final String processorToken;
 
-  public ProcessorClient(@Value("${app.processor.base-url}") String baseUrl) {
+  public ProcessorClient(
+      @Value("${app.processor.base-url}") String baseUrl,
+      @Value("${app.processor.token}") String processorToken) {
     this.baseUrl = baseUrl;
+    this.processorToken = processorToken;
   }
 
   public byte[] ocr(byte[] content, String filename, String language, Duration readTimeout) {
@@ -51,6 +55,7 @@ public class ProcessorClient {
       return buildClient(readTimeout)
           .post()
           .uri(path)
+          .header("X-Processor-Token", processorToken)
           .contentType(MediaType.MULTIPART_FORM_DATA)
           .body(body)
           .retrieve()

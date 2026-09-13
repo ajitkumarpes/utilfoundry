@@ -1,29 +1,27 @@
 package com.utilnexa.pdf.job;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
+import tools.jackson.databind.ObjectMapper;
 import jakarta.annotation.PostConstruct;
 import jakarta.annotation.PreDestroy;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.Map;
-import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Component;
 
 /**
- * Pulls job ids off the Redis queue and drives them to completion. Runs on its own thread pool,
+ * Claims queued jobs from Postgres and drives them to completion. Runs on its own thread pool,
  * separate from Tomcat's request threads, so a stuck conversion can never block the synchronous
  * PDFBox endpoints or the job submit/status API.
  *
- * <p>Postgres (via {@link JobRepository}), not this dispatcher's in-memory state, is the source
- * of truth for job status - that's what lets {@link JobMaintenanceTask} reconcile jobs left
- * behind if the JVM itself dies mid-job.
+ * <p>Postgres is both the durable queue and the source of truth. A compare-and-set update claims
+ * each queued row, so multiple backend replicas cannot process the same job. This deliberately
+ * avoids a database-save/message-push dual-write window that could strand a job forever.
  */
 @Component
 public class JobDispatcher {
@@ -33,9 +31,8 @@ public class JobDispatcher {
   private static final Duration RETRY_BACKOFF = Duration.ofSeconds(8);
   private static final Duration OFFICE_TIMEOUT = Duration.ofSeconds(150);
   private static final Duration OCR_TIMEOUT = Duration.ofMinutes(11);
-  private static final Duration POLL_TIMEOUT = Duration.ofSeconds(5);
+  private static final Duration IDLE_POLL_DELAY = Duration.ofMillis(500);
 
-  private final StringRedisTemplate redisTemplate;
   private final JobRepository jobRepository;
   private final S3StorageService storage;
   private final ProcessorClient processorClient;
@@ -46,13 +43,11 @@ public class JobDispatcher {
   private volatile boolean running = true;
 
   public JobDispatcher(
-      StringRedisTemplate redisTemplate,
       JobRepository jobRepository,
       S3StorageService storage,
       ProcessorClient processorClient,
       ObjectMapper objectMapper,
       @Value("${app.dispatcher.pool-size:4}") int poolSize) {
-    this.redisTemplate = redisTemplate;
     this.jobRepository = jobRepository;
     this.storage = storage;
     this.processorClient = processorClient;
@@ -79,25 +74,29 @@ public class JobDispatcher {
   private void loop() {
     while (running) {
       try {
-        String jobId = redisTemplate.opsForList().rightPop(JobService.QUEUE_KEY, POLL_TIMEOUT);
-        if (jobId == null) continue;
-        processOne(UUID.fromString(jobId));
+        var candidate = jobRepository.findFirstByStatusOrderByCreatedAtAsc(JobStatus.QUEUED);
+        if (candidate.isEmpty()) {
+          pause(IDLE_POLL_DELAY);
+          continue;
+        }
+        UUID jobId = candidate.get().getId();
+        int claimed =
+            jobRepository.claimQueued(
+                jobId, JobStatus.QUEUED, JobStatus.PROCESSING, Instant.now());
+        if (claimed == 1) processOne(jobId);
       } catch (Exception e) {
         log.error("Dispatcher loop error", e);
+        pause(IDLE_POLL_DELAY);
       }
     }
   }
 
-  private void processOne(UUID jobId) {
-    Optional<Job> maybeJob = jobRepository.findById(jobId);
+  void processOne(UUID jobId) {
+    var maybeJob = jobRepository.findById(jobId);
     if (maybeJob.isEmpty()) return;
 
     Job job = maybeJob.get();
-    if (job.getStatus() == JobStatus.SUCCEEDED || job.getStatus() == JobStatus.FAILED) return;
-
-    job.setStatus(JobStatus.PROCESSING);
-    job.setUpdatedAt(Instant.now());
-    jobRepository.save(job);
+    if (job.getStatus() != JobStatus.PROCESSING) return;
 
     try {
       byte[] input = storage.get(job.getInputKey());
@@ -152,13 +151,7 @@ public class JobDispatcher {
     // instantly (confirmed directly: 3 attempts logged 33ms apart in testing) - a processor
     // restart taking even a few seconds would burn all 3 attempts before it ever comes back.
     // This sleeps the one thread handling this job's retry; the other pool threads stay free.
-    try {
-      Thread.sleep(RETRY_BACKOFF.toMillis());
-    } catch (InterruptedException e) {
-      Thread.currentThread().interrupt();
-      return;
-    }
-    redisTemplate.opsForList().leftPush(JobService.QUEUE_KEY, job.getId().toString());
+    pause(RETRY_BACKOFF);
   }
 
   private void fail(Job job, String message) {
@@ -166,5 +159,13 @@ public class JobDispatcher {
     job.setErrorMessage(message);
     job.setUpdatedAt(Instant.now());
     jobRepository.save(job);
+  }
+
+  private void pause(Duration duration) {
+    try {
+      Thread.sleep(duration.toMillis());
+    } catch (InterruptedException e) {
+      Thread.currentThread().interrupt();
+    }
   }
 }

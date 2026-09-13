@@ -96,7 +96,7 @@
       the configured origin gets `200` + the correct
       `Access-Control-Allow-Origin` header, an unrelated origin gets `403`.
     - **Zero rate limiting existed anywhere in the backend.** Added
-      `RateLimitFilter` (Bucket4j, in-memory token bucket, per client IP) on
+      `RateLimitFilter` (Bucket4j, Redis-backed token bucket, per client IP) on
       `/api/**`, default 20 req/min (`RATE_LIMIT_PER_MINUTE`). Client IP comes
       from `getRemoteAddr()` by default — `X-Forwarded-For` is only trusted if
       `app.rate-limit.trust-forwarded-for=true` is explicitly set, because
@@ -122,9 +122,9 @@
       a generated favicon (`app/icon.tsx`) and OG image
       (`app/opengraph-image.tsx`, via `next/og`, matching the site's actual
       `.brand` mark — not a generic placeholder), `robots.ts`, `sitemap.ts`
-      (homepage + both legal pages + all 22 tool routes), and
+      (homepage + both legal pages + all 36 tool routes), and
       `app/not-found.tsx`. Every tool page now has its own title/description
-      instead of all 22 sharing one generic `<title>` — the 7 tools whose
+      instead of all 36 sharing one generic `<title>` — the 7 tools whose
       `page.tsx` is already a Server Component got `export const metadata`
       directly; the other 15 are Client Components (`"use client"`), which
       Next.js forbids from exporting metadata at all, so each got a new
@@ -713,7 +713,7 @@
 
 ## Architecture (as shipped)
 
-`Browser -> Next.js -> Spring Boot API -> Redis queue -> JobDispatcher (Spring) ->
+`Browser -> Next.js -> Spring Boot API -> Postgres queue -> JobDispatcher (Spring) ->
 processor shim (Python/FastAPI) -> MinIO -> download`.
 
 - **Processor shim** (`processor/app.py`): pure stateless executor, two endpoints

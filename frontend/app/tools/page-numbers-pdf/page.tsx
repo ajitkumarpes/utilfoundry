@@ -156,7 +156,7 @@ export default function PageNumbersPdfPage() {
                 disabled={processing}
                 style={{ maxWidth: 120 }}
               />
-              <p className="hint">Useful if page 1 of the PDF is a cover page that shouldn't count.</p>
+              <p className="hint">Useful if page 1 of the PDF is a cover page that should not count.</p>
             </div>
 
             <button type="button" className="primary-btn wide" disabled={processing} onClick={submit}>

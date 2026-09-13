@@ -1,6 +1,6 @@
 package com.utilnexa.pdf.api;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
+import tools.jackson.databind.ObjectMapper;
 import com.utilnexa.pdf.api.dto.BookmarkEntry;
 import com.utilnexa.pdf.api.dto.BookmarksReadResult;
 import com.utilnexa.pdf.api.dto.FlattenScanResult;
@@ -47,8 +47,8 @@ import java.util.List;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipOutputStream;
 
-import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.core.type.TypeReference;
+import tools.jackson.core.JacksonException;
+import tools.jackson.core.type.TypeReference;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ContentDisposition;
 import org.springframework.http.HttpHeaders;
@@ -138,7 +138,7 @@ public class PdfController {
     OrganizePlan plan;
     try {
       plan = objectMapper.readValue(planJson, OrganizePlan.class);
-    } catch (JsonProcessingException e) {
+    } catch (JacksonException e) {
       throw new IllegalArgumentException("The page plan could not be read.");
     }
     return pdfResponse(organizeService.organize(file, file2, plan), "organized.pdf");
@@ -286,7 +286,7 @@ public class PdfController {
     SignPlacement placement;
     try {
       placement = objectMapper.readValue(placementJson, SignPlacement.class);
-    } catch (JsonProcessingException e) {
+    } catch (JacksonException e) {
       throw new IllegalArgumentException("The signature placement could not be read.");
     }
     return pdfResponse(signService.sign(file, signatureImage, placement), "signed.pdf");
@@ -302,7 +302,7 @@ public class PdfController {
     List<RedactionArea> redactions;
     try {
       redactions = objectMapper.readValue(redactionsJson, new TypeReference<List<RedactionArea>>() {});
-    } catch (JsonProcessingException e) {
+    } catch (JacksonException e) {
       throw new IllegalArgumentException("The redaction areas could not be read.");
     }
     return pdfResponse(redactService.redact(file, redactions), "redacted.pdf");
@@ -361,7 +361,7 @@ public class PdfController {
     List<BookmarkEntry> entries;
     try {
       entries = objectMapper.readValue(bookmarksJson, new TypeReference<List<BookmarkEntry>>() {});
-    } catch (JsonProcessingException e) {
+    } catch (JacksonException e) {
       throw new IllegalArgumentException("The bookmark list could not be read.");
     }
     return pdfResponse(bookmarkService.writeBookmarks(file, entries), "bookmarked.pdf");
@@ -416,7 +416,7 @@ public class PdfController {
     HeaderFooterRequest request;
     try {
       request = objectMapper.readValue(configJson, HeaderFooterRequest.class);
-    } catch (JsonProcessingException e) {
+    } catch (JacksonException e) {
       throw new IllegalArgumentException("The header/footer configuration could not be read.");
     }
     return pdfResponse(headerFooterService.apply(file, request), "header-footer.pdf");

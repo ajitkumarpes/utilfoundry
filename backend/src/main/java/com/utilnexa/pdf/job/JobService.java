@@ -1,6 +1,6 @@
 package com.utilnexa.pdf.job;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
+import tools.jackson.databind.ObjectMapper;
 import com.utilnexa.pdf.service.ImageToPdfService;
 import java.io.IOException;
 import java.time.Instant;
@@ -8,31 +8,26 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
-import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
 
 @Service
 public class JobService {
 
-  static final String QUEUE_KEY = "jobs:queue";
   private static final long MAX_FILE_BYTES = 50L * 1024 * 1024;
 
   private final JobRepository jobRepository;
   private final S3StorageService storage;
-  private final StringRedisTemplate redisTemplate;
   private final ObjectMapper objectMapper;
   private final ImageToPdfService imageToPdfService;
 
   public JobService(
       JobRepository jobRepository,
       S3StorageService storage,
-      StringRedisTemplate redisTemplate,
       ObjectMapper objectMapper,
       ImageToPdfService imageToPdfService) {
     this.jobRepository = jobRepository;
     this.storage = storage;
-    this.redisTemplate = redisTemplate;
     this.objectMapper = objectMapper;
     this.imageToPdfService = imageToPdfService;
   }
@@ -123,7 +118,6 @@ public class JobService {
       throw e;
     }
 
-    redisTemplate.opsForList().leftPush(QUEUE_KEY, id.toString());
     return job;
   }
 

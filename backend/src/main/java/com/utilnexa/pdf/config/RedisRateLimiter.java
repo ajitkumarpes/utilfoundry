@@ -1,11 +1,14 @@
 package com.utilnexa.pdf.config;
 
-import io.github.bucket4j.Bandwidth;
+import io.github.bucket4j.Bucket;
 import io.github.bucket4j.BucketConfiguration;
 import io.github.bucket4j.distributed.BucketProxy;
 import io.github.bucket4j.distributed.proxy.ProxyManager;
 
 import java.time.Duration;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentMap;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -20,9 +23,12 @@ import org.springframework.stereotype.Component;
 public class RedisRateLimiter implements RateLimiter {
 
   private static final Logger log = LoggerFactory.getLogger(RedisRateLimiter.class);
+  private static final int MAX_FALLBACK_CLIENTS = 10_000;
 
   private final ProxyManager<String> proxyManager;
   private final int requestsPerMinute;
+  private final ConcurrentMap<String, Bucket> fallbackBuckets = new ConcurrentHashMap<>();
+  private final AtomicBoolean redisUnavailable = new AtomicBoolean();
 
   public RedisRateLimiter(
       ProxyManager<String> proxyManager,
@@ -35,20 +41,46 @@ public class RedisRateLimiter implements RateLimiter {
   public boolean tryConsume(String key) {
     try {
       BucketProxy bucket = proxyManager.builder().build(key, this::configuration);
-      return bucket.tryConsume(1);
+      boolean allowed = bucket.tryConsume(1);
+      if (redisUnavailable.compareAndSet(true, false)) {
+        fallbackBuckets.clear();
+        log.info("Distributed rate limiter recovered; emergency local buckets cleared.");
+      }
+      return allowed;
     } catch (RuntimeException e) {
-      // Fail open, not closed. Most of this app's tools (merge, split, compress, ...) are pure
-      // in-memory PDFBox work with no Redis dependency of their own - a Redis outage should not
-      // take those down too just because the rate limiter can no longer be consulted. Logged at
-      // WARN so a sustained outage is still visible, not silently masked.
-      log.warn("Rate limiter could not reach Redis - allowing the request through unlimited.", e);
-      return true;
+      // Keep tools available during a Redis outage without silently dropping all abuse
+      // protection. This fallback is per replica (the best possible guarantee without shared
+      // state), bounded to prevent attacker-controlled client keys from growing memory forever,
+      // and discarded as soon as Redis recovers.
+      if (redisUnavailable.compareAndSet(false, true)) {
+        log.warn("Rate limiter could not reach Redis; using bounded local protection.", e);
+      }
+      Bucket fallback = fallbackBuckets.get(key);
+      if (fallback == null) {
+        if (fallbackBuckets.size() >= MAX_FALLBACK_CLIENTS) return false;
+        fallback = fallbackBuckets.computeIfAbsent(key, ignored -> newFallbackBucket());
+      }
+      return fallback.tryConsume(1);
     }
+  }
+
+  private Bucket newFallbackBucket() {
+    return Bucket.builder()
+        .addLimit(
+            limit ->
+                limit
+                    .capacity(requestsPerMinute)
+                    .refillGreedy(requestsPerMinute, Duration.ofMinutes(1)))
+        .build();
   }
 
   private BucketConfiguration configuration() {
     return BucketConfiguration.builder()
-        .addLimit(Bandwidth.simple(requestsPerMinute, Duration.ofMinutes(1)))
+        .addLimit(
+            limit ->
+                limit
+                    .capacity(requestsPerMinute)
+                    .refillGreedy(requestsPerMinute, Duration.ofMinutes(1)))
         .build();
   }
 }

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { AlertCircle, ArrowLeft, CheckCircle2, Download, Loader2, XCircle } from "lucide-react";
 import SiteHeader from "./SiteHeader";
@@ -44,7 +44,7 @@ export default function JobToolWorkspace({
   // regardless, but without this the UI would silently lose track of it.
   useEffect(() => {
     const existing = new URLSearchParams(window.location.search).get("job");
-    if (existing) setJobId(existing);
+    if (existing) queueMicrotask(() => setJobId(existing));
   }, []);
 
   const selectFile = (picked: File) => {
@@ -90,23 +90,24 @@ export default function JobToolWorkspace({
     }
   };
 
-  const download = () => {
+  const download = useCallback(() => {
     if (!jobId) return;
     // A plain navigation, not fetch().blob() - the backend 302s straight to a presigned MinIO
     // URL on a different origin, and a script-mediated fetch of that redirect would need MinIO's
     // CORS to allow reading the response. Top-level navigation isn't subject to that: the browser
     // follows the redirect and MinIO's own Content-Disposition header drives the save, no JS
     // blob-handling required.
-    window.location.href = `${API_BASE_URL}/api/v1/pdf/jobs/${jobId}/download`;
+    const anchor = document.createElement("a");
+    anchor.href = `${API_BASE_URL}/api/v1/pdf/jobs/${jobId}/download`;
+    anchor.click();
     setDownloadTriggered(true);
-  };
+  }, [jobId]);
 
   useEffect(() => {
-    if (status === "SUCCEEDED" && jobId) {
-      download();
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [status, jobId]);
+    if (status !== "SUCCEEDED" || !jobId) return;
+    const timer = window.setTimeout(download, 0);
+    return () => window.clearTimeout(timer);
+  }, [status, jobId, download]);
 
   const reset = () => {
     setFile(null);
@@ -137,7 +138,7 @@ export default function JobToolWorkspace({
 
       <section className="workspace">
         {error && status !== "FAILED" && (
-          <div className="error-box">
+          <div className="error-box" role="alert">
             <AlertCircle size={18} />
             <span>{error}</span>
           </div>
@@ -154,7 +155,7 @@ export default function JobToolWorkspace({
         )}
 
         {jobId && isWorking && (
-          <div className="upload-zone">
+          <div className="upload-zone" role="status" aria-live="polite" aria-busy="true">
             <div className="upload-icon">
               <Loader2 size={30} className="spin" />
             </div>
@@ -164,7 +165,7 @@ export default function JobToolWorkspace({
         )}
 
         {status === "FAILED" && (
-          <div className="result-panel">
+          <div className="result-panel" role="alert">
             <div className="error-box" style={{ marginBottom: 0 }}>
               <AlertCircle size={18} />
               <span>{pollError || "This job failed."}</span>
@@ -176,7 +177,7 @@ export default function JobToolWorkspace({
         )}
 
         {status === "SUCCEEDED" && (
-          <div className="result-panel">
+          <div className="result-panel" role="status" aria-live="polite">
             <div className="success-icon">
               <CheckCircle2 size={38} />
             </div>

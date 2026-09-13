@@ -9,13 +9,16 @@ subprocess - this endpoint takes file uploads and shells out to native tools, wh
 classic command-injection shape, so this isn't optional hardening.
 """
 
+import os
+import secrets
 import shutil
 import subprocess
 import tempfile
 import threading
 from pathlib import Path
+from typing import Optional
 
-from fastapi import FastAPI, File, Form, HTTPException, UploadFile
+from fastapi import FastAPI, File, Form, Header, HTTPException, UploadFile
 from fastapi.responses import Response
 
 app = FastAPI()
@@ -29,6 +32,8 @@ ALLOWED_TARGET_FORMATS = {"pdf", "docx", "pptx"}
 
 OCR_TIMEOUT_SECONDS = 600
 OFFICE_TIMEOUT_SECONDS = 90
+MAX_UPLOAD_BYTES = 50 * 1024 * 1024
+PROCESSOR_TOKEN = os.environ.get("PROCESSOR_TOKEN", "local-dev-processor-token")
 
 CONTENT_TYPES = {
     "pdf": "application/pdf",
@@ -68,15 +73,18 @@ def health():
 
 
 @app.post("/process/ocr")
-async def process_ocr(file: UploadFile = File(...), language: str = Form("eng")):
+async def process_ocr(
+    file: UploadFile = File(...),
+    language: str = Form("eng"),
+    x_processor_token: Optional[str] = Header(default=None),
+):
+    _require_processor_token(x_processor_token)
     if language not in ALLOWED_LANGUAGES:
         raise HTTPException(
             status_code=400, detail=f"language must be one of {sorted(ALLOWED_LANGUAGES)}."
         )
 
-    content = await file.read()
-    if not content:
-        raise HTTPException(status_code=400, detail="Uploaded file is empty.")
+    content = await _read_limited_upload(file)
 
     with tempfile.TemporaryDirectory(dir="/workspace") as workdir:
         input_path = Path(workdir) / "input.pdf"
@@ -110,17 +118,18 @@ async def process_ocr(file: UploadFile = File(...), language: str = Form("eng"))
 
 @app.post("/process/office-convert")
 async def process_office_convert(
-    file: UploadFile = File(...), target_format: str = Form(...)
+    file: UploadFile = File(...),
+    target_format: str = Form(...),
+    x_processor_token: Optional[str] = Header(default=None),
 ):
+    _require_processor_token(x_processor_token)
     if target_format not in ALLOWED_TARGET_FORMATS:
         raise HTTPException(
             status_code=400,
             detail=f"target_format must be one of {sorted(ALLOWED_TARGET_FORMATS)}.",
         )
 
-    content = await file.read()
-    if not content:
-        raise HTTPException(status_code=400, detail="Uploaded file is empty.")
+    content = await _read_limited_upload(file)
 
     source_suffix = Path(file.filename or "input").suffix or ".bin"
 
@@ -176,3 +185,21 @@ async def process_office_convert(
 def _tail_stderr(result: subprocess.CompletedProcess, limit: int = 800) -> str:
     text = result.stderr.decode("utf-8", errors="replace").strip()
     return text[-limit:] if text else "Processing failed on this file."
+
+
+def _require_processor_token(token: Optional[str]) -> None:
+    if token is None or not secrets.compare_digest(token, PROCESSOR_TOKEN):
+        raise HTTPException(status_code=401, detail="Processor authentication failed.")
+
+
+async def _read_limited_upload(file: UploadFile) -> bytes:
+    chunks: list[bytes] = []
+    total = 0
+    while chunk := await file.read(1024 * 1024):
+        total += len(chunk)
+        if total > MAX_UPLOAD_BYTES:
+            raise HTTPException(status_code=413, detail="Uploaded file must be 50 MB or smaller.")
+        chunks.append(chunk)
+    if total == 0:
+        raise HTTPException(status_code=400, detail="Uploaded file is empty.")
+    return b"".join(chunks)

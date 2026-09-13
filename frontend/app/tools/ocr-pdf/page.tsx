@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { AlertCircle, ArrowLeft, CheckCircle2, Download, Loader2, XCircle } from "lucide-react";
 import SiteHeader from "@/components/SiteHeader";
@@ -34,7 +34,7 @@ export default function OcrPdfPage() {
 
   useEffect(() => {
     const existing = new URLSearchParams(window.location.search).get("job");
-    if (existing) setJobId(existing);
+    if (existing) queueMicrotask(() => setJobId(existing));
   }, []);
 
   const selectFile = (picked: File) => {
@@ -81,23 +81,24 @@ export default function OcrPdfPage() {
     }
   };
 
-  const download = () => {
+  const download = useCallback(() => {
     if (!jobId) return;
     // A plain navigation, not fetch().blob() - the backend 302s straight to a presigned MinIO
     // URL on a different origin, and a script-mediated fetch of that redirect would need MinIO's
     // CORS to allow reading the response. Top-level navigation isn't subject to that: the browser
     // follows the redirect and MinIO's own Content-Disposition header drives the save, no JS
     // blob-handling required.
-    window.location.href = `${API_BASE_URL}/api/v1/pdf/jobs/${jobId}/download`;
+    const anchor = document.createElement("a");
+    anchor.href = `${API_BASE_URL}/api/v1/pdf/jobs/${jobId}/download`;
+    anchor.click();
     setDownloadTriggered(true);
-  };
+  }, [jobId]);
 
   useEffect(() => {
-    if (status === "SUCCEEDED" && jobId) {
-      download();
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [status, jobId]);
+    if (status !== "SUCCEEDED" || !jobId) return;
+    const timer = window.setTimeout(download, 0);
+    return () => window.clearTimeout(timer);
+  }, [status, jobId, download]);
 
   const reset = () => {
     setFile(null);

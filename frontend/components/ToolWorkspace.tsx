@@ -262,7 +262,7 @@ export default function ToolWorkspace({
 
       <section className="workspace">
         {error && (
-          <div className="error-box">
+          <div className="error-box" role="alert">
             <AlertCircle size={18} />
             <span>{error}</span>
           </div>
@@ -270,7 +270,7 @@ export default function ToolWorkspace({
 
         {!items.length && !done && (
           <div {...getRootProps()} className={`upload-zone ${isDragActive ? "dragging" : ""}`}>
-            <input {...getInputProps()} />
+            <input {...getInputProps()} aria-label={`Select ${config.label} files`} />
             <div className="upload-icon">
               <UploadCloud size={30} />
             </div>
@@ -329,7 +329,7 @@ export default function ToolWorkspace({
         )}
 
         {done && (
-          <div className="result-panel">
+          <div className="result-panel" role="status" aria-live="polite">
             <div className="success-icon">
               <CheckCircle2 size={38} />
             </div>

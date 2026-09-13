@@ -7,9 +7,14 @@ spring:
       max-request-size: 100MB
   datasource:
     url: jdbc:postgresql://localhost:5432/pdf_platform
-    username: pdf_user
-    password: pdf_password
+    username: ${POSTGRES_USER:pdf_user}
+    password: ${POSTGRES_PASSWORD:local-dev-only}
+  data:
+    redis:
+      repositories:
+        enabled: false
   jpa:
+    open-in-view: false
     hibernate:
       ddl-auto: validate
   flyway:
@@ -17,13 +22,34 @@ spring:
     baseline-version: 1
     baseline-description: "Schema created by Hibernate ddl-auto before Flyway adoption"
 management:
+  endpoint:
+    health:
+      probes:
+        enabled: true
+      show-components: never
+      show-details: never
+      group:
+        liveness:
+          include: livenessState,ping
+        readiness:
+          include: readinessState,db,redis,objectStorage,processor
   endpoints:
     web:
       exposure:
         include: health,info
+springdoc:
+  api-docs:
+    enabled: ${OPENAPI_ENABLED:true}
+  swagger-ui:
+    enabled: ${OPENAPI_ENABLED:true}
+    operations-sorter: alpha
+    tags-sorter: alpha
+    display-request-duration: true
 server:
   port: 8080
 app:
+  ops:
+    enabled: ${OPS_DASHBOARD_ENABLED:true}
   s3:
     endpoint: ${S3_ENDPOINT:http://localhost:9000}
     # Used only to SIGN download URLs, never to reach storage server-to-server - must be an
@@ -34,10 +60,11 @@ app:
     # both.
     public-endpoint: ${S3_PUBLIC_ENDPOINT:http://localhost:9000}
     access-key: ${S3_ACCESS_KEY:minioadmin}
-    secret-key: ${S3_SECRET_KEY:minioadmin123}
+    secret-key: ${S3_SECRET_KEY:local-dev-minio-secret}
     bucket: ${S3_BUCKET:pdf-files}
   processor:
     base-url: ${PROCESSOR_BASE_URL:http://localhost:8000}
+    token: ${PROCESSOR_TOKEN:local-dev-processor-token}
   dispatcher:
     pool-size: 4
   jobs:

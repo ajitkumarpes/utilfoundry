@@ -2,11 +2,11 @@ package com.utilnexa.pdf.job;
 
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
+import java.util.ArrayList;
 import java.util.List;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 
@@ -24,17 +24,14 @@ public class JobMaintenanceTask {
 
   private final JobRepository jobRepository;
   private final S3StorageService storage;
-  private final StringRedisTemplate redisTemplate;
   private final int retentionHours;
 
   public JobMaintenanceTask(
       JobRepository jobRepository,
       S3StorageService storage,
-      StringRedisTemplate redisTemplate,
       @Value("${app.jobs.retention-hours:1}") int retentionHours) {
     this.jobRepository = jobRepository;
     this.storage = storage;
-    this.redisTemplate = redisTemplate;
     this.retentionHours = retentionHours;
   }
 
@@ -42,18 +39,23 @@ public class JobMaintenanceTask {
   public void purgeExpiredJobs() {
     Instant threshold = Instant.now().minus(retentionHours, ChronoUnit.HOURS);
     List<Job> expired = jobRepository.findByCreatedAtBefore(threshold);
+    List<Job> purged = new ArrayList<>(expired.size());
 
     for (Job job : expired) {
       try {
         storage.deleteByPrefix("jobs/" + job.getId() + "/");
+        purged.add(job);
       } catch (Exception e) {
+        // Keep the database row so the next maintenance pass can retry the object deletion.
+        // Deleting the row here would make the retained object undiscoverable and break the
+        // advertised retention guarantee.
         log.warn("Failed to delete storage for expired job {}", job.getId(), e);
       }
     }
 
-    if (!expired.isEmpty()) {
-      jobRepository.deleteAll(expired);
-      log.info("Purged {} expired job(s)", expired.size());
+    if (!purged.isEmpty()) {
+      jobRepository.deleteAll(purged);
+      log.info("Purged {} expired job(s)", purged.size());
     }
   }
 
@@ -74,7 +76,6 @@ public class JobMaintenanceTask {
       } else {
         job.setStatus(JobStatus.QUEUED);
         jobRepository.save(job);
-        redisTemplate.opsForList().leftPush(JobService.QUEUE_KEY, job.getId().toString());
       }
       log.warn("Reaped stale PROCESSING job {} (attempt {})", job.getId(), attempts);
     }

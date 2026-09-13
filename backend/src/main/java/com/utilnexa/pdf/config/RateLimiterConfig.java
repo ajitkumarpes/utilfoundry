@@ -1,6 +1,7 @@
 package com.utilnexa.pdf.config;
 
 import io.github.bucket4j.distributed.ExpirationAfterWriteStrategy;
+import io.github.bucket4j.distributed.proxy.ClientSideConfig;
 import io.github.bucket4j.distributed.proxy.ProxyManager;
 import io.github.bucket4j.redis.lettuce.cas.LettuceBasedProxyManager;
 
@@ -19,10 +20,11 @@ import org.springframework.context.annotation.Configuration;
 @Configuration
 public class RateLimiterConfig {
 
-  // RedisRateLimiter fails open on any exception, but that only helps if Redis being down
+  // RedisRateLimiter falls back locally on any exception, but that only helps if Redis being down
   // actually throws promptly. Measured live: with Lettuce's own defaults, a stopped Redis
   // container left two concurrent requests hanging for roughly two minutes (queued, waiting for
-  // reconnection) before they finally fell through - fail-open in name only at that point, since
+  // reconnection) before they finally reached the fallback - graceful degradation in name only
+  // at that point, since
   // request threads pile up for the same length of time either way. Short-circuited here instead
   // of trusting the defaults: a short command timeout for the first request that hits the outage
   // before Lettuce has noticed, and REJECT_COMMANDS so every request after that fails instantly
@@ -58,6 +60,11 @@ public class RateLimiterConfig {
 
   @Bean
   public ProxyManager<String> rateLimiterProxyManager(RedisClient redisClient) {
+    ClientSideConfig clientSideConfig =
+        ClientSideConfig.getDefault()
+            .withExpirationAfterWriteStrategy(
+                ExpirationAfterWriteStrategy.basedOnTimeForRefillingBucketUpToMax(
+                    Duration.ofMinutes(1)));
     LettuceBasedProxyManager<byte[]> byteKeyed =
         LettuceBasedProxyManager.builderFor(redisClient)
             // TTL = time for this bucket to fully refill its consumed tokens, plus this Duration
@@ -66,9 +73,7 @@ public class RateLimiterConfig {
             // natural refill + ~60s of this jitter, not 60s flat). Lets Redis expire a client's
             // key on its own rather than a scheduled sweep running in every replica; the jitter
             // just avoids recreating a bucket seconds after it would have expired anyway.
-            .withExpirationStrategy(
-                ExpirationAfterWriteStrategy.basedOnTimeForRefillingBucketUpToMax(
-                    Duration.ofMinutes(1)))
+            .withClientSideConfig(clientSideConfig)
             .build();
     return byteKeyed.withMapper(key -> key.getBytes(StandardCharsets.UTF_8));
   }

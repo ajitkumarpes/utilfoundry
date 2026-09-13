@@ -1,0 +1,87 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="light dark">
+  <title>PDFLab Operations</title>
+  <link rel="stylesheet" href="/ops/assets/ops.css">
+  <script src="/ops/assets/ops.js" defer></script>
+</head>
+<body>
+  <main class="shell">
+    <header class="topbar">
+      <a class="brand" href="/ops" aria-label="PDFLab operations home">
+        <span class="brand-mark" aria-hidden="true">P</span>
+        <span>PDFLab <strong>Operations</strong></span>
+      </a>
+      <nav class="links" aria-label="Operations links">
+        <a href="/swagger-ui/index.html">Swagger UI</a>
+        <a href="/v3/api-docs">OpenAPI</a>
+        <a href="/actuator/health">Raw health</a>
+      </nav>
+    </header>
+
+    <section class="hero" aria-labelledby="page-title">
+      <div>
+        <p class="eyebrow">SYSTEM OVERVIEW</p>
+        <h1 id="page-title">Platform operations</h1>
+        <p class="subtitle">Live service health and runtime signals from this PDFLab instance.</p>
+      </div>
+      <div class="refresh-panel">
+        <div class="live-state"><span class="pulse" aria-hidden="true"></span><span id="refresh-state">Connecting…</span></div>
+        <button id="refresh-button" type="button">Refresh now</button>
+      </div>
+    </section>
+
+    <section class="summary" aria-label="Overall status">
+      <div class="summary-status">
+        <span id="overall-icon" class="status-icon pending" aria-hidden="true">•</span>
+        <div><p>Overall status</p><h2 id="overall-status">Checking</h2></div>
+      </div>
+      <div class="summary-meta">
+        <div><span>Last checked</span><strong id="last-checked">—</strong></div>
+        <div><span>Auto refresh</span><strong>15 seconds</strong></div>
+      </div>
+    </section>
+
+    <section aria-labelledby="services-heading">
+      <div class="section-heading">
+        <div><p class="eyebrow">DEPENDENCIES</p><h2 id="services-heading">Service health</h2></div>
+        <a href="/actuator/health/readiness">View readiness JSON</a>
+      </div>
+      <div id="services" class="service-grid" aria-live="polite">
+        <article class="service-card skeleton-card"></article>
+        <article class="service-card skeleton-card"></article>
+        <article class="service-card skeleton-card"></article>
+        <article class="service-card skeleton-card"></article>
+      </div>
+    </section>
+
+    <section aria-labelledby="metrics-heading">
+      <div class="section-heading">
+        <div><p class="eyebrow">RUNTIME</p><h2 id="metrics-heading">Application metrics</h2></div>
+        <a href="/actuator/metrics">Browse raw metrics</a>
+      </div>
+      <div class="metrics-grid">
+        <article class="metric-card"><span>Process uptime</span><strong id="metric-uptime">—</strong><small>Since last restart</small></article>
+        <article class="metric-card"><span>System CPU</span><strong id="metric-cpu">—</strong><div class="meter"><i id="cpu-meter"></i></div></article>
+        <article class="metric-card"><span>JVM heap</span><strong id="metric-memory">—</strong><div class="meter"><i id="memory-meter"></i></div></article>
+        <article class="metric-card"><span>Disk available</span><strong id="metric-disk">—</strong><div class="meter"><i id="disk-meter"></i></div></article>
+        <article class="metric-card"><span>Database pool</span><strong id="metric-db">—</strong><small>Active / maximum connections</small></article>
+        <article class="metric-card"><span>HTTP requests</span><strong id="metric-requests">—</strong><small>Observed since startup</small></article>
+      </div>
+    </section>
+
+    <div id="error-banner" class="error-banner" role="alert" hidden>
+      <strong>Dashboard data is unavailable.</strong>
+      <span id="error-message">Check the backend logs and try again.</span>
+    </div>
+
+    <footer>
+      <span>PDFLab development operations console</span>
+      <span>Machine endpoints remain available under <code>/actuator</code></span>
+    </footer>
+  </main>
+</body>
+</html>

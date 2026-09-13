@@ -5,6 +5,14 @@ export type RenderedPage = {
   renderHeight: number;
 };
 
+type PageViewportLike = { width: number; height: number };
+type RenderablePage = {
+  render(options: {
+    canvasContext: CanvasRenderingContext2D;
+    viewport: PageViewportLike;
+  }): { promise: Promise<unknown> };
+};
+
 async function loadPdfDocument(file: File) {
   const pdfjsLib = await import("pdfjs-dist");
   pdfjsLib.GlobalWorkerOptions.workerSrc = new URL(
@@ -16,7 +24,10 @@ async function loadPdfDocument(file: File) {
   return pdfjsLib.getDocument({ data: buffer }).promise;
 }
 
-async function renderPageToDataUrl(page: any, viewport: any): Promise<string> {
+async function renderPageToDataUrl(
+  page: RenderablePage,
+  viewport: PageViewportLike
+): Promise<string> {
   const canvas = document.createElement("canvas");
   canvas.width = viewport.width;
   canvas.height = viewport.height;

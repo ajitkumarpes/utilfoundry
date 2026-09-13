@@ -6,13 +6,23 @@ export default function SiteHeader() {
       <Link href="/" className="brand">
         <b>P</b> PDF<span>Lab</span>
       </Link>
-      <nav>
-        <a href="/#organize-tools">Organize</a>
-        <a href="/#convert-tools">Convert</a>
-        <a href="/#office-tools">Office</a>
-        <a href="/#optimize-tools">Optimize</a>
-        <a href="/#protect-tools">Protect</a>
+      <nav className="desktop-nav" aria-label="Tool categories">
+        <Link href="/#organize-tools">Organize</Link>
+        <Link href="/#convert-tools">Convert</Link>
+        <Link href="/#office-tools">Office</Link>
+        <Link href="/#optimize-tools">Optimize</Link>
+        <Link href="/#protect-tools">Protect</Link>
       </nav>
+      <details className="mobile-nav">
+        <summary>Tools</summary>
+        <nav className="mobile-nav-links" aria-label="Tool categories">
+          <Link href="/#organize-tools">Organize</Link>
+          <Link href="/#convert-tools">Convert</Link>
+          <Link href="/#office-tools">Office</Link>
+          <Link href="/#optimize-tools">Optimize</Link>
+          <Link href="/#protect-tools">Protect</Link>
+        </nav>
+      </details>
     </header>
   );
 }

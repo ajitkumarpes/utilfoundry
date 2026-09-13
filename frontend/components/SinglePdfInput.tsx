@@ -131,7 +131,7 @@ export default function SinglePdfInput({
 
   return (
     <div {...getRootProps()} className={`upload-zone ${isDragActive ? "dragging" : ""}`}>
-      <input {...getInputProps()} />
+      <input {...getInputProps()} aria-label={`Select a ${accept.label} file`} />
       <div className="upload-icon">
         <UploadCloud size={30} />
       </div>

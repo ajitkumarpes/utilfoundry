@@ -9,20 +9,16 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
+import tools.jackson.databind.ObjectMapper;
 import com.utilnexa.pdf.service.ImageToPdfService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import org.springframework.data.redis.core.ListOperations;
-import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.mock.web.MockMultipartFile;
 
 class JobServiceTest {
 
   private JobRepository jobRepository;
   private S3StorageService storage;
-  private StringRedisTemplate redisTemplate;
-  private ListOperations<String, String> listOperations;
   private ImageToPdfService imageToPdfService;
   private JobService service;
 
@@ -30,13 +26,10 @@ class JobServiceTest {
   void setUp() {
     jobRepository = mock(JobRepository.class);
     storage = mock(S3StorageService.class);
-    redisTemplate = mock(StringRedisTemplate.class);
-    listOperations = mock(ListOperations.class);
     imageToPdfService = mock(ImageToPdfService.class);
-    when(redisTemplate.opsForList()).thenReturn(listOperations);
     when(jobRepository.save(any(Job.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
-    service = new JobService(jobRepository, storage, redisTemplate, new ObjectMapper(), imageToPdfService);
+    service = new JobService(jobRepository, storage, new ObjectMapper(), imageToPdfService);
   }
 
   @Test
@@ -64,7 +57,6 @@ class JobServiceTest {
     assertEquals(JobStatus.QUEUED, job.getStatus());
     assertEquals("report.docx", job.getOriginalFilename());
     verify(storage).put(anyString(), any(), any());
-    verify(listOperations).leftPush(JobService.QUEUE_KEY, job.getId().toString());
   }
 
   @Test

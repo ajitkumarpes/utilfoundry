@@ -1,4 +1,5 @@
 import { ImageResponse } from "next/og";
+import { TOOL_COUNT } from "@/lib/tools";
 
 export const size = { width: 1200, height: 630 };
 export const contentType = "image/png";
@@ -40,7 +41,7 @@ export default function OpengraphImage() {
           </div>
         </div>
         <div style={{ marginTop: 30, fontSize: 30, color: "#666", display: "flex" }}>
-          22 free PDF tools. Private by default. No account needed.
+          {TOOL_COUNT} free PDF tools. Private by default. No account needed.
         </div>
       </div>
     ),

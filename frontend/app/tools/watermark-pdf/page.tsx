@@ -106,7 +106,7 @@ export default function WatermarkPdfPage() {
         </Link>
         <div className="eyebrow">PDF TOOL</div>
         <h1>Add Watermark</h1>
-        <p>Stamp text like "CONFIDENTIAL" or a company name across every page.</p>
+        <p>Stamp text like &quot;CONFIDENTIAL&quot; or a company name across every page.</p>
       </section>
 
       <section className="workspace">
