@@ -5,6 +5,10 @@ test.describe("developer tools browser coverage", () => {
   test("every catalog tool produces rendered output or a validation result", async ({
     page,
   }) => {
+    test.skip(
+      test.info().project.name !== "chromium",
+      "The complete 63-tool sweep runs in Chromium; representative workflows cover other engines.",
+    );
     await page.goto("/");
     await page.getByRole("button", { name: /View all 63 tools/ }).click();
 
@@ -66,5 +70,19 @@ test.describe("developer tools browser coverage", () => {
     await page.goto("/");
     const results = await new AxeBuilder({ page }).analyze();
     expect(results.violations).toEqual([]);
+  });
+
+  test("deep links select a tool and warn before sensitive data leaves the editor", async ({
+    page,
+  }) => {
+    await page.goto("/?tool=jwt");
+    await expect(page.getByRole("heading", { name: "JWT Decoder" })).toBeVisible();
+    await page.getByLabel("JWT Decoder input").fill(
+      "eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiIxMjMifQ.signature",
+    );
+    await page.getByRole("button", { name: "Run tool" }).click();
+    await expect(
+      page.getByRole("alert").filter({ hasText: "Potentially sensitive" }),
+    ).toContainText("JWT");
   });
 });

@@ -829,17 +829,39 @@ function escapeHtml(value: string) {
   );
 }
 
+function detectSensitiveInput(value: string) {
+  const findings: string[] = [];
+  if (/-----BEGIN (?:RSA |EC |OPENSSH )?PRIVATE KEY-----/i.test(value))
+    findings.push("private key");
+  if (/(?:AKIA|ASIA)[A-Z0-9]{16}/.test(value)) findings.push("AWS access key");
+  if (/eyJ[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+/.test(value))
+    findings.push("JWT");
+  if (/\b(?:\d[ -]*?){13,19}\b/.test(value)) findings.push("card-like number");
+  return findings;
+}
+
+function getRequestedToolId() {
+  if (typeof window === "undefined") return "json";
+  const requestedTool = new URLSearchParams(window.location.search).get("tool");
+  return requestedTool && tools.some((tool) => tool.id === requestedTool)
+    ? requestedTool
+    : "json";
+}
+
 export default function Home() {
-  const [selectedId, setSelectedId] = useState("json");
+  const [selectedId, setSelectedId] = useState(getRequestedToolId);
   const [query, setQuery] = useState("");
   const [category, setCategory] = useState("All tools");
-  const [input, setInput] = useState(starterValues.json);
+  const [input, setInput] = useState(
+    () => starterValues[getRequestedToolId()] ?? starterValues.json,
+  );
   const [output, setOutput] = useState("");
   const [notice, setNotice] = useState("");
   const [option, setOption] = useState("encode");
   const [pattern, setPattern] = useState("\\b[A-Z][a-z]+\\b");
   const [flags, setFlags] = useState("g");
   const [secret, setSecret] = useState("change-me-locally");
+  const [securityWarning, setSecurityWarning] = useState("");
   const [mobileOpen, setMobileOpen] = useState(false);
   const [showAll, setShowAll] = useState(false);
   const searchRef = useRef<HTMLInputElement>(null);
@@ -882,6 +904,8 @@ export default function Home() {
     setInput(starterValues[id] ?? "");
     setOutput("");
     setNotice("");
+    setSecurityWarning("");
+    window.history.replaceState(null, "", `?tool=${encodeURIComponent(id)}`);
     setOption(
       id === "hash"
         ? "SHA-256"
@@ -913,6 +937,12 @@ export default function Home() {
 
   async function runTool() {
     setNotice("");
+    const findings = detectSensitiveInput(input);
+    setSecurityWarning(
+      findings.length
+        ? `Potentially sensitive ${findings.join(", ")} detected. Use masked test data only and clear this page when finished.`
+        : "",
+    );
     try {
       const maxInputLength =
         selectedId === "image-base64" ? 14_000_000 : 2_000_000;
@@ -1389,12 +1419,18 @@ export default function Home() {
               </div>
             </div>
             {selected.category === "Payments" && (
-              <div className="security-note">
+                  <div className="security-note">
                 <ShieldCheck size={15} />
                 <span>
                   Use masked test data only. PANs, Track 2, PIN blocks and
                   production keys must never be pasted here.
                 </span>
+              </div>
+            )}
+            {securityWarning && (
+              <div className="security-warning" role="alert">
+                <ShieldCheck size={15} />
+                <span>{securityWarning}</span>
               </div>
             )}
             <div className="tool-options">

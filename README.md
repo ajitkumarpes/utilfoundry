@@ -40,6 +40,8 @@ npm run start
 ```
 
 The build script uses Next's Webpack production compiler for a stable browser bundle with the current parser dependency graph.
-The Playwright suite opens every catalog tool and runs an Axe accessibility scan against Chromium.
+The Playwright suite opens every catalog tool, exercises representative modes, checks deep links and sensitive-input warnings, and runs an Axe accessibility scan. CI additionally runs the suite against Chromium, Firefox, and WebKit.
+
+See [`docs/release-readiness.md`](docs/release-readiness.md) for the enterprise release boundary and deployment checklist.
 
 The app is a static-friendly Next.js App Router application and can be deployed to Vercel, a Node container, or any platform that supports Next.js 16.
