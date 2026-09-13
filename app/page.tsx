@@ -1,9 +1,12 @@
 import Link from "next/link";
 import { ArrowRight, Check, Code2, FileText, LockKeyhole, Sparkles } from "lucide-react";
 
+const PDF_URL = process.env.NEXT_PUBLIC_PDF_URL || "https://pdf.utilnexa.com";
+const DEVELOPER_URL = process.env.NEXT_PUBLIC_DEVELOPER_URL || "https://dev.utilnexa.com";
+
 const products = [
   {
-    href: "https://pdf.utilnexa.com",
+    href: PDF_URL,
     label: "PDF platform",
     title: "Make every PDF moment simpler.",
     description: "Merge, split, convert, compress, protect, sign, and organize documents in one focused workspace.",
@@ -11,7 +14,7 @@ const products = [
     tone: "lavender",
   },
   {
-    href: "https://dev.utilnexa.com",
+    href: DEVELOPER_URL,
     label: "Developer tools",
     title: "Move from idea to deploy faster.",
     description: "Format, validate, decode, compare, inspect, and generate with 70 browser-local developer utilities.",
