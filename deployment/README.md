@@ -17,3 +17,5 @@ This Compose project routes the three independent applications through Caddy:
 Caddy obtains and renews certificates automatically. Keep ports 80/443 open, restrict SSH to trusted addresses, and back up the Caddy volumes.
 
 The PDF and developer images must listen on port 3000 inside their containers. If either image uses another internal port, change the corresponding `reverse_proxy` target and health check before deployment.
+
+Before production, route the PDF frontend's API base URL to the public PDF backend (for example, `https://pdf.utilnexa.com` with Caddy forwarding `/api/*` to the Spring backend). The existing PDF repository currently owns the backend, database, Redis, MinIO, and processor services; this landing stack deliberately does not duplicate those stateful services.
