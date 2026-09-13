@@ -1,21 +1,28 @@
 # UtilNexa deployment
 
-This Compose project routes the three independent applications through Caddy:
+This Compose project runs the three UtilNexa surfaces and the complete PDF runtime behind Caddy:
 
 - `utilnexa.com` → the landing page
-- `pdf.utilnexa.com` → the PDF frontend image
-- `dev.utilnexa.com` → the developer-tools image
+- `pdf.utilnexa.com` → the PDF frontend, with `/api/*` and `/actuator/*` forwarded to Spring
+- `dev.utilnexa.com` → the developer-tools application
+- `storage.utilnexa.com` → the private MinIO endpoint used by PDF signed URLs
+
+The PDF backend, processor, PostgreSQL, Redis, and MinIO services are included in this stack. No
+public host ports are exposed for those services; Caddy is the only public ingress.
 
 ## First deployment
 
-1. Copy `.env.example` to `.env` and set `ACME_EMAIL`.
-2. Set `PDF_IMAGE` to the published PDF frontend image. The existing PDF project is intentionally not modified by this deployment scaffold.
-3. Publish the developer-tools image or set `DEV_IMAGE` to the image registry location.
-4. Point the apex and both subdomains to the server IP with DNS A/AAAA records.
-5. Run `docker compose up -d`.
+1. Check out `utilnexa-web`, `pdf-platform`, and `developer-tools` as sibling directories.
+2. Copy `.env.example` to `.env` and replace every `replace-with-*` value with a unique secret.
+3. Point the apex and `pdf`, `dev`, and `storage` subdomains to the server IP with DNS A/AAAA records.
+4. Build and start the stack with `docker compose build` followed by `docker compose up -d`.
+5. Verify `https://utilnexa.com`, `https://pdf.utilnexa.com`, and `https://dev.utilnexa.com` before opening traffic.
 
-Caddy obtains and renews certificates automatically. Keep ports 80/443 open, restrict SSH to trusted addresses, and back up the Caddy volumes.
+Caddy obtains and renews certificates automatically. Keep ports 80/443 open, restrict SSH to trusted addresses,
+and back up `caddy_data`, `postgres_data`, and `minio_data`. Redis is a cache and does not need backups.
 
-The PDF and developer images must listen on port 3000 inside their containers. If either image uses another internal port, change the corresponding `reverse_proxy` target and health check before deployment.
+The compose file builds both sibling application repositories so a single server checkout is enough. For immutable
+releases, replace the `build` entries with pinned registry images after publishing and sign those images.
 
-Before production, route the PDF frontend's API base URL to the public PDF backend (for example, `https://pdf.utilnexa.com` with Caddy forwarding `/api/*` to the Spring backend). The existing PDF repository currently owns the backend, database, Redis, MinIO, and processor services; this landing stack deliberately does not duplicate those stateful services.
+Do not commit `.env`; it contains database, object-storage, and processor credentials. Rotate all values if they are
+ever exposed. MinIO should remain private at the network layer even though signed object URLs use its public hostname.

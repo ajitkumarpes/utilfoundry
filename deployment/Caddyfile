@@ -7,9 +7,23 @@
 }
 
 pdf.{$ROOT_DOMAIN} {
-  reverse_proxy pdf:3000
+  handle /api/* {
+    reverse_proxy pdf-backend:8080
+  }
+
+  handle /actuator/* {
+    reverse_proxy pdf-backend:8080
+  }
+
+  handle {
+    reverse_proxy pdf-frontend:3000
+  }
 }
 
 dev.{$ROOT_DOMAIN} {
   reverse_proxy developer:3000
+}
+
+storage.{$ROOT_DOMAIN} {
+  reverse_proxy minio:9000
 }

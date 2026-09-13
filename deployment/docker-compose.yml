@@ -13,10 +13,14 @@ services:
     depends_on:
       landing:
         condition: service_healthy
-      pdf:
+      pdf-frontend:
+        condition: service_healthy
+      pdf-backend:
         condition: service_started
       developer:
         condition: service_healthy
+      minio:
+        condition: service_started
 
   landing:
     build:
@@ -32,7 +36,8 @@ services:
       start_period: 20s
 
   developer:
-    image: ${DEV_IMAGE:-ghcr.io/ajitkumarpes/developer-tools:latest}
+    build:
+      context: ../../developer-tools
     restart: unless-stopped
     expose:
       - "3000"
@@ -43,12 +48,128 @@ services:
       retries: 3
       start_period: 20s
 
-  pdf:
-    image: ${PDF_IMAGE:-utilnexa/pdf-platform-frontend:latest}
+  postgres:
+    image: postgres:17-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-pdf_platform}
+      POSTGRES_USER: ${POSTGRES_USER:?POSTGRES_USER is required}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  redis:
+    image: redis:8-alpine
+    restart: unless-stopped
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  minio:
+    image: minio/minio:latest
+    restart: unless-stopped
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: ${S3_ACCESS_KEY:?S3_ACCESS_KEY is required}
+      MINIO_ROOT_PASSWORD: ${S3_SECRET_KEY:?S3_SECRET_KEY is required}
+    volumes:
+      - minio_data:/data
+
+  createbucket:
+    image: minio/mc:latest
+    restart: "no"
+    depends_on:
+      minio:
+        condition: service_started
+    entrypoint: ["/bin/sh", "-c"]
+    command: >-
+      "until mc alias set local http://minio:9000 $${S3_ACCESS_KEY} $${S3_SECRET_KEY}; do sleep 1; done;
+      mc mb -p local/$${S3_BUCKET} || true; exit 0"
+    environment:
+      S3_ACCESS_KEY: ${S3_ACCESS_KEY:?S3_ACCESS_KEY is required}
+      S3_SECRET_KEY: ${S3_SECRET_KEY:?S3_SECRET_KEY is required}
+      S3_BUCKET: ${S3_BUCKET:-pdf-files}
+
+  pdf-processor:
+    build:
+      context: ../../pdf-platform
+      dockerfile: processor.Dockerfile
+    restart: unless-stopped
+    environment:
+      PROCESSOR_TOKEN: ${PROCESSOR_TOKEN:?PROCESSOR_TOKEN is required}
+    tmpfs:
+      - /workspace:uid=10001,gid=10001,mode=0700
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health', timeout=2)"]
+      interval: 10s
+      timeout: 3s
+      retries: 20
+    security_opt:
+      - no-new-privileges:true
+
+  pdf-backend:
+    build:
+      context: ../../pdf-platform/backend
+    restart: unless-stopped
+    environment:
+      SPRING_PROFILES_ACTIVE: docker,prod
+      POSTGRES_USER: ${POSTGRES_USER:?POSTGRES_USER is required}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}
+      S3_ENDPOINT: http://minio:9000
+      S3_PUBLIC_ENDPOINT: https://storage.${ROOT_DOMAIN}
+      S3_ACCESS_KEY: ${S3_ACCESS_KEY:?S3_ACCESS_KEY is required}
+      S3_SECRET_KEY: ${S3_SECRET_KEY:?S3_SECRET_KEY is required}
+      S3_BUCKET: ${S3_BUCKET:-pdf-files}
+      PROCESSOR_BASE_URL: http://pdf-processor:8000
+      PROCESSOR_TOKEN: ${PROCESSOR_TOKEN:?PROCESSOR_TOKEN is required}
+      OPENAPI_ENABLED: "false"
+      CORS_ALLOWED_ORIGINS: https://pdf.${ROOT_DOMAIN}
+      RATE_LIMIT_PER_MINUTE: ${RATE_LIMIT_PER_MINUTE:-20}
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      createbucket:
+        condition: service_completed_successfully
+      pdf-processor:
+        condition: service_healthy
+    security_opt:
+      - no-new-privileges:true
+
+  pdf-frontend:
+    build:
+      context: ../../pdf-platform/frontend
+      args:
+        NEXT_PUBLIC_API_BASE_URL: https://pdf.${ROOT_DOMAIN}
+        NEXT_PUBLIC_SITE_URL: https://pdf.${ROOT_DOMAIN}
     restart: unless-stopped
     expose:
       - "3000"
+    healthcheck:
+      test: ["CMD", "wget", "--spider", "-q", "http://127.0.0.1:3000/"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 20s
+    depends_on:
+      pdf-backend:
+        condition: service_started
+    security_opt:
+      - no-new-privileges:true
 
 volumes:
   caddy_data:
   caddy_config:
+  postgres_data:
+  redis_data:
+  minio_data:
