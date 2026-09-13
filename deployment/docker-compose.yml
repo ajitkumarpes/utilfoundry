@@ -1,0 +1,54 @@
+services:
+  caddy:
+    image: caddy:2.10-alpine
+    restart: unless-stopped
+    env_file: .env
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on:
+      landing:
+        condition: service_healthy
+      pdf:
+        condition: service_started
+      developer:
+        condition: service_healthy
+
+  landing:
+    build:
+      context: ..
+    restart: unless-stopped
+    expose:
+      - "3000"
+    healthcheck:
+      test: ["CMD", "wget", "--spider", "-q", "http://127.0.0.1:3000/"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 20s
+
+  developer:
+    image: ${DEV_IMAGE:-ghcr.io/ajitkumarpes/developer-tools:latest}
+    restart: unless-stopped
+    expose:
+      - "3000"
+    healthcheck:
+      test: ["CMD", "wget", "--spider", "-q", "http://127.0.0.1:3000/"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 20s
+
+  pdf:
+    image: ${PDF_IMAGE:-utilnexa/pdf-platform-frontend:latest}
+    restart: unless-stopped
+    expose:
+      - "3000"
+
+volumes:
+  caddy_data:
+  caddy_config:

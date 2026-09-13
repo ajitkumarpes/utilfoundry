@@ -1,0 +1,15 @@
+{
+  email {$ACME_EMAIL}
+}
+
+{$ROOT_DOMAIN} {
+  reverse_proxy landing:3000
+}
+
+pdf.{$ROOT_DOMAIN} {
+  reverse_proxy pdf:3000
+}
+
+dev.{$ROOT_DOMAIN} {
+  reverse_proxy developer:3000
+}
