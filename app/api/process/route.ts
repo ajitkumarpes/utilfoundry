@@ -21,6 +21,12 @@ const MIME_BY_FORMAT: Record<string, string> = {
   pdf: "application/pdf"
 };
 
+class ProcessingError extends Error {
+  constructor(message: string, readonly status = 400) {
+    super(message);
+  }
+}
+
 function errorResponse(message: string, status = 400) {
   return Response.json({ error: message }, { status, headers: { "Cache-Control": "no-store" } });
 }
@@ -100,12 +106,12 @@ async function processWithWorker(tool: string, input: Buffer, originalName: stri
       cache: "no-store"
     });
   } catch {
-    throw new Error("The local image worker is unavailable. Start the image-worker service and try again.");
+    throw new ProcessingError("The local image worker is unavailable. Start the image-worker service and try again.", 503);
   }
 
   if (!response.ok) {
     const payload = await response.json().catch(() => null) as { error?: string } | null;
-    throw new Error(payload?.error ?? "The image worker could not process this file.");
+    throw new ProcessingError(payload?.error ?? "The image worker could not process this file.", response.status >= 500 ? 503 : 400);
   }
 
   const contentType = response.headers.get("content-type") ?? "application/octet-stream";
@@ -144,7 +150,7 @@ export async function POST(request: Request) {
     }
 
     if (WORKER_TOOLS.has(tool)) {
-      return processWithWorker(tool, input, originalName, formData);
+      return await processWithWorker(tool, input, originalName, formData);
     }
 
     const source = sharp(input, { limitInputPixels: MAX_PIXELS, sequentialRead: true });
@@ -196,11 +202,16 @@ export async function POST(request: Request) {
       if (!width && !height) throw new Error("Enter a target width or height.");
       image = image.resize(width || undefined, height || undefined, { fit: "inside", withoutEnlargement: formData.get("preventEnlargement") !== "false" });
     } else if (tool === "crop") {
-      const width = safeInteger(formData.get("width"), 0, 1, metadata.width);
-      const height = safeInteger(formData.get("height"), 0, 1, metadata.height);
+      let width = safeInteger(formData.get("width"), metadata.width, 1, metadata.width);
+      let height = safeInteger(formData.get("height"), metadata.height, 1, metadata.height);
+      const ratio = String(formData.get("ratio") ?? "free");
+      const targetRatio: Record<string, number> = { square: 1, landscape: 16 / 9, portrait: 4 / 5 };
+      if (targetRatio[ratio]) {
+        if (width / height > targetRatio[ratio]) width = Math.max(1, Math.floor(height * targetRatio[ratio]));
+        else height = Math.max(1, Math.floor(width / targetRatio[ratio]));
+      }
       const left = safeInteger(formData.get("left"), 0, 0, Math.max(0, metadata.width - width));
       const top = safeInteger(formData.get("top"), 0, 0, Math.max(0, metadata.height - height));
-      if (!width || !height) throw new Error("Enter crop width and height.");
       image = image.extract({ left, top, width, height });
     } else if (tool === "convert") {
       // Target format is applied below.
@@ -219,7 +230,7 @@ export async function POST(request: Request) {
 
     const fallback: OutputFormat = metadata.format === "png" ? "png" : metadata.format === "webp" ? "webp" : "jpeg";
     const requestedFormat = typeof formData.get("format") === "string" ? String(formData.get("format")) : fallback;
-    const format = tool === "convert" || tool === "compress" ? requestedFormat === "auto" ? fallback : formatOf(requestedFormat) : fallback;
+    const format = tool === "convert" || tool === "compress" || tool === "rotate" ? requestedFormat === "auto" ? fallback : formatOf(requestedFormat) : fallback;
     const output = await encode(image, format, quality);
     const suffix = `${tool}.${format === "jpeg" ? "jpg" : format}`;
     return new Response(new Uint8Array(output), {
@@ -233,6 +244,7 @@ export async function POST(request: Request) {
     });
   } catch (error) {
     const message = error instanceof Error ? error.message : "Image processing failed.";
-    return errorResponse(message.length > 180 ? "The image could not be processed. Check its format and size." : message);
+    const safeMessage = message.length > 180 ? "The image could not be processed. Check its format and size." : message;
+    return errorResponse(safeMessage, error instanceof ProcessingError ? error.status : 400);
   }
 }

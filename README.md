@@ -24,6 +24,8 @@ OCR, background removal and upscaling run in the separate `image-worker` service
 
 This release is a Next.js App Router service with a Node.js runtime route backed by Sharp/libvips and pdf-lib, plus a separate Python worker backed by Tesseract, U²-Net and FSRCNN. Requests are bounded to 32 MB and 40 million pixels, processed in memory, and never persisted by the application. Both services have explicit CPU and memory ceilings in the included Compose file.
 
+The UI follows a shared design-system/workbench model rather than one bespoke page per tool. `AppShell` owns the header, navigation and main frame; `UploadCard`, `SettingsCard`, `ResultCard` and `InfoRail` are shared surfaces; and `ImageWorkbench` owns only tool state and orchestration. Tool metadata remains centralized in `lib/tools.ts`, so new tools extend the same interaction and visual language.
+
 The tradeoff is explicit: files are uploaded to the running instance for processing. Put this service behind TLS, keep request logs free of bodies, and use an external object store only when a future product requirement genuinely needs saved output.
 
 ## Run locally
@@ -51,6 +53,17 @@ docker compose up --build -d
 ```
 
 The Compose stack exposes the web app on <http://localhost:3021>. The worker remains private to the Compose network and has a `/health` endpoint for the web service dependency check.
+
+Validation before release:
+
+```bash
+npm run lint
+npm run typecheck
+npm run test
+npm run build
+```
+
+The route tests cover requested output formats, crop ratios, PDF generation and Base64 round-tripping. The worker-backed tools additionally require a healthy `image-worker` container.
 
 ## Security and operations
 
