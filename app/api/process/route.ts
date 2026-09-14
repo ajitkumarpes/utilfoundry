@@ -7,6 +7,8 @@ export const maxDuration = 60;
 
 const MAX_INPUT_BYTES = 32 * 1024 * 1024;
 const MAX_PIXELS = 40_000_000;
+const WORKER_URL = process.env.IMAGE_WORKER_URL ?? "http://127.0.0.1:8094";
+const WORKER_TOOLS = new Set(["ocr", "screenshot-to-text", "remove-background", "upscale"]);
 const MIME_BY_FORMAT: Record<string, string> = {
   jpeg: "image/jpeg",
   jpg: "image/jpeg",
@@ -66,6 +68,50 @@ async function imagePdf(input: Buffer) {
   return pdf.save();
 }
 
+async function processWithWorker(tool: string, input: Buffer, originalName: string, formData: FormData) {
+  const body = new FormData();
+  body.append("tool", tool);
+  const fileBytes = new Uint8Array(input.byteLength);
+  fileBytes.set(input);
+  body.append("file", new Blob([fileBytes.buffer]), originalName);
+  for (const key of ["language", "psm", "scale"]) {
+    const value = formData.get(key);
+    if (typeof value === "string" && value) body.append(key, value);
+  }
+
+  let response: Response;
+  try {
+    response = await fetch(`${WORKER_URL}/process`, {
+      method: "POST",
+      body,
+      signal: AbortSignal.timeout(55_000),
+      cache: "no-store"
+    });
+  } catch {
+    throw new Error("The local image worker is unavailable. Start the image-worker service and try again.");
+  }
+
+  if (!response.ok) {
+    const payload = await response.json().catch(() => null) as { error?: string } | null;
+    throw new Error(payload?.error ?? "The image worker could not process this file.");
+  }
+
+  const contentType = response.headers.get("content-type") ?? "application/octet-stream";
+  if (contentType.includes("application/json")) {
+    const payload = await response.json() as Record<string, unknown>;
+    return Response.json(payload, { headers: { "Cache-Control": "no-store" } });
+  }
+
+  const output = await response.arrayBuffer();
+  return new Response(output, {
+    headers: {
+      "Content-Type": contentType,
+      "Content-Disposition": response.headers.get("content-disposition") ?? `attachment; filename="${filename(originalName, `${tool}.png`)}"`,
+      "Cache-Control": "no-store"
+    }
+  });
+}
+
 export async function POST(request: Request) {
   try {
     const formData = await request.formData();
@@ -83,6 +129,10 @@ export async function POST(request: Request) {
       const file = await readImage(formData);
       input = file.buffer;
       originalName = file.name;
+    }
+
+    if (WORKER_TOOLS.has(tool)) {
+      return processWithWorker(tool, input, originalName, formData);
     }
 
     const source = sharp(input, { limitInputPixels: MAX_PIXELS, sequentialRead: true });

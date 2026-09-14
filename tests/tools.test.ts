@@ -4,6 +4,9 @@ import { isToolId, parseBase64, safeInteger } from "@/lib/tools";
 describe("image tool guards", () => {
   it("accepts only registered tools", () => {
     expect(isToolId("compress")).toBe(true);
+    expect(isToolId("ocr")).toBe(true);
+    expect(isToolId("screenshot-to-text")).toBe(true);
+    expect(isToolId("remove-background")).toBe(true);
     expect(isToolId("background-remover")).toBe(false);
   });
 

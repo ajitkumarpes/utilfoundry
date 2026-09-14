@@ -9,13 +9,17 @@ export type ToolId =
   | "image-to-pdf"
   | "screenshot-to-pdf"
   | "image-to-base64"
-  | "base64-to-image";
+  | "base64-to-image"
+  | "ocr"
+  | "screenshot-to-text"
+  | "remove-background"
+  | "upscale";
 
 export type ToolDefinition = {
   id: ToolId;
   name: string;
   description: string;
-  category: "Optimize" | "Transform" | "Convert" | "Privacy";
+  category: "Optimize" | "Transform" | "Convert" | "Privacy" | "AI";
   needsFile: boolean;
   needsBase64: boolean;
   output: "image" | "pdf" | "text";
@@ -32,7 +36,11 @@ export const TOOLS: ToolDefinition[] = [
   { id: "image-to-pdf", name: "Image to PDF", description: "Create a clean PDF from one image.", category: "Convert", needsFile: true, needsBase64: false, output: "pdf" },
   { id: "screenshot-to-pdf", name: "Screenshot to PDF", description: "Turn a screenshot into a shareable PDF.", category: "Convert", needsFile: true, needsBase64: false, output: "pdf" },
   { id: "image-to-base64", name: "Image to Base64", description: "Create a data URI for HTML or APIs.", category: "Convert", needsFile: true, needsBase64: false, output: "text" },
-  { id: "base64-to-image", name: "Base64 to Image", description: "Decode a data URI or raw Base64 payload.", category: "Convert", needsFile: false, needsBase64: true, output: "image" }
+  { id: "base64-to-image", name: "Base64 to Image", description: "Decode a data URI or raw Base64 payload.", category: "Convert", needsFile: false, needsBase64: true, output: "image" },
+  { id: "ocr", name: "OCR Image", description: "Extract selectable text with local OCR.", category: "AI", needsFile: true, needsBase64: false, output: "text" },
+  { id: "screenshot-to-text", name: "Screenshot to Text", description: "Turn screenshot content into editable text.", category: "AI", needsFile: true, needsBase64: false, output: "text" },
+  { id: "remove-background", name: "Background Remover", description: "Create a transparent cutout with a local model.", category: "AI", needsFile: true, needsBase64: false, output: "image" },
+  { id: "upscale", name: "Image Upscaler", description: "Enhance detail with local 2× super-resolution.", category: "AI", needsFile: true, needsBase64: false, output: "image" }
 ];
 
 export const FORMAT_LABELS = ["jpeg", "png", "webp", "avif"] as const;

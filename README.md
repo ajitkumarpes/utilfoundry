@@ -14,12 +14,15 @@ The image utility vertical for UtilFoundry: practical media operations with expl
 - Image to PDF and Screenshot to PDF
 - Image to Base64 data URI
 - Base64 to PNG image
+- OCR Image and Screenshot to Text through the local Tesseract worker
+- 2× Image Upscaler through the local FSRCNN super-resolution model
+- Background removal through the local U²-Net model
 
-Background removal, ML upscaling, and OCR are intentionally separate worker-tier features. They need model/runtime isolation and different resource limits; they are not presented as finished tools in this release.
+OCR, background removal and upscaling run in the separate `image-worker` service. No paid OCR API or LLM is used. The worker has its own CPU/memory limits, model cache and request boundary so heavier workloads cannot take down the normal Sharp service.
 
 ## Architecture
 
-This first release is a single Next.js App Router service with a Node.js runtime route backed by Sharp/libvips and pdf-lib. Requests are bounded to 32 MB and 40 million pixels, processed in memory, and never persisted by the application. The container has a 768 MB memory ceiling in the included Compose file.
+This release is a Next.js App Router service with a Node.js runtime route backed by Sharp/libvips and pdf-lib, plus a separate Python worker backed by Tesseract, U²-Net and FSRCNN. Requests are bounded to 32 MB and 40 million pixels, processed in memory, and never persisted by the application. Both services have explicit CPU and memory ceilings in the included Compose file.
 
 The tradeoff is explicit: files are uploaded to the running instance for processing. Put this service behind TLS, keep request logs free of bodies, and use an external object store only when a future product requirement genuinely needs saved output.
 
@@ -39,11 +42,15 @@ npm run build
 npm run start -- -p 3021
 ```
 
+The four worker-backed tools require the `image-worker` container (the Compose command below starts it automatically). For a plain Node run, set `IMAGE_WORKER_URL` to a reachable worker URL.
+
 Docker:
 
 ```bash
 docker compose up --build -d
 ```
+
+The Compose stack exposes the web app on <http://localhost:3021>. The worker remains private to the Compose network and has a `/health` endpoint for the web service dependency check.
 
 ## Security and operations
 
@@ -52,4 +59,4 @@ docker compose up --build -d
 - No input is written to disk or sent to analytics.
 - Responses use `Cache-Control: no-store` and restrictive security headers.
 - Add rate limiting at the reverse proxy before public exposure.
-- For 2 GB hosts, run this as a separate service with the included 768 MB cap and do not run AI/OCR workers on the same process.
+- On a 2 GB host, keep the included service limits and run one worker replica. OCR and ML jobs are intentionally serialized by the worker's single process; scale out only after measuring memory and queue latency.
