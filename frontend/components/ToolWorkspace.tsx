@@ -261,6 +261,8 @@ export default function ToolWorkspace({
       </section>
 
       <section className="workspace">
+        <input {...getInputProps()} aria-label={`Select ${config.label} files`} />
+
         {error && (
           <div className="error-box" role="alert">
             <AlertCircle size={18} />
@@ -270,7 +272,6 @@ export default function ToolWorkspace({
 
         {!items.length && !done && (
           <div {...getRootProps()} className={`upload-zone ${isDragActive ? "dragging" : ""}`}>
-            <input {...getInputProps()} aria-label={`Select ${config.label} files`} />
             <div className="upload-icon">
               <UploadCloud size={30} />
             </div>
