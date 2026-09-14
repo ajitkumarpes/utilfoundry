@@ -1,5 +1,8 @@
 export type ToolIconKey = "layers" | "repeat" | "file" | "optimize" | "shield";
 
+/** Fixed per-category accent — intentionally constant across all site themes (see globals.css). */
+export type CategoryColor = "red" | "blue" | "green" | "orange" | "purple";
+
 export type PdfTool = {
   name: string;
   href: `/tools/${string}`;
@@ -8,7 +11,9 @@ export type PdfTool = {
 export type ToolGroup = {
   id: string;
   title: string;
+  description: string;
   icon: ToolIconKey;
+  color: CategoryColor;
   tools: PdfTool[];
 };
 
@@ -17,7 +22,9 @@ export const TOOL_GROUPS: ToolGroup[] = [
   {
     id: "organize-tools",
     title: "Organize & Combine",
+    description: "Merge, split, rearrange and manage your PDF pages.",
     icon: "layers",
+    color: "red",
     tools: [
       { name: "Merge PDF", href: "/tools/merge-pdf" },
       { name: "Split PDF", href: "/tools/split-pdf" },
@@ -34,7 +41,9 @@ export const TOOL_GROUPS: ToolGroup[] = [
   {
     id: "convert-tools",
     title: "Convert",
+    description: "Convert PDFs to and from multiple formats.",
     icon: "repeat",
+    color: "blue",
     tools: [
       { name: "Image to PDF", href: "/tools/image-to-pdf" },
       { name: "PDF to Image", href: "/tools/pdf-to-image" },
@@ -47,7 +56,9 @@ export const TOOL_GROUPS: ToolGroup[] = [
   {
     id: "office-tools",
     title: "Convert Office Files",
+    description: "Work with Word, Excel, PowerPoint and more.",
     icon: "file",
+    color: "green",
     tools: [
       { name: "Word to PDF", href: "/tools/word-to-pdf" },
       { name: "Excel to PDF", href: "/tools/excel-to-pdf" },
@@ -59,7 +70,9 @@ export const TOOL_GROUPS: ToolGroup[] = [
   {
     id: "optimize-tools",
     title: "Optimize & Extract",
+    description: "Reduce file size and extract content from PDFs.",
     icon: "optimize",
+    color: "orange",
     tools: [
       { name: "Compress PDF", href: "/tools/compress-pdf" },
       { name: "Grayscale PDF", href: "/tools/grayscale-pdf" },
@@ -72,7 +85,9 @@ export const TOOL_GROUPS: ToolGroup[] = [
   {
     id: "protect-tools",
     title: "Protect & Sign",
+    description: "Add security, watermarks and signatures.",
     icon: "shield",
+    color: "purple",
     tools: [
       { name: "Add Watermark", href: "/tools/watermark-pdf" },
       { name: "Add Page Numbers", href: "/tools/page-numbers-pdf" },
@@ -87,6 +102,17 @@ export const TOOL_GROUPS: ToolGroup[] = [
   }
 ];
 
-export const ALL_TOOLS = TOOL_GROUPS.flatMap(group => group.tools);
+export type SearchableTool = PdfTool & { groupId: string; groupTitle: string; color: CategoryColor };
+
+export const ALL_TOOLS: SearchableTool[] = TOOL_GROUPS.flatMap(group =>
+  group.tools.map(tool => ({ ...tool, groupId: group.id, groupTitle: group.title, color: group.color }))
+);
 export const TOOL_ROUTES = ALL_TOOLS.map(tool => tool.href);
 export const TOOL_COUNT = ALL_TOOLS.length;
+
+/** Shared by the header quick-search and any other tool-name search UI. */
+export function searchTools(query: string, limit = 8): SearchableTool[] {
+  const normalized = query.trim().toLowerCase();
+  if (!normalized) return [];
+  return ALL_TOOLS.filter(tool => tool.name.toLowerCase().includes(normalized)).slice(0, limit);
+}

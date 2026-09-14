@@ -2,6 +2,7 @@ import Link from "next/link";
 import { ChevronDown } from "lucide-react";
 import { TOOL_GROUPS } from "@/lib/tools";
 import ThemeSwitcher from "@/components/ThemeSwitcher";
+import HeaderSearch from "@/components/HeaderSearch";
 import { BrandMark } from "./BrandMark";
 
 const NAV_LABELS: Record<string, string> = {
@@ -38,6 +39,7 @@ export default function SiteHeader() {
             </div>
           ))}
         </nav>
+        <HeaderSearch />
         <ThemeSwitcher />
         <details className="mobile-nav">
           <summary>Tools</summary>
