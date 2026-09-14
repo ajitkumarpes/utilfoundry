@@ -51,19 +51,31 @@ async function encode(image: Sharp, format: OutputFormat, quality: number) {
   return image.toFormat(format as keyof FormatEnum, options).toBuffer();
 }
 
-async function imagePdf(input: Buffer) {
+async function imagePdf(input: Buffer, formData: FormData) {
   const source = sharp(input, { limitInputPixels: MAX_PIXELS, sequentialRead: true });
   const metadata = await source.metadata();
-  const width = metadata.width ?? 1;
-  const height = metadata.height ?? 1;
+  const sourceWidth = metadata.width ?? 1;
+  const sourceHeight = metadata.height ?? 1;
+  const pageSize = String(formData.get("pageSize") ?? "original");
+  const orientation = String(formData.get("orientation") ?? "portrait");
+  const margin = formData.get("margin") === "none" ? 0 : 24;
+  let width = sourceWidth;
+  let height = sourceHeight;
+  if (pageSize === "a4") [width, height] = orientation === "landscape" ? [842, 595] : [595, 842];
+  if (pageSize === "letter") [width, height] = orientation === "landscape" ? [792, 612] : [612, 792];
   const pdf = await PDFDocument.create();
   const page = pdf.addPage([width, height]);
+  const scale = Math.min(Math.max(1, width - margin * 2) / sourceWidth, Math.max(1, height - margin * 2) / sourceHeight);
+  const drawWidth = sourceWidth * scale;
+  const drawHeight = sourceHeight * scale;
+  const drawX = (width - drawWidth) / 2;
+  const drawY = (height - drawHeight) / 2;
   if (metadata.format === "jpeg") {
     const jpg = await source.jpeg({ quality: 95 }).toBuffer();
-    page.drawImage(await pdf.embedJpg(jpg), { x: 0, y: 0, width, height });
+    page.drawImage(await pdf.embedJpg(jpg), { x: drawX, y: drawY, width: drawWidth, height: drawHeight });
   } else {
     const png = await source.png().toBuffer();
-    page.drawImage(await pdf.embedPng(png), { x: 0, y: 0, width, height });
+    page.drawImage(await pdf.embedPng(png), { x: drawX, y: drawY, width: drawWidth, height: drawHeight });
   }
   return pdf.save();
 }
@@ -142,12 +154,13 @@ export async function POST(request: Request) {
     if (tool === "image-to-base64") {
       const format = metadata.format === "jpeg" ? "jpeg" : metadata.format;
       const mime = MIME_BY_FORMAT[format] ?? "application/octet-stream";
-      const data = `data:${mime};base64,${input.toString("base64")}`;
+      const encoded = input.toString("base64");
+      const data = formData.get("base64Mode") === "raw" ? encoded : `data:${mime};base64,${encoded}`;
       return Response.json({ data, bytes: input.length, format, width: metadata.width, height: metadata.height }, { headers: { "Cache-Control": "no-store" } });
     }
 
     if (tool === "image-to-pdf" || tool === "screenshot-to-pdf") {
-      const pdf = await imagePdf(input);
+      const pdf = await imagePdf(input, formData);
       return new Response(new Uint8Array(pdf), {
         headers: {
           "Content-Type": MIME_BY_FORMAT.pdf,
@@ -173,10 +186,15 @@ export async function POST(request: Request) {
     if (tool === "compress") {
       // Encoding alone is intentional: dimensions remain unchanged while quality/codec changes.
     } else if (tool === "resize") {
-      const width = safeInteger(formData.get("width"), 0, 1, 12_000);
-      const height = safeInteger(formData.get("height"), 0, 1, 12_000);
+      const resizeMode = formData.get("resizeMode") === "percentage" ? "percentage" : formData.get("resizeMode") === "preset" ? "preset" : "pixels";
+      const percentage = safeInteger(formData.get("percentage"), 100, 10, 400);
+      const preset = String(formData.get("preset") ?? "social");
+      const presetDimensions: Record<string, [number, number]> = { social: [1080, 1080], story: [1080, 1920], thumbnail: [1280, 720] };
+      const [presetWidth, presetHeight] = presetDimensions[preset] ?? presetDimensions.social;
+      const width = resizeMode === "percentage" ? Math.max(1, Math.round(metadata.width * percentage / 100)) : resizeMode === "preset" ? presetWidth : safeInteger(formData.get("width"), 0, 1, 12_000);
+      const height = resizeMode === "percentage" ? Math.max(1, Math.round(metadata.height * percentage / 100)) : resizeMode === "preset" ? presetHeight : safeInteger(formData.get("height"), 0, 1, 12_000);
       if (!width && !height) throw new Error("Enter a target width or height.");
-      image = image.resize(width || undefined, height || undefined, { fit: "inside", withoutEnlargement: true });
+      image = image.resize(width || undefined, height || undefined, { fit: "inside", withoutEnlargement: formData.get("preventEnlargement") !== "false" });
     } else if (tool === "crop") {
       const width = safeInteger(formData.get("width"), 0, 1, metadata.width);
       const height = safeInteger(formData.get("height"), 0, 1, metadata.height);
@@ -200,7 +218,8 @@ export async function POST(request: Request) {
     }
 
     const fallback: OutputFormat = metadata.format === "png" ? "png" : metadata.format === "webp" ? "webp" : "jpeg";
-    const format = tool === "convert" || tool === "compress" ? formatOf(typeof formData.get("format") === "string" ? String(formData.get("format")) : fallback) : fallback;
+    const requestedFormat = typeof formData.get("format") === "string" ? String(formData.get("format")) : fallback;
+    const format = tool === "convert" || tool === "compress" ? requestedFormat === "auto" ? fallback : formatOf(requestedFormat) : fallback;
     const output = await encode(image, format, quality);
     const suffix = `${tool}.${format === "jpeg" ? "jpg" : format}`;
     return new Response(new Uint8Array(output), {
