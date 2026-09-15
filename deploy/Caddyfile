@@ -24,6 +24,10 @@ dev.{$ROOT_DOMAIN} {
   reverse_proxy developer:3000
 }
 
+images.{$ROOT_DOMAIN} {
+  reverse_proxy images:3000
+}
+
 storage.{$ROOT_DOMAIN} {
   reverse_proxy minio:9000
 }

@@ -1,9 +1,10 @@
 import Link from "next/link";
-import { ArrowRight, Check, Code2, FileText, LockKeyhole, Sparkles } from "lucide-react";
+import { ArrowRight, Check, Code2, FileText, ImageIcon, LockKeyhole, Sparkles } from "lucide-react";
 import { BrandMark } from "@/components/BrandMark";
 
 const PDF_URL = process.env.NEXT_PUBLIC_PDF_URL || "https://pdf.utilfoundry.com";
 const DEVELOPER_URL = process.env.NEXT_PUBLIC_DEVELOPER_URL || "https://dev.utilfoundry.com";
+const IMAGES_URL = process.env.NEXT_PUBLIC_IMAGES_URL || "https://images.utilfoundry.com";
 
 const products = [
   {
@@ -22,9 +23,17 @@ const products = [
     icon: Code2,
     tone: "blue",
   },
+  {
+    href: IMAGES_URL,
+    label: "Image tools",
+    title: "Get every image ready to share.",
+    description: "Compress, resize, crop, convert, remove backgrounds, and extract text with 30 focused image tools.",
+    icon: ImageIcon,
+    tone: "peach",
+  },
 ];
 
-const futureTools = ["Data converters", "Image utilities", "Text tools", "Security helpers", "Protocol diagnostics", "Productivity workflows"];
+const futureTools = ["Data converters", "Text tools", "Security helpers", "Protocol diagnostics", "Productivity workflows"];
 
 export default function Home() {
   return (
@@ -39,7 +48,7 @@ export default function Home() {
         <div className="hero-copy">
           <div className="eyebrow"><Sparkles size={14} /> The utility layer for modern work</div>
           <h1>Useful tools.<br /><em>Quietly excellent.</em></h1>
-          <p>UtilFoundry brings your everyday PDF, developer, data, and productivity work into fast, thoughtful tools that respect your attention and your data.</p>
+          <p>UtilFoundry brings your everyday PDF, image, developer, data, and productivity work into fast, thoughtful tools that respect your attention and your data.</p>
           <div className="hero-actions"><Link className="primary-button" href="#products">Explore UtilFoundry <ArrowRight size={16} /></Link><a className="text-link" href="#principles">Built privacy-first <ArrowRight size={15} /></a></div>
         </div>
         <div className="hero-card" aria-label="UtilFoundry product overview">

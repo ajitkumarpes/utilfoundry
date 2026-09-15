@@ -1,9 +1,13 @@
 # UtilFoundry landing page
 
-The main `utilfoundry.com` landing page for the UtilFoundry platform. It links to the independent PDF and developer-tool workspaces:
+The main `utilfoundry.com` landing page for the UtilFoundry platform. It links to the PDF, developer-tool and image-tool workspaces:
 
 - `pdf.utilfoundry.com`
 - `dev.utilfoundry.com`
+- `images.utilfoundry.com`
+
+To point the cards at local servers, set `NEXT_PUBLIC_PDF_URL`, `NEXT_PUBLIC_DEVELOPER_URL` and
+`NEXT_PUBLIC_IMAGES_URL` in `.env.local`.
 
 ## Local development
 

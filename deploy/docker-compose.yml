@@ -19,12 +19,14 @@ services:
         condition: service_started
       developer:
         condition: service_healthy
+      images:
+        condition: service_healthy
       minio:
         condition: service_started
 
   landing:
     build:
-      context: ..
+      context: ../apps/web
     restart: unless-stopped
     expose:
       - "3000"
@@ -37,7 +39,7 @@ services:
 
   developer:
     build:
-      context: ../../developer-tools
+      context: ../apps/developer
     restart: unless-stopped
     expose:
       - "3000"
@@ -47,6 +49,51 @@ services:
       timeout: 5s
       retries: 3
       start_period: 20s
+
+  images:
+    build:
+      context: ../apps/images
+    restart: unless-stopped
+    expose:
+      - "3000"
+    environment:
+      NEXT_TELEMETRY_DISABLED: "1"
+      IMAGE_WORKER_URL: http://image-worker:8094
+    depends_on:
+      image-worker:
+        condition: service_healthy
+    mem_limit: 768m
+    cpus: "1.50"
+    security_opt:
+      - no-new-privileges:true
+    healthcheck:
+      test: ["CMD", "wget", "--spider", "-q", "http://127.0.0.1:3000/"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 20s
+
+  image-worker:
+    build:
+      context: ../apps/images/image-worker
+    restart: unless-stopped
+    expose:
+      - "8094"
+    environment:
+      OCR_LANG: eng
+      MODEL_DIR: /models
+    mem_limit: 768m
+    cpus: "1.00"
+    security_opt:
+      - no-new-privileges:true
+    tmpfs:
+      - /tmp:size=128m,noexec,nosuid
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8094/health', timeout=3)"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
 
   postgres:
     image: postgres:17-alpine
@@ -101,7 +148,7 @@ services:
 
   pdf-processor:
     build:
-      context: ../../pdf-platform
+      context: ../apps/pdf
       dockerfile: processor.Dockerfile
     restart: unless-stopped
     environment:
@@ -118,7 +165,7 @@ services:
 
   pdf-backend:
     build:
-      context: ../../pdf-platform/backend
+      context: ../apps/pdf/backend
     restart: unless-stopped
     environment:
       SPRING_PROFILES_ACTIVE: docker,prod
@@ -148,7 +195,7 @@ services:
 
   pdf-frontend:
     build:
-      context: ../../pdf-platform/frontend
+      context: ../apps/pdf/frontend
       args:
         NEXT_PUBLIC_API_BASE_URL: https://pdf.${ROOT_DOMAIN}
         NEXT_PUBLIC_SITE_URL: https://pdf.${ROOT_DOMAIN}
