@@ -1,0 +1,10 @@
+.env
+.idea/
+.vscode/
+*.iml
+node_modules/
+.processor-venv/
+.next/
+target/
+.DS_Store
+supabase/.temp/

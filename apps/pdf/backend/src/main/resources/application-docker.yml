@@ -1,0 +1,25 @@
+spring:
+  datasource:
+    url: jdbc:postgresql://postgres:5432/pdf_platform
+    username: ${POSTGRES_USER:pdf_user}
+    password: ${POSTGRES_PASSWORD:local-dev-only}
+  data:
+    redis:
+      host: redis
+      port: 6379
+management:
+  endpoint:
+    health:
+      show-components: always
+      show-details: always
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics
+app:
+  s3:
+    # `endpoint` (server-to-server put/get/delete) is set via the S3_ENDPOINT env var to the
+    # internal `minio` service name - this container can resolve that, but a browser outside
+    # the compose network never can, so presigned URLs must be signed against the host-mapped
+    # port instead.
+    public-endpoint: ${S3_PUBLIC_ENDPOINT:http://localhost:9000}
