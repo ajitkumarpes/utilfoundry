@@ -21,6 +21,8 @@ MODEL_DIR = Path(os.getenv("MODEL_DIR", "/models"))
 DEFAULT_LANGUAGE = os.getenv("OCR_LANG", "eng")
 ALLOWED_TOOLS = {"ocr", "screenshot-to-text", "remove-background", "upscale"}
 LANGUAGE_PATTERN = re.compile(r"^[a-z]{3}(?:\+[a-z]{3})*$")
+UPSCALE_FACTORS = {2, 4, 8}
+MAX_UPSCALE_OUTPUT_PIXELS = 48_000_000
 
 app = FastAPI(title="UtilFoundry Image Worker", docs_url=None, redoc_url=None)
 
@@ -48,7 +50,15 @@ def open_image(data: bytes) -> Image.Image:
     return image
 
 
+def resolve_language(language: str) -> str:
+    """`auto` means "assume Latin script"; Tesseract has no true language detector."""
+    if language in {"", "auto"}:
+        return DEFAULT_LANGUAGE
+    return language
+
+
 def ocr_image(image: Image.Image, language: str, psm: int) -> dict[str, object]:
+    language = resolve_language(language)
     if not LANGUAGE_PATTERN.fullmatch(language):
         raise ValueError("Choose a supported OCR language code.")
     available = set(pytesseract.get_languages(config=""))
@@ -63,6 +73,10 @@ def ocr_image(image: Image.Image, language: str, psm: int) -> dict[str, object]:
     if scale < 1:
         prepared = prepared.resize((max(1, int(prepared.width * scale)), max(1, int(prepared.height * scale))), Image.Resampling.LANCZOS)
     prepared = ImageOps.autocontrast(ImageOps.grayscale(prepared))
+    # Dark-mode screenshots and posters put light text on a dark ground, which
+    # Tesseract reads poorly; inverting first is the standard remedy.
+    if float(np.asarray(prepared).mean()) < 110:
+        prepared = ImageOps.invert(prepared)
     config = f"--oem 3 --psm {psm}"
     text = pytesseract.image_to_string(prepared, lang=language, config=config, timeout=25).strip()
     data = pytesseract.image_to_data(prepared, lang=language, config=config, output_type=Output.DICT, timeout=25)
@@ -99,15 +113,26 @@ def super_resolution():
     return processor
 
 
-def upscale(data: bytes) -> bytes:
+def upscale(data: bytes, factor: int) -> bytes:
+    """The FSRCNN model doubles an image, so 4x and 8x are two and three passes."""
     image = open_image(data)
     if image.width * image.height > 12_000_000:
         raise ValueError("Upscaling is limited to images up to 12 megapixels.")
+    if image.width * image.height * factor * factor > MAX_UPSCALE_OUTPUT_PIXELS:
+        raise ValueError(
+            f"{factor}x would produce more than "
+            f"{MAX_UPSCALE_OUTPUT_PIXELS // 1_000_000} megapixels. Choose a smaller factor."
+        )
     frame = cv2.imdecode(np.frombuffer(data, dtype=np.uint8), cv2.IMREAD_COLOR)
     if frame is None:
         raise ValueError("The image could not be decoded for upscaling.")
-    result = super_resolution().upsample(frame)
-    ok, encoded = cv2.imencode(".png", result, [cv2.IMWRITE_PNG_COMPRESSION, 6])
+
+    processor = super_resolution()
+    passes = {2: 1, 4: 2, 8: 3}[factor]
+    for _ in range(passes):
+        frame = processor.upsample(frame)
+
+    ok, encoded = cv2.imencode(".png", frame, [cv2.IMWRITE_PNG_COMPRESSION, 6])
     if not ok:
         raise RuntimeError("The upscaled image could not be encoded.")
     return bytes(encoded)
@@ -121,6 +146,7 @@ def health() -> dict[str, object]:
         "languages": sorted(pytesseract.get_languages(config="")),
         "backgroundModel": (MODEL_DIR / "u2netp.onnx").exists(),
         "upscaleModel": (MODEL_DIR / "FSRCNN_x2.pb").exists(),
+        "upscaleFactors": sorted(UPSCALE_FACTORS),
     }
 
 
@@ -128,14 +154,14 @@ def health() -> dict[str, object]:
 async def process(
     file: UploadFile = File(...),
     tool: str = Form(...),
-    language: str = Form(DEFAULT_LANGUAGE),
+    language: str = Form("auto"),
     psm: int = Form(6),
     scale: int = Form(2),
 ):
     if tool not in ALLOWED_TOOLS:
         return error("Unknown image worker operation.")
-    if scale != 2 and tool == "upscale":
-        return error("The current super-resolution model supports 2× output only.")
+    if tool == "upscale" and scale not in UPSCALE_FACTORS:
+        return error("Choose a 2x, 4x or 8x upscale factor.")
     try:
         data = await file.read()
         image = open_image(data)
@@ -146,7 +172,7 @@ async def process(
         if tool == "remove-background":
             output = remove_background(data)
             return Response(output, media_type="image/png", headers={"Content-Disposition": f'attachment; filename="{safe_name(file.filename or "image", "no-background.png")}"', "Cache-Control": "no-store"})
-        output = upscale(data)
+        output = upscale(data, scale)
         return Response(output, media_type="image/png", headers={"Content-Disposition": f'attachment; filename="{safe_name(file.filename or "image", "upscaled.png")}"', "Cache-Control": "no-store"})
     except ValueError as exc:
         return error(str(exc))

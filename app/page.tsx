@@ -1,5 +1,6 @@
-import { ImageWorkbench } from "@/components/ImageWorkbench";
+import { redirect } from "next/navigation";
+import { DEFAULT_TOOL } from "@/lib/tools";
 
 export default function Home() {
-  return <ImageWorkbench />;
+  redirect(`/${DEFAULT_TOOL}`);
 }
