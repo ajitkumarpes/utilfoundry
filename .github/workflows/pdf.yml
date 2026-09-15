@@ -1,9 +1,15 @@
-name: CI
+name: PDF platform
 
 on:
   pull_request:
+    paths:
+      - "apps/pdf/**"
+      - ".github/workflows/pdf.yml"
   push:
     branches: [main]
+    paths:
+      - "apps/pdf/**"
+      - ".github/workflows/pdf.yml"
 
 permissions:
   contents: read
@@ -13,14 +19,14 @@ jobs:
     runs-on: ubuntu-latest
     defaults:
       run:
-        working-directory: frontend
+        working-directory: apps/pdf/frontend
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
           node-version: 22
           cache: npm
-          cache-dependency-path: frontend/package-lock.json
+          cache-dependency-path: apps/pdf/frontend/package-lock.json
       - run: npm ci
       - run: npm audit --audit-level=moderate
       - run: npm run lint
@@ -31,7 +37,7 @@ jobs:
     runs-on: ubuntu-latest
     defaults:
       run:
-        working-directory: backend
+        working-directory: apps/pdf/backend
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-java@v4
@@ -45,13 +51,13 @@ jobs:
     runs-on: ubuntu-latest
     defaults:
       run:
-        working-directory: processor
+        working-directory: apps/pdf/processor
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
           cache: pip
-          cache-dependency-path: processor/requirements.txt
+          cache-dependency-path: apps/pdf/processor/requirements.txt
       - run: pip install -r requirements.txt
       - run: python -m unittest -v test_app.py

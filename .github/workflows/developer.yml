@@ -1,19 +1,32 @@
-name: CI
+name: Developer tools
 
 on:
-  push:
-    branches: [main, master]
   pull_request:
+    paths:
+      - "apps/developer/**"
+      - ".github/workflows/developer.yml"
+  push:
+    branches: [main]
+    paths:
+      - "apps/developer/**"
+      - ".github/workflows/developer.yml"
+
+permissions:
+  contents: read
 
 jobs:
   verify:
     runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: apps/developer
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
           node-version: 22
           cache: npm
+          cache-dependency-path: apps/developer/package-lock.json
       - run: npm ci
       - run: npm run lint
       - run: npm test
