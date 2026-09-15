@@ -44,7 +44,12 @@
          artifact (verified absent from both the awssdk bom and Maven Central). -->
     <dependency><groupId>software.amazon.awssdk</groupId><artifactId>s3</artifactId></dependency>
     <dependency><groupId>org.postgresql</groupId><artifactId>postgresql</artifactId><scope>runtime</scope></dependency>
-    <dependency><groupId>org.flywaydb</groupId><artifactId>flyway-core</artifactId></dependency>
+    <!-- Spring Boot 4 moved Flyway's @AutoConfiguration out of the core autoconfigure jar into
+         this dedicated starter - flyway-core alone no longer wires it up (confirmed directly:
+         without this, FlywayAutoConfiguration is absent from the condition-evaluation report
+         entirely, migrations silently never run, and Hibernate's ddl-auto=validate then fails
+         with "missing table" on a fresh database). -->
+    <dependency><groupId>org.springframework.boot</groupId><artifactId>spring-boot-starter-flyway</artifactId></dependency>
     <dependency><groupId>org.flywaydb</groupId><artifactId>flyway-database-postgresql</artifactId></dependency>
     <dependency><groupId>com.bucket4j</groupId><artifactId>bucket4j-core</artifactId><version>8.10.1</version></dependency>
     <dependency><groupId>com.bucket4j</groupId><artifactId>bucket4j-redis</artifactId><version>8.10.1</version></dependency>
