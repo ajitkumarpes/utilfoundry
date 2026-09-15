@@ -122,7 +122,7 @@ services:
       retries: 20
 
   minio:
-    image: minio/minio:latest
+    image: quay.io/minio/minio:latest
     restart: unless-stopped
     command: server /data --console-address ":9001"
     environment:
@@ -132,7 +132,7 @@ services:
       - minio_data:/data
 
   createbucket:
-    image: minio/mc:latest
+    image: quay.io/minio/mc:latest
     restart: "no"
     depends_on:
       minio:
@@ -199,6 +199,8 @@ services:
       args:
         NEXT_PUBLIC_API_BASE_URL: https://pdf.${ROOT_DOMAIN}
         NEXT_PUBLIC_SITE_URL: https://pdf.${ROOT_DOMAIN}
+        # "Explore all tools" links back to the landing page; the default is a local dev URL.
+        NEXT_PUBLIC_PARENT_URL: https://${ROOT_DOMAIN}
     restart: unless-stopped
     expose:
       - "3000"
