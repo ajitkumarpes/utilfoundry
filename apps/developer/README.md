@@ -22,6 +22,12 @@ The processors use maintained parsers rather than string placeholders: Prettier 
 
 Production boundary: the app is suitable for local developer workflows and masked payment test vectors. It is not a card-network certification harness, HSM, PIN/CVV processor, or remote API client. Add versioned acquirer/network profiles and approved test vectors before using the ISO/EMV tools in a regulated certification process.
 
+## Pages and URLs
+
+Every tool has its own page, prerendered at build time: `/json-formatter`, `/jwt-decoder`, `/emv-tlv-parser` and so on, each with its own title, description and canonical URL. `/` redirects to the first tool, and older links of the `?tool=<id>` form redirect to the matching page, so saved links keep working.
+
+The catalog lives in `lib/tools.ts` (what each tool is) and `lib/tool-content.ts` (the words around it); `lib/run-tool.ts` holds one handler per tool id, which is what the workbench and the catalog test both read.
+
 ## Local development
 
 ```bash
@@ -29,7 +35,7 @@ npm install
 npm run dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000).
+Open [http://localhost:3000](http://localhost:3000), which redirects to the first tool.
 
 ## Production checks
 

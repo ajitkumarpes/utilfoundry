@@ -9,6 +9,15 @@ COPY . .
 # Next.js permits an application without static assets, but a multi-stage
 # image still needs the directory to exist for the runtime copy below.
 RUN mkdir -p public
+# Links to the sibling apps and the contact channel are baked in at build time.
+ARG NEXT_PUBLIC_PARENT_URL
+ARG NEXT_PUBLIC_PDF_URL
+ARG NEXT_PUBLIC_IMAGES_URL
+ARG NEXT_PUBLIC_CONTACT_URL
+ENV NEXT_PUBLIC_PARENT_URL=$NEXT_PUBLIC_PARENT_URL \
+    NEXT_PUBLIC_PDF_URL=$NEXT_PUBLIC_PDF_URL \
+    NEXT_PUBLIC_IMAGES_URL=$NEXT_PUBLIC_IMAGES_URL \
+    NEXT_PUBLIC_CONTACT_URL=$NEXT_PUBLIC_CONTACT_URL
 RUN npm run build
 
 FROM deps AS prod-deps

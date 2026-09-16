@@ -1,39 +1,25 @@
 import { expect, test } from "@playwright/test";
 import AxeBuilder from "@axe-core/playwright";
+import { TOOLS, getToolById } from "../lib/tools";
 
+/** Each tool has its own page, so the sweep visits URLs rather than clicking cards. */
 test.describe("developer tools browser coverage", () => {
-  test("every catalog tool produces rendered output or a validation result", async ({
-    page,
-  }) => {
+  test("every catalog tool produces rendered output or a validation result", async ({ page }) => {
     test.skip(
       test.info().project.name !== "chromium",
-      "The complete 63-tool sweep runs in Chromium; representative workflows cover other engines.",
+      "The complete 70-tool sweep runs in Chromium; representative workflows cover other engines.",
     );
-    await page.goto("/");
-    await page.getByRole("button", { name: /View all 70 tools/ }).click();
 
-    const cards = page.locator("button.tool-card");
-    await expect(cards).toHaveCount(70);
-
-    for (let index = 0; index < 70; index += 1) {
-      const card = cards.nth(index);
-      const toolId = await card.getAttribute("data-tool-id");
-      expect(toolId).toBeTruthy();
-      await card.click();
+    for (const tool of TOOLS) {
+      await page.goto(`/${tool.slug}`);
+      await expect(page.getByRole("heading", { level: 1, name: tool.name })).toBeVisible();
       await page.getByRole("button", { name: "Run tool" }).click();
-      const notice = page.locator(".notice");
-      await expect(notice).toContainText(/Done locally|Check your input/);
-      await expect(
-        page.locator(".has-output, .preview, .image-preview"),
-      ).toHaveCount(1);
+      await expect(page.locator(".notice")).toContainText(/Done locally|Check your input/);
+      await expect(page.locator(".has-output, .preview, .image-preview")).toHaveCount(1);
     }
   });
 
-  test("representative tool modes transform user input in the browser", async ({
-    page,
-  }) => {
-    await page.goto("/");
-    await page.getByRole("button", { name: /View all 70 tools/ }).click();
+  test("representative tool modes transform user input in the browser", async ({ page }) => {
     const cases = [
       ["base64", "decode", "VXRpbEZvdW5kcnk=", "UtilFoundry"],
       ["hex", "decode", "41 42 43", '"text": "ABC"'],
@@ -51,9 +37,10 @@ test.describe("developer tools browser coverage", () => {
     ] as const;
 
     for (const [toolId, option, input, expected] of cases) {
-      await page.locator(`button.tool-card[data-tool-id="${toolId}"]`).click();
-      const textarea = page.locator("textarea");
-      await textarea.fill(input);
+      const tool = getToolById(toolId);
+      expect(tool, `${toolId} is missing from the catalog`).toBeDefined();
+      await page.goto(`/${tool!.slug}`);
+      await page.locator("textarea").fill(input);
       if (option) {
         const select = page.locator(".tool-options select");
         if (await select.count()) {
@@ -63,32 +50,24 @@ test.describe("developer tools browser coverage", () => {
         }
       }
       await page.getByRole("button", { name: "Run tool" }).click();
-      await expect(
-        page.locator(".has-output, .preview, .image-preview"),
-      ).toHaveCount(1);
+      await expect(page.locator(".has-output, .preview, .image-preview")).toHaveCount(1);
       await expect(page.locator(".pane").nth(1)).toContainText(expected);
     }
   });
 
-  test("homepage has no automated accessibility violations", async ({
-    page,
-  }) => {
+  test("the root redirects to a tool page that has no accessibility violations", async ({ page }) => {
     await page.goto("/");
+    await expect(page).toHaveURL(/\/json-formatter$/);
     const results = await new AxeBuilder({ page }).analyze();
     expect(results.violations).toEqual([]);
   });
 
-  test("deep links select a tool and warn before sensitive data leaves the editor", async ({
-    page,
-  }) => {
+  test("legacy deep links still land on the tool and warn before sensitive data is processed", async ({ page }) => {
     await page.goto("/?tool=jwt");
-    await expect(page.getByRole("heading", { name: "JWT Decoder" })).toBeVisible();
-    await page.getByLabel("JWT Decoder input").fill(
-      "eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiIxMjMifQ.signature",
-    );
+    await expect(page).toHaveURL(/\/jwt-decoder$/);
+    await expect(page.getByRole("heading", { level: 1, name: "JWT Decoder" })).toBeVisible();
+    await page.getByLabel("JWT Decoder input").fill("eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiIxMjMifQ.signature");
     await page.getByRole("button", { name: "Run tool" }).click();
-    await expect(
-      page.getByRole("alert").filter({ hasText: "Potentially sensitive" }),
-    ).toContainText("JWT");
+    await expect(page.getByRole("alert").filter({ hasText: "Potentially sensitive" })).toContainText("JWT");
   });
 });
