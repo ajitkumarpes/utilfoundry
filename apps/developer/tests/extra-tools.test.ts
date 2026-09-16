@@ -9,6 +9,7 @@ import {
   diffJson,
   diffOpenApi,
   diffText,
+  parseUserDate,
   decodePem,
   dedupeLines,
   extractJsonPath,
@@ -269,5 +270,36 @@ describe("developer tool processors", () => {
     expect(
       JSON.parse(parseEmvTlv("70079F2701809F1000"))[0].children,
     ).toHaveLength(2);
+  });
+});
+
+describe("dates a calendar does not have", () => {
+  it("refuses 29 February in a common year instead of rolling into March", () => {
+    expect(() => parseUserDate("2026-02-29")).toThrow(/February 2026 has 28 days/);
+    expect(() => parseUserDate("2025-02-29")).toThrow(/February 2025 has 28 days/);
+  });
+
+  it("accepts 29 February in a leap year", () => {
+    expect(parseUserDate("2024-02-29").toISOString()).toBe("2024-02-29T00:00:00.000Z");
+  });
+
+  it("refuses a 31st in a thirty-day month", () => {
+    expect(() => parseUserDate("2026-04-31")).toThrow(/April 2026 has 30 days/);
+    expect(() => parseUserDate("2026-06-31")).toThrow(/June 2026 has 30 days/);
+  });
+
+  it("refuses an impossible month", () => {
+    expect(() => parseUserDate("2026-13-01")).toThrow(/no month 13/);
+    expect(() => parseUserDate("2026-00-10")).toThrow(/no month 00/);
+  });
+
+  it("does not mistake a written UTC offset for a rollover", () => {
+    // 1 March in +05:30 is still 28 February in UTC; the written date is real, so it stands.
+    expect(parseUserDate("2026-03-01T02:00:00+05:30").toISOString()).toBe("2026-02-28T20:30:00.000Z");
+  });
+
+  it("leaves the rest of the parser alone", () => {
+    expect(parseUserDate("2026-09-17T10:30:00Z").toISOString()).toBe("2026-09-17T10:30:00.000Z");
+    expect(() => parseUserDate("not a date")).toThrow();
   });
 });

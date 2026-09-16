@@ -12,7 +12,7 @@ import {
   buildApiRequest, cleanWhitespace, compareVersions, convertTimezone, decodeAsn1, decodeProtobuf,
   decodePem, dedupeLines, diffJson, diffOpenApi, diffText, explainCron, explainRegex,
   extractJsonPath, formatCode, formatXmlDocument, formatEnv, formatGraphql, formatSql, formatNginx,
-  renderMarkdown, convertNumber, convertColor, generateGitignore, generateJsonSchema,
+  parseUserDate, renderMarkdown, convertNumber, convertColor, generateGitignore, generateJsonSchema,
   generatePassword, generateQr, imageToBase64, lookupMime, parseUrl, redactSecrets, safeRegexTest,
   signJwtHmac, sortLines, summarizeCsv, summarizeOpenApi, validateCompose, validateJson,
   validateOpenApi, validateSchema, validateXml, verifyJwtHmac, verifyJwtRsa, formatWebhook
@@ -156,7 +156,7 @@ export const HANDLERS: Record<string, Handler> = {
     const date = raw
       ? /^-?\d+$/.test(raw)
         ? new Date(Number(raw) * (raw.replace("-", "").length <= 10 ? 1000 : 1))
-        : new Date(raw)
+        : parseUserDate(raw, "Enter a valid date or leave the field empty for now.")
       : new Date();
     if (Number.isNaN(date.getTime())) throw new Error("Enter a valid date or leave the field empty for now.");
     return JSON.stringify(
@@ -218,11 +218,7 @@ export const HANDLERS: Record<string, Handler> = {
   whitespace: ({ input }) => cleanWhitespace(input),
   "line-sort": ({ input }) => sortLines(input),
   "line-dedupe": ({ input }) => dedupeLines(input),
-  "iso-date": ({ input }) => {
-    const date = new Date(input);
-    if (Number.isNaN(date.getTime())) throw new Error("Enter a valid date.");
-    return date.toISOString();
-  },
+  "iso-date": ({ input }) => parseUserDate(input).toISOString(),
   timezone: ({ input, option }) => convertTimezone(input, option),
   "url-parser": ({ input }) => parseUrl(input),
   "code-formatter": ({ input, option }) => formatCode(input, option),

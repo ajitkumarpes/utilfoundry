@@ -14,6 +14,7 @@ import {
 } from "lucide-react";
 import SiteHeader from "@/components/SiteHeader";
 import SiteFooter from "@/components/SiteFooter";
+import { formatCount } from "@/lib/format";
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:8091";
 const MAX_TEXT_LENGTH = 500_000;
@@ -30,7 +31,7 @@ export default function TextToPdfPage() {
   const applyText = (content: string, sourceLabel: string) => {
     if (content.length > MAX_TEXT_LENGTH) {
       setError(
-        `${sourceLabel} is ${content.length.toLocaleString()} characters — only the first ${MAX_TEXT_LENGTH.toLocaleString()} were kept.`
+        `${sourceLabel} is ${formatCount(content.length)} characters — only the first ${formatCount(MAX_TEXT_LENGTH)} were kept.`
       );
     } else {
       setError(null);
@@ -141,7 +142,7 @@ export default function TextToPdfPage() {
               <div>
                 <h2>Your text</h2>
                 <p>
-                  {text.length.toLocaleString()} / {MAX_TEXT_LENGTH.toLocaleString()} characters
+                  {formatCount(text.length)} / {formatCount(MAX_TEXT_LENGTH)} characters
                 </p>
               </div>
               <button type="button" className="add-btn" onClick={pickFile} disabled={processing}>

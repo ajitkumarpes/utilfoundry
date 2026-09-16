@@ -14,6 +14,7 @@ import {
 } from "lucide-react";
 import SiteHeader from "@/components/SiteHeader";
 import SiteFooter from "@/components/SiteFooter";
+import { formatCount } from "@/lib/format";
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:8091";
 const MAX_MARKDOWN_LENGTH = 500_000;
@@ -30,7 +31,7 @@ export default function MarkdownToPdfPage() {
   const applyMarkdown = (content: string, sourceLabel: string) => {
     if (content.length > MAX_MARKDOWN_LENGTH) {
       setError(
-        `${sourceLabel} is ${content.length.toLocaleString()} characters — only the first ${MAX_MARKDOWN_LENGTH.toLocaleString()} were kept.`
+        `${sourceLabel} is ${formatCount(content.length)} characters — only the first ${formatCount(MAX_MARKDOWN_LENGTH)} were kept.`
       );
     } else {
       setError(null);
@@ -141,7 +142,7 @@ export default function MarkdownToPdfPage() {
               <div>
                 <h2>Your Markdown</h2>
                 <p>
-                  {markdown.length.toLocaleString()} / {MAX_MARKDOWN_LENGTH.toLocaleString()} characters
+                  {formatCount(markdown.length)} / {formatCount(MAX_MARKDOWN_LENGTH)} characters
                 </p>
               </div>
               <button type="button" className="add-btn" onClick={pickFile} disabled={processing}>

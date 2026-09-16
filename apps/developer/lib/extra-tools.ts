@@ -135,10 +135,43 @@ export function dedupeLines(value: string) {
   return Array.from(new Set(value.split(/\r?\n/))).join("\n");
 }
 
+const MONTH_NAMES = [
+  "January", "February", "March", "April", "May", "June",
+  "July", "August", "September", "October", "November", "December",
+];
+
+/** Day 0 of the following month is the last day of this one. `month` is 1-12. */
+const daysInMonth = (year: number, month: number) => new Date(Date.UTC(year, month, 0)).getUTCDate();
+
+/**
+ * Date parsing that refuses a day its month does not have.
+ *
+ * `new Date("2026-02-29")` does not fail — it rolls forward to 1 March, so a tool
+ * asked to validate or convert an impossible date would answer confidently about a
+ * different day. Month and day are therefore checked against the calendar first,
+ * arithmetically rather than through the parsed result, so a written UTC offset
+ * shifting the date is not mistaken for a rollover.
+ */
+export function parseUserDate(value: string, onInvalid = "Enter a valid date.") {
+  const trimmed = value.trim();
+  const calendar = /^(\d{4})-(\d{2})-(\d{2})/.exec(trimmed);
+  if (calendar) {
+    const year = Number(calendar[1]);
+    const month = Number(calendar[2]);
+    const day = Number(calendar[3]);
+    if (month < 1 || month > 12) throw new Error(`There is no month ${calendar[2]}.`);
+    const available = daysInMonth(year, month);
+    if (day < 1 || day > available) {
+      throw new Error(`${MONTH_NAMES[month - 1]} ${year} has ${available} days, so ${trimmed.slice(0, 10)} is not a real date.`);
+    }
+  }
+  const date = new Date(trimmed);
+  if (Number.isNaN(date.getTime())) throw new Error(onInvalid);
+  return date;
+}
+
 export function convertTimezone(value: string, timezone: string) {
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime()))
-    throw new Error("Enter a valid ISO date or timestamp.");
+  const date = parseUserDate(value, "Enter a valid ISO date or timestamp.");
   return new Intl.DateTimeFormat("en-GB", {
     dateStyle: "full",
     timeStyle: "long",
