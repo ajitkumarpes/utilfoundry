@@ -22,6 +22,30 @@ the only public ingress.
 Caddy obtains and renews certificates automatically. Keep ports 80/443 open, restrict SSH to trusted addresses,
 and back up `caddy_data`, `postgres_data`, and `minio_data`. Redis is a cache and does not need backups.
 
+## Testing on your own machine
+
+Before DNS points at a server, you can run the whole stack locally under the real hostnames.
+
+1. In `.env`, set `CADDY_LOCAL_CERTS=local_certs`. Caddy then issues certificates from its own local
+   authority instead of Let's Encrypt, which cannot reach your machine.
+2. Point the hostnames at your machine (asks for your admin password):
+
+   ```bash
+   sudo sh -c 'printf "\n# UtilFoundry local testing: remove before going live\n127.0.0.1 utilfoundry.com pdf.utilfoundry.com dev.utilfoundry.com images.utilfoundry.com storage.utilfoundry.com\n" >> /etc/hosts'
+   ```
+
+3. Start the stack with `docker compose up -d`, then trust Caddy's local root certificate once:
+
+   ```bash
+   docker compose cp caddy:/data/caddy/pki/authorities/local/root.crt ./caddy-local-root.crt
+   sudo security add-trusted-cert -d -r trustRoot -k /Library/Keychains/System.keychain caddy-local-root.crt
+   ```
+
+4. Open `https://utilfoundry.com` and each subdomain.
+
+Remove the `/etc/hosts` line when you are done, or the public site will be unreachable from this machine. Never set
+`CADDY_LOCAL_CERTS` on the server.
+
 ## Updating one app
 
 `docker compose up -d --build images` rebuilds and restarts only that service. The other service names are

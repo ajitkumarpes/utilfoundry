@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { ArrowLeft, ArrowRight, Lightbulb, X } from "lucide-react";
+import { CONTACT_URL } from "@/lib/links";
 import { NAV_GROUPS, TOOLS } from "@/lib/tools";
 import { TOOL_ACCENT, ToolIcon } from "@/components/ui/ToolIcon";
 
@@ -50,13 +51,15 @@ export function ToolSidebar({ open, onClose }: ToolSidebarProps) {
         );
       })}
 
-      <Link href="/contact" className="nav-feature" onClick={onClose}>
-        <Lightbulb size={22} aria-hidden />
-        <span>
-          <b>Need a feature?</b>
-          <small>Tell us what you need <ArrowRight size={12} aria-hidden /></small>
-        </span>
-      </Link>
+      {CONTACT_URL && (
+        <a href={CONTACT_URL} className="nav-feature" onClick={onClose}>
+          <Lightbulb size={22} aria-hidden />
+          <span>
+            <b>Need a feature?</b>
+            <small>Tell us what you need <ArrowRight size={12} aria-hidden /></small>
+          </span>
+        </a>
+      )}
     </aside>
   );
 }

@@ -7,6 +7,15 @@ FROM node:22-alpine AS builder
 WORKDIR /app
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
+# Links to the sibling apps and the contact channel are baked in at build time.
+ARG NEXT_PUBLIC_PARENT_URL
+ARG NEXT_PUBLIC_PDF_URL
+ARG NEXT_PUBLIC_DEVELOPER_URL
+ARG NEXT_PUBLIC_CONTACT_URL
+ENV NEXT_PUBLIC_PARENT_URL=$NEXT_PUBLIC_PARENT_URL \
+    NEXT_PUBLIC_PDF_URL=$NEXT_PUBLIC_PDF_URL \
+    NEXT_PUBLIC_DEVELOPER_URL=$NEXT_PUBLIC_DEVELOPER_URL \
+    NEXT_PUBLIC_CONTACT_URL=$NEXT_PUBLIC_CONTACT_URL
 RUN npm run build
 
 FROM deps AS prod-deps

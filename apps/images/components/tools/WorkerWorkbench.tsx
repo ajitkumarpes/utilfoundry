@@ -167,7 +167,7 @@ export function WorkerWorkbench({ tool }: { tool: ToolDefinition }) {
       <div className="workspace-main">
         <div className={`step-grid ${result ? "is-result" : ""}`}>
           <StepCard step={1} title="Upload Image" subtitle={tool.uploadNote}>
-            <UploadZone multiple={false} accept="image/*" label="Choose Image" hint={acceptedFormats(tool)} maxNote="Max 32 MB per file" onFiles={input.addFiles} />
+            <UploadZone compact={Boolean(image)} multiple={false} accept="image/*" label="Choose Image" hint={acceptedFormats(tool)} maxNote="Max 32 MB per file" onFiles={input.addFiles} />
             {image
               ? <FileList items={input.images} onRemove={input.remove} onClear={input.clear} />
               : <SampleStrip samples={samples} activeSrc={input.sampleSrc} onPick={input.addSample} />}

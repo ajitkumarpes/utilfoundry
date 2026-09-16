@@ -161,7 +161,7 @@ export function PdfWorkbench({ tool }: { tool: ToolDefinition }) {
 
           {mode === "upload" ? (
             <>
-              <UploadZone
+              <UploadZone compact={images.length > 0}
                 multiple
                 accept="image/*"
                 label="Choose Images"

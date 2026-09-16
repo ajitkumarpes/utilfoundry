@@ -352,7 +352,16 @@ describe("composition layout", () => {
   });
 
   it("refuses a grid too dense to be readable", () => {
-    expect(() => layoutContactSheet(four, options({ columns: 12, spacing: 200 }))).toThrow(/too small/);
+    const twelve = Array.from({ length: 12 }, (_, index) => image(`${index}.jpg`, 1600, 1200));
+    expect(() => layoutContactSheet(twelve, options({ columns: 12, spacing: 200 }))).toThrow(/too small/);
+  });
+
+  it("uses no more columns than there are images", () => {
+    const sheet = layoutContactSheet(four.slice(0, 3), options({ columns: 4 }));
+    expect(sheet.columns).toBe(3);
+    const last = sheet.cells[2];
+    // The three cells span the sheet instead of leaving an empty fourth column.
+    expect(sheet.width - (last.x + last.width)).toBeLessThanOrEqual(10 + 2);
   });
 
   it("returns an empty sheet for no images", () => {
@@ -364,6 +373,8 @@ describe("composition layout", () => {
     expect(strip.rows).toBe(1);
     const heights = new Set(strip.cells.map((cell) => cell.height));
     expect(heights.size).toBe(1);
+    // Rounding each width on its own used to leave the sheet a pixel or two short.
+    expect(strip.width).toBe(1600);
   });
 
   it("lays a vertical collage out in one column", () => {
@@ -376,6 +387,14 @@ describe("composition layout", () => {
     const collage = layoutCollage(four, { layout: "mosaic", gap: 12, sheetWidth: "1600" });
     const [hero, ...rest] = collage.cells;
     for (const cell of rest) expect(hero.width * hero.height).toBeGreaterThan(cell.width * cell.height);
+  });
+
+  it("stretches a part-filled last grid row instead of leaving a blank cell", () => {
+    const three = layoutCollage(four.slice(0, 3), { layout: "grid", gap: 12, sheetWidth: "1600" });
+    expect([three.columns, three.rows]).toEqual([2, 2]);
+    const [first, second, last] = three.cells;
+    expect(last.x).toBe(first.x);
+    expect(last.x + last.width).toBeGreaterThanOrEqual(second.x + second.width - 2);
   });
 
   it("falls back to a grid when a mosaic has too few images", () => {

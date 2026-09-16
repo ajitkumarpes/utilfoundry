@@ -53,6 +53,12 @@ services:
   images:
     build:
       context: ../apps/images
+      args:
+        NEXT_PUBLIC_PARENT_URL: https://${ROOT_DOMAIN}
+        NEXT_PUBLIC_PDF_URL: https://pdf.${ROOT_DOMAIN}
+        NEXT_PUBLIC_DEVELOPER_URL: https://dev.${ROOT_DOMAIN}
+        # Leave CONTACT_URL unset until there is an inbox or form; the prompts stay hidden.
+        NEXT_PUBLIC_CONTACT_URL: ${CONTACT_URL:-}
     restart: unless-stopped
     expose:
       - "3000"

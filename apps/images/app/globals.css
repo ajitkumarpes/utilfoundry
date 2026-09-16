@@ -2036,3 +2036,50 @@ button.row-icon:hover:not(:disabled) { background: var(--panel-sunken); color: v
   .chip-row, .seg-tabs { grid-auto-flow: row; grid-template-columns: repeat(3, minmax(0, 1fr)) !important; }
   .check-pair { grid-template-columns: minmax(0, 1fr); }
 }
+
+/* ==========================================================================
+   Width-aware layouts: the main column's own width decides, not the window's.
+   With the sidebar and the rail both open, a 1200px window leaves the main
+   column about 600px wide, and side-by-side cards at that width shrink every
+   preview to a thumbnail.
+   ========================================================================== */
+
+.workspace-main { container: workspace / inline-size; }
+
+@container workspace (max-width: 740px) {
+  .editor-grid,
+  .step-grid,
+  .step-grid.is-result,
+  .pdf-settings { grid-template-columns: minmax(0, 1fr); }
+  .step-grid.is-triple { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .step-grid.is-triple > .step-card:only-child { grid-column: span 2; }
+}
+
+@container workspace (max-width: 620px) {
+  .step-grid.is-triple { grid-template-columns: minmax(0, 1fr); }
+  .step-grid.is-triple > .step-card:only-child { grid-column: auto; }
+  .result-body { grid-template-columns: minmax(0, 1fr); }
+  .result-actions { grid-column: auto; }
+  .compress-settings, .ocr-split { grid-template-columns: minmax(0, 1fr); }
+  /* Two buttons beside the message squeezed it to a word per line; put them underneath. */
+  .status-bar { flex-wrap: wrap; }
+  .status-actions { width: 100%; justify-content: stretch; }
+  .status-actions > *, .status-actions .download-split, .status-actions .split-wrap { flex: 1; }
+}
+
+/* A loaded image leaves only a slim bar for replacing it, so the preview stays in view. */
+.upload-zone.is-compact { min-height: 0; flex-direction: row; justify-content: flex-start; gap: 12px; padding: 12px 14px; text-align: left; }
+.upload-zone.is-compact > svg { margin: 0; flex: 0 0 auto; }
+.upload-compact-text { display: flex; flex-direction: column; gap: 2px; flex: 1 1 auto; min-width: 0; }
+.upload-zone.is-compact strong { font-size: 14px; }
+.upload-zone.is-compact small { font-size: 12px; }
+.upload-zone.is-compact .upload-cta { margin: 0; padding: 7px 14px; font-size: 13px; box-shadow: none; flex: 0 0 auto; }
+
+/* The PDF option checkboxes sit in a grid, where the stacked-list spacing misaligned the first row. */
+.pdf-flags { row-gap: 12px; }
+.pdf-flags .checkbox-row { margin-top: 0; }
+
+/* Tall images (a portrait upscale) would push the comparison handle off screen. Both layers
+   letterbox the same way, so they stay aligned. */
+.slider-stage img { max-height: min(68vh, 620px); object-fit: contain; }
+.slider-stage .slider-top img { object-fit: contain; }

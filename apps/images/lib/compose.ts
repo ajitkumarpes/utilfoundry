@@ -54,7 +54,8 @@ export function layoutContactSheet(images: SourceImage[], options: ToolOptions):
   const count = images.length;
   if (!count) return { width: 0, height: 0, cells: [], columns: 0, rows: 0 };
 
-  const columns = Math.max(1, Math.min(12, Math.round(num(options, "columns", 4))));
+  // Never more columns than images: a short sheet would otherwise export a band of empty cells.
+  const columns = Math.max(1, Math.min(12, count, Math.round(num(options, "columns", 4))));
   const rows = Math.ceil(count / columns);
   const sheetWidth = SHEET_WIDTHS[str(options, "sheetWidth", "1600")] ?? 1600;
   const spacing = Math.max(0, Math.round(num(options, "spacing", 10)));
@@ -126,8 +127,11 @@ function strip(images: SourceImage[], layout: CollageLayout, outerWidth: number,
     const totalAspect = images.reduce((total, image) => total + image.width / Math.max(1, image.height), 0);
     const height = Math.max(40, Math.round(inner / totalAspect));
     let x = gap;
-    const cells = images.map((image) => {
-      const width = Math.round(height * (image.width / Math.max(1, image.height)));
+    const cells = images.map((image, index) => {
+      // The last cell takes up the rounding so the sheet is exactly the chosen width.
+      const width = index === count - 1
+        ? Math.max(1, outerWidth - gap - x)
+        : Math.round(height * (image.width / Math.max(1, image.height)));
       const cell = { image, x, y: gap, width, height, labelHeight: 0 };
       x += width + gap;
       return cell;
@@ -156,14 +160,22 @@ function grid(images: SourceImage[], outerWidth: number, gap: number, aspect: nu
   const averageAspect = images.reduce((total, image) => total + image.width / Math.max(1, image.height), 0) / count;
   const cellHeight = Math.max(40, Math.round(cellWidth / (aspect > 0 ? aspect : Math.min(2.2, Math.max(0.5, averageAspect)))));
 
-  const cells = images.map((image, index) => ({
-    image,
-    x: gap + (index % columns) * (cellWidth + gap),
-    y: gap + Math.floor(index / columns) * (cellHeight + gap),
-    width: cellWidth,
-    height: cellHeight,
-    labelHeight: 0
-  }));
+  // A part-filled last row stretches across the width instead of leaving a blank cell.
+  const lastRowCount = count - (rows - 1) * columns;
+  const lastRowWidth = Math.floor((outerWidth - gap * (lastRowCount + 1)) / lastRowCount);
+
+  const cells = images.map((image, index) => {
+    const row = Math.floor(index / columns);
+    const width = row === rows - 1 && lastRowCount < columns ? lastRowWidth : cellWidth;
+    return {
+      image,
+      x: gap + (index % columns) * (width + gap),
+      y: gap + row * (cellHeight + gap),
+      width,
+      height: cellHeight,
+      labelHeight: 0
+    };
+  });
 
   return {
     width: gap + columns * (cellWidth + gap),

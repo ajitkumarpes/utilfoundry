@@ -59,7 +59,7 @@ export function ImageToBase64({ tool }: { tool: ToolDefinition }) {
       <div className="workspace-main">
         <div className="step-grid">
           <StepCard step={1} title="Upload Image" subtitle="Choose an image file to convert to Base64">
-            <UploadZone multiple={false} accept="image/*" label="Choose Image" hint={acceptedFormats(tool)} maxNote="Max 32 MB per file" onFiles={input.addFiles} />
+            <UploadZone compact={Boolean(image)} multiple={false} accept="image/*" label="Choose Image" hint={acceptedFormats(tool)} maxNote="Max 32 MB per file" onFiles={input.addFiles} />
             {!image && <SampleStrip samples={samplesFor(tool.id)} activeSrc={input.sampleSrc} onPick={input.addSample} />}
           </StepCard>
 

@@ -14,9 +14,11 @@ type UploadZoneProps = {
   maxNote: string;
   label: string;
   onFiles: (files: File[]) => void;
+  /** Once an image is loaded: a slim "replace" bar instead of the full drop area, so the preview stays in view. */
+  compact?: boolean;
 };
 
-export function UploadZone({ multiple, accept, hint, maxNote, label, onFiles }: UploadZoneProps) {
+export function UploadZone({ multiple, accept, hint, maxNote, label, onFiles, compact = false }: UploadZoneProps) {
   const inputRef = useRef<HTMLInputElement>(null);
   const [dragging, setDragging] = useState(false);
 
@@ -37,17 +39,30 @@ export function UploadZone({ multiple, accept, hint, maxNote, label, onFiles }: 
       />
       <button
         type="button"
-        className={`upload-zone ${dragging ? "is-dragging" : ""}`}
+        className={`upload-zone ${compact ? "is-compact" : ""} ${dragging ? "is-dragging" : ""}`}
         onClick={() => inputRef.current?.click()}
         onDragOver={(event) => { event.preventDefault(); setDragging(true); }}
         onDragLeave={() => setDragging(false)}
         onDrop={(event) => { event.preventDefault(); setDragging(false); take(event.dataTransfer.files); }}
       >
-        <UploadCloud size={44} strokeWidth={1.6} />
-        <strong>{multiple ? "Drag & drop your images here" : "Drag & drop your image here"}</strong>
-        <small>or click to choose {multiple ? "files" : "a file"}</small>
-        <span className="upload-cta"><ImageIcon size={17} /> {label}</span>
-        <span className="upload-hint">Supports {hint}<br />{maxNote}</span>
+        {compact ? (
+          <>
+            <UploadCloud size={22} strokeWidth={1.8} />
+            <span className="upload-compact-text">
+              <strong>{multiple ? "Add more images" : "Replace the image"}</strong>
+              <small>Drop {multiple ? "files" : "a file"} here or click to choose · {hint}</small>
+            </span>
+            <span className="upload-cta"><ImageIcon size={15} /> {multiple ? "Add" : "Choose"}</span>
+          </>
+        ) : (
+          <>
+            <UploadCloud size={44} strokeWidth={1.6} />
+            <strong>{multiple ? "Drag & drop your images here" : "Drag & drop your image here"}</strong>
+            <small>or click to choose {multiple ? "files" : "a file"}</small>
+            <span className="upload-cta"><ImageIcon size={17} /> {label}</span>
+            <span className="upload-hint">Supports {hint}<br />{maxNote}</span>
+          </>
+        )}
       </button>
     </>
   );

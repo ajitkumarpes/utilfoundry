@@ -8,6 +8,7 @@ import {
   WifiOff, Zap, type LucideIcon
 } from "lucide-react";
 import { ToolIcon } from "@/components/ui/ToolIcon";
+import { CONTACT_URL } from "@/lib/links";
 import { contentFor, FORMAT_INFO, type FormatId, type Reason, type ReasonIcon, type Tone } from "@/lib/tool-content";
 import { getTool, type ToolDefinition, type ToolId } from "@/lib/tools";
 
@@ -142,12 +143,14 @@ export function RelatedToolsCard({ ids }: { ids: ToolId[] }) {
 }
 
 export function FeedbackCard() {
+  // With no contact channel configured, no prompt is better than one that leads nowhere.
+  if (!CONTACT_URL) return null;
   return (
-    <Link href="/contact" className="card feedback-card">
+    <a href={CONTACT_URL} className="card feedback-card">
       <i aria-hidden><MessageSquareHeart size={20} /></i>
       <span><b>Have feedback?</b><small>Help us improve our image tools</small></span>
       <ChevronRight size={18} aria-hidden />
-    </Link>
+    </a>
   );
 }
 

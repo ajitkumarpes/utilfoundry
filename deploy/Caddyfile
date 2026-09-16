@@ -1,5 +1,8 @@
 {
   email {$ACME_EMAIL}
+  # Empty on the server. Set CADDY_LOCAL_CERTS=local_certs in .env to run the stack on your own
+  # machine with Caddy's local certificate authority, since Let's Encrypt cannot reach it.
+  {$CADDY_LOCAL_CERTS}
 }
 
 {$ROOT_DOMAIN} {

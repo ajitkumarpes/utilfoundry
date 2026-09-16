@@ -228,7 +228,7 @@ export function FaviconWorkbench({ tool }: { tool: ToolDefinition }) {
         <div className="workspace-main">
           <div className="step-grid is-triple">
             <StepCard step={1} title="Upload an Image" subtitle={tool.uploadNote}>
-              <UploadZone
+              <UploadZone compact={Boolean(image)}
                 multiple={false}
                 accept="image/*"
                 label="Choose Image"

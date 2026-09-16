@@ -2,17 +2,18 @@
 
 import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
-import { ChevronDown, Menu, Moon, Search, Sun } from "lucide-react";
+import { Menu, Moon, Search, Sun } from "lucide-react";
 import { BrandMark } from "@/components/layout/BrandMark";
 import { ToolIcon } from "@/components/ui/ToolIcon";
+import { DEVELOPER_URL, PARENT_URL, PDF_URL } from "@/lib/links";
 import { TOOLS } from "@/lib/tools";
 
+/** This app first, then its sibling UtilFoundry products. */
 const NAV = [
-  { label: "Tools", href: "/" },
-  { label: "Templates", href: "/templates" },
-  { label: "Pricing", href: "/pricing" },
-  { label: "Docs", href: "/docs" },
-  { label: "Blog", href: "/blog" }
+  { label: "Image tools", href: "/" },
+  { label: "PDF tools", href: PDF_URL },
+  { label: "Developer tools", href: DEVELOPER_URL },
+  { label: "All products", href: PARENT_URL }
 ];
 
 type SiteHeaderProps = { onOpenMenu: () => void };
@@ -70,7 +71,9 @@ export function SiteHeader({ onOpenMenu }: SiteHeaderProps) {
         </Link>
 
         <nav className="primary-nav" aria-label="Primary">
-          {NAV.map((item) => <Link key={item.label} href={item.href}>{item.label}</Link>)}
+          {NAV.map((item) => item.href.startsWith("/")
+            ? <Link key={item.label} href={item.href} aria-current="page">{item.label}</Link>
+            : <a key={item.label} href={item.href}>{item.label}</a>)}
         </nav>
 
         <div ref={boxRef} className="global-search" style={{ position: "relative" }}>
@@ -104,8 +107,6 @@ export function SiteHeader({ onOpenMenu }: SiteHeaderProps) {
             <Sun size={20} className="theme-light-only" />
             <Moon size={20} className="theme-dark-only" />
           </button>
-          <span className="header-divider" />
-          <button className="avatar-button" aria-label="Account menu"><i>A</i><ChevronDown size={15} /></button>
         </div>
       </div>
     </header>

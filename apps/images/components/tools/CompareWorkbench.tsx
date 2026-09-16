@@ -2,7 +2,7 @@
 /* eslint-disable @next/next/no-img-element */
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { ChevronsLeftRight, Download, ImageOff, RefreshCw } from "lucide-react";
+import { ChevronsLeftRight, Download, ImageOff, RefreshCw, X } from "lucide-react";
 import { RangeField } from "@/components/ui/Fields";
 import { StepCard } from "@/components/ui/StepCard";
 import { StatusBar } from "@/components/ui/StatusBar";
@@ -45,7 +45,7 @@ function Slot({ step, title, subtitle, tool, input, onSample }: {
   const image = input.images[0] ?? null;
   return (
     <StepCard step={step} title={title} subtitle={subtitle}>
-      <UploadZone
+      <UploadZone compact={Boolean(image)}
         multiple={false}
         accept="image/*"
         label="Choose Image"
@@ -62,8 +62,9 @@ function Slot({ step, title, subtitle, tool, input, onSample }: {
             <span title={image.name}>{image.name}</span>
             <span>{image.width} × {image.height} · {formatBytes(image.size)}</span>
           </p>
+          {/* The bar above replaces the image; this empties the slot. */}
           <button type="button" className="btn btn-secondary btn-sm" onClick={input.clear}>
-            <RefreshCw size={15} /> Replace image
+            <X size={15} /> Remove image
           </button>
         </>
       ) : (
@@ -193,9 +194,10 @@ export function CompareWorkbench({ tool }: { tool: ToolDefinition }) {
                   {view === "slider" && left && right && (
                     <>
                       <div className="slider-stage">
-                        <img src={left.url} alt={left.name} />
+                        {/* The clipped top layer shows left of the handle, so it carries the first image. */}
+                        <img src={right.url} alt={right.name} />
                         <div className="slider-top" style={{ clipPath: `inset(0 ${100 - split}% 0 0)` }}>
-                          <img src={right.url} alt={right.name} />
+                          <img src={left.url} alt={left.name} />
                         </div>
                         <span className="slider-handle" style={{ left: `${split}%` }} aria-hidden>
                           <i><ChevronsLeftRight size={16} /></i>
@@ -211,7 +213,7 @@ export function CompareWorkbench({ tool }: { tool: ToolDefinition }) {
                         />
                       </div>
                       <p className="text-meta" style={{ justifyContent: "center" }}>
-                        <span>Second image on the left of the handle, first on the right</span>
+                        <span>First image on the left of the handle, second on the right</span>
                       </p>
                     </>
                   )}

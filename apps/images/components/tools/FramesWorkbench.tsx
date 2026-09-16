@@ -171,7 +171,7 @@ export function FramesWorkbench({ tool }: { tool: ToolDefinition }) {
         <div className="workspace-main">
           <div className="step-grid is-triple">
             <StepCard step={1} title="Upload a GIF" subtitle={tool.uploadNote}>
-              <UploadZone
+              <UploadZone compact={Boolean(image)}
                 multiple={false}
                 accept="image/gif,image/webp,image/png"
                 label="Choose GIF"

@@ -25,7 +25,8 @@ const STAGE_MAX_HEIGHT = 480;
 const PREVIEW_SIDE = 1600;
 const ZOOM_STEPS = [50, 75, 100, 150, 200, 300, 400];
 
-type Drag = { handle: Handle; startX: number; startY: number; start: Rect };
+/** `last` is the rectangle the latest move produced, which the prop may not reflect yet. */
+type Drag = { handle: Handle; startX: number; startY: number; start: Rect; last?: Rect };
 
 /** The image with the selection drawn over it. All geometry is in image pixels. */
 export function CropStage({ image, orientation, bounds, rect, ratio, zoom, onChange }: {
@@ -40,6 +41,7 @@ export function CropStage({ image, orientation, bounds, rect, ratio, zoom, onCha
   const scroller = useRef<HTMLDivElement>(null);
   const stage = useRef<HTMLDivElement>(null);
   const holder = useRef<HTMLDivElement>(null);
+  const box = useRef<HTMLDivElement>(null);
   const drag = useRef<Drag | null>(null);
   const [available, setAvailable] = useState(0);
 
@@ -74,6 +76,9 @@ export function CropStage({ image, orientation, bounds, rect, ratio, zoom, onCha
     if (event.button !== 0) return;
     event.preventDefault();
     event.stopPropagation();
+    // preventDefault also stops the browser focusing the box; do it here so the
+    // arrow keys nudge the selection straight after a click or drag.
+    box.current?.focus({ preventScroll: true });
     stage.current?.setPointerCapture(event.pointerId);
     let start = rect;
     if (handle === "se" && event.target === stage.current) {
@@ -89,14 +94,18 @@ export function CropStage({ image, orientation, bounds, rect, ratio, zoom, onCha
     if (!current) return;
     const dx = (event.clientX - current.startX) / scale;
     const dy = (event.clientY - current.startY) / scale;
-    onChange(dragRect(current.start, current.handle, dx, dy, bounds, ratio));
+    current.last = dragRect(current.start, current.handle, dx, dy, bounds, ratio);
+    onChange(current.last);
   }
 
   function end(event: PointerEvent) {
-    if (!drag.current) return;
+    const current = drag.current;
+    if (!current) return;
     drag.current = null;
-    stage.current?.releasePointerCapture(event.pointerId);
-    onChange(normalizeRect(rect, bounds));
+    if (stage.current?.hasPointerCapture(event.pointerId)) stage.current.releasePointerCapture(event.pointerId);
+    // A release that follows the last move before React re-renders would see the
+    // old `rect` prop and undo the drag, so round what the drag itself produced.
+    if (current.last) onChange(normalizeRect(current.last, bounds));
   }
 
   function nudge(event: KeyboardEvent) {
@@ -121,6 +130,7 @@ export function CropStage({ image, orientation, bounds, rect, ratio, zoom, onCha
       >
         <div ref={holder} className="stage-canvas" />
         <div
+          ref={box}
           className="crop-box"
           role="group"
           tabIndex={0}

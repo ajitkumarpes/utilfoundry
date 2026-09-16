@@ -124,7 +124,7 @@ export function ComposeWorkbench({ tool }: { tool: ToolDefinition }) {
         <div className="workspace-main">
           <div className="step-grid is-triple">
             <StepCard step={1} title="Upload Images" subtitle={tool.uploadNote}>
-              <UploadZone
+              <UploadZone compact={input.images.length > 0}
                 multiple
                 accept="image/*"
                 label="Choose Images"
