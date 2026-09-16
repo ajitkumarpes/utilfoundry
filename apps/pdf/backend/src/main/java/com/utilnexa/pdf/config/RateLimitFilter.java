@@ -13,10 +13,12 @@ import org.springframework.stereotype.Component;
 import org.springframework.web.filter.OncePerRequestFilter;
 
 /**
- * Per-client-IP request throttling on /api/**. {@code trustForwardedFor} defaults to false
- * (uses {@code getRemoteAddr()}) because blindly trusting X-Forwarded-For lets a caller spoof
- * their rate-limit identity unless a trusted reverse proxy is actually the one setting it —
- * flip it on only once this sits behind a proxy that overwrites/strips client-supplied values.
+ * Per-client-IP request throttling on /api/**. Blindly trusting X-Forwarded-For lets a caller
+ * spoof their rate-limit identity, so {@code trustForwardedFor} stays false wherever this runs
+ * without a proxy. The production profile turns it on because Caddy, which fronts this app in
+ * deploy/, overwrites the header with the real peer for any untrusted client; with it off
+ * behind that proxy every caller on the internet shares one bucket, because the only address
+ * {@code getRemoteAddr()} can see is Caddy's own.
  * Limit tracking itself lives behind {@link RateLimiter} - {@link RedisRateLimiter} in
  * production, so the limit is shared across every backend replica rather than per-instance.
  */

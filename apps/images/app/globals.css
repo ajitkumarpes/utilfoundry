@@ -2070,7 +2070,9 @@ button.row-icon:hover:not(:disabled) { background: var(--panel-sunken); color: v
   .step-grid, .step-grid.is-triple { grid-template-columns: minmax(0, 1fr); }
   .editor-grid { grid-template-columns: minmax(0, 1fr); }
   .step-grid.is-triple > .step-card:only-child { grid-column: auto; }
-  .global-search { width: auto; flex: 1; }
+  /* min-width:0 is what lets it actually shrink: a flex item's automatic minimum is its
+     min-content width, which here is wide enough to push the header past a phone screen. */
+  .global-search { width: auto; flex: 1; min-width: 0; }
 }
 
 @media (max-width: 720px) {

@@ -838,7 +838,9 @@ a { color: var(--ink-soft); }
   }
   .tool-sidebar.is-open { transform: none; }
   .header-inner { padding: 0 16px; gap: 12px; }
-  .global-search { width: auto; flex: 1; }
+  /* min-width:0 is what lets it actually shrink: a flex item's automatic minimum is its
+     min-content width, which here is wide enough to push the header past a phone screen. */
+  .global-search { width: auto; flex: 1; min-width: 0; }
   .global-search kbd { display: none; }
   .main-area { padding: 0 16px 24px; }
   .crumb-row { flex-wrap: wrap; gap: 8px; }

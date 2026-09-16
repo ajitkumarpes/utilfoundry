@@ -3,6 +3,7 @@ import Link from "next/link";
 import { SiteFooter } from "@/components/layout/SiteFooter";
 import { CONTACT_EMAIL } from "@/lib/links";
 import { GOVERNING_LAW, LAST_UPDATED, OPERATOR } from "@/lib/legal";
+import { GENERAL_LIMIT, WORKER_LIMIT } from "@/lib/rate-limit";
 
 export const metadata: Metadata = {
   title: "Terms of Service",
@@ -45,6 +46,11 @@ export default function TermsPage() {
           <li>Image Upscaler accepts images up to 12 megapixels and will not produce more than 48 megapixels, so 8x is refused on all but small images.</li>
           <li>OCR scales the longest side down to 3,200 pixels before reading, which is a quality trade made for speed and reliability.</li>
           <li>A server request that has not finished within about a minute is abandoned.</li>
+          <li>
+            Uploads are throttled per connection: {GENERAL_LIMIT} a minute overall, and {WORKER_LIMIT} a minute for
+            the OCR and model tools, which cost far more to run. Both leave ample room for the batch sizes above and
+            are there to stop automated abuse, not you.
+          </li>
         </ul>
 
         <h2>Acceptable use</h2>

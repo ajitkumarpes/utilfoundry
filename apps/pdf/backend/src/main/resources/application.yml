@@ -73,3 +73,5 @@ app:
     allowed-origins: ${CORS_ALLOWED_ORIGINS:http://localhost:3000}
   rate-limit:
     requests-per-minute: ${RATE_LIMIT_PER_MINUTE:20}
+    # Off by default: running without a proxy, X-Forwarded-For is whatever the caller sent.
+    trust-forwarded-for: ${RATE_LIMIT_TRUST_FORWARDED_FOR:false}

@@ -3,6 +3,7 @@ import sharp, { type FormatEnum, type Sharp } from "sharp";
 import { isToolId, parseBase64, safeInteger, type ToolId } from "@/lib/tools";
 import { imagePdf } from "@/lib/server-pdf";
 import { ProcessingError } from "@/lib/errors";
+import { clientKey, GENERAL_LIMIT, SlidingWindow, WORKER_LIMIT } from "@/lib/rate-limit";
 
 export const runtime = "nodejs";
 export const maxDuration = 60;
@@ -34,8 +35,12 @@ const MIME_BY_FORMAT: Record<string, string> = {
   pdf: "application/pdf"
 };
 
-function errorResponse(message: string, status = 400) {
-  return Response.json({ error: message }, { status, headers: { "Cache-Control": "no-store" } });
+/** Module scope, so the counts survive between requests to the same running server. */
+const generalWindow = new SlidingWindow(GENERAL_LIMIT);
+const workerWindow = new SlidingWindow(WORKER_LIMIT);
+
+function errorResponse(message: string, status = 400, extra: Record<string, string> = {}) {
+  return Response.json({ error: message }, { status, headers: { "Cache-Control": "no-store", ...extra } });
 }
 
 function filename(value: string | undefined, suffix: string) {
@@ -249,6 +254,26 @@ export async function POST(request: Request) {
     const rawTool = formData.get("tool");
     const tool = typeof rawTool === "string" ? rawTool : "";
     if (!isToolId(tool)) return errorResponse("Unknown image operation.");
+
+    const caller = clientKey(request);
+    const general = generalWindow.take(caller);
+    if (!general.allowed) {
+      return errorResponse(
+        "Too many requests from this connection. Wait a moment and try again.",
+        429,
+        { "Retry-After": String(general.retryAfterSeconds) }
+      );
+    }
+    if (WORKER_TOOLS[tool]) {
+      const worker = workerWindow.take(caller);
+      if (!worker.allowed) {
+        return errorResponse(
+          "The OCR and model tools are limited to a few runs a minute. Wait a moment and try again.",
+          429,
+          { "Retry-After": String(worker.retryAfterSeconds) }
+        );
+      }
+    }
 
     if (tool === "base64-to-image") {
       const value = formData.get("base64");

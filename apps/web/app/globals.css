@@ -346,6 +346,21 @@ p { margin: 0; }
   .footer-nav { gap: var(--space-6); }
 }
 
+/* The brand and the CTA are both nowrap, so below this the header stops fitting a phone
+   and pushes the whole page into a horizontal scroll. Shrink both rather than drop either. */
+@media (max-width: 460px) {
+  .header-inner { gap: var(--space-2); }
+  .header-inner .brand { gap: var(--space-2); }
+  .header-inner .brand-text { font-size: 18px; }
+  .header-inner .btn { min-height: 42px; padding: 0 14px; }
+  .header-actions { gap: var(--space-2); }
+}
+
+@media (max-width: 360px) {
+  .header-inner .brand-text { font-size: 16px; }
+  .header-inner .btn { padding: 0 10px; font-size: var(--text-xs); }
+}
+
 @media (prefers-reduced-motion: reduce) {
   * { animation-duration: .01ms !important; transition-duration: .01ms !important; scroll-behavior: auto !important; }
 }

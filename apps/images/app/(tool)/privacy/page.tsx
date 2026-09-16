@@ -110,11 +110,17 @@ export default function PrivacyPage() {
           <li>We do not sell, rent or share your files or any data about you. There is no one to share it with.</li>
         </ul>
 
-        <h2>Server records</h2>
+        <h2>Server records and your IP address</h2>
         <p>
-          Our web front end is not configured to write access logs, so there is no stored record tying an IP address
-          to a file you processed. Our services can still print ordinary operational messages, such as an error when
-          a file cannot be decoded; those describe the fault, not you, and they are not used to build any profile.
+          To keep the tools available for everyone, uploads are throttled per connection. Doing that means holding
+          your IP address in server memory for a rolling minute and counting requests against it. That count is all
+          it is used for: it is never written to disk, never attached to a file you processed, and never used to
+          identify you or build a profile. It disappears as soon as the minute passes.
+        </p>
+        <p>
+          Beyond that, our web front end is not configured to write access logs, so there is no stored record tying
+          an IP address to a file you processed. Our services can still print ordinary operational messages, such as
+          an error when a file cannot be decoded; those describe the fault, not you.
         </p>
 
         <h2>Security</h2>
