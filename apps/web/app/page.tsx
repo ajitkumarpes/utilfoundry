@@ -1,72 +1,218 @@
 import Link from "next/link";
-import { ArrowRight, Check, Code2, FileText, ImageIcon, LockKeyhole, Sparkles } from "lucide-react";
+import { ArrowRight, Check, Code2, FileText, ImageIcon, Layers, LockKeyhole, Sparkles } from "lucide-react";
 import { BrandMark } from "@/components/BrandMark";
+import { ThemeToggle } from "@/components/ThemeToggle";
+import { CONTACT_URL, DEVELOPER_URL, IMAGES_URL, PDF_URL } from "@/lib/links";
 
-const PDF_URL = process.env.NEXT_PUBLIC_PDF_URL || "https://pdf.utilfoundry.com";
-const DEVELOPER_URL = process.env.NEXT_PUBLIC_DEVELOPER_URL || "https://dev.utilfoundry.com";
-const IMAGES_URL = process.env.NEXT_PUBLIC_IMAGES_URL || "https://images.utilfoundry.com";
-
+/** Counts are the real number of tool pages in each app, not marketing numbers. */
 const products = [
   {
     href: PDF_URL,
     label: "PDF platform",
-    title: "Make every PDF moment simpler.",
-    description: "Merge, split, convert, compress, protect, sign, and organize documents in one focused workspace.",
+    count: "36 tools",
+    title: "Every PDF job, one workspace.",
+    description: "Merge, split, convert, compress, sign, redact and organise documents, with OCR and repair when a file fights back.",
     icon: FileText,
-    tone: "lavender",
+    tone: { color: "var(--purple)", tint: "var(--purple-tint)" }
   },
   {
     href: DEVELOPER_URL,
     label: "Developer tools",
-    title: "Move from idea to deploy faster.",
-    description: "Format, validate, decode, compare, inspect, and generate with 70 browser-local developer utilities.",
+    count: "70 tools",
+    title: "From idea to deploy, faster.",
+    description: "Format, validate, decode, diff and generate — JSON, JWT, regex, OpenAPI, protobuf and payment protocol inspectors included.",
     icon: Code2,
-    tone: "blue",
+    tone: { color: "var(--blue)", tint: "var(--blue-tint)" }
   },
   {
     href: IMAGES_URL,
     label: "Image tools",
+    count: "30 tools",
     title: "Get every image ready to share.",
-    description: "Compress, resize, crop, convert, remove backgrounds, and extract text with 30 focused image tools.",
+    description: "Compress, resize, crop, convert and watermark, plus background removal, upscaling and OCR on our own server.",
     icon: ImageIcon,
-    tone: "peach",
-  },
+    tone: { color: "var(--accent)", tint: "var(--accent-tint)" }
+  }
 ];
 
-const futureTools = ["Data converters", "Text tools", "Security helpers", "Protocol diagnostics", "Productivity workflows"];
+const principles = [
+  {
+    icon: LockKeyhole,
+    title: "Private by default",
+    body: "Developer tools never leave your browser. Image editing is local too, apart from four model-backed tools that run on our own server and keep nothing."
+  },
+  {
+    icon: Check,
+    title: "Honest about limits",
+    body: "Every tool says what it does and what it will not do. No placeholder features, no silent failures, and errors that tell you what to fix."
+  },
+  {
+    icon: Layers,
+    title: "One job, done well",
+    body: "Each tool has its own page and its own controls, so you can link to it, share it and come back to exactly the screen you needed."
+  }
+];
+
+const roadmap = ["Data converters", "Text tools", "Security helpers", "Protocol diagnostics", "Productivity workflows"];
 
 export default function Home() {
   return (
-    <main>
-      <nav className="nav shell-width" aria-label="Main navigation">
-        <Link className="brand" href="/"><BrandMark size={30} /><span>UtilFoundry</span></Link>
-        <div className="nav-links"><a href="#products">Products</a><a href="#principles">Why UtilFoundry</a><a href="#roadmap">Roadmap</a></div>
-        <Link className="nav-cta" href="#products">Explore tools <ArrowRight size={15} /></Link>
-      </nav>
+    <>
+      <a className="skip-link" href="#main">Skip to content</a>
 
-      <section className="hero shell-width">
-        <div className="hero-copy">
-          <div className="eyebrow"><Sparkles size={14} /> The utility layer for modern work</div>
-          <h1>Useful tools.<br /><em>Quietly excellent.</em></h1>
-          <p>UtilFoundry brings your everyday PDF, image, developer, data, and productivity work into fast, thoughtful tools that respect your attention and your data.</p>
-          <div className="hero-actions"><Link className="primary-button" href="#products">Explore UtilFoundry <ArrowRight size={16} /></Link><a className="text-link" href="#principles">Built privacy-first <ArrowRight size={15} /></a></div>
+      <header className="site-header">
+        <div className="shell header-inner">
+          <Link className="brand" href="/">
+            <BrandMark size={34} />
+            <span className="brand-text">UtilFoundry</span>
+          </Link>
+          <nav className="site-nav" aria-label="Primary">
+            <a href="#products">Products</a>
+            <a href="#principles">Why UtilFoundry</a>
+            <a href="#roadmap">Roadmap</a>
+          </nav>
+          <div className="header-actions">
+            <ThemeToggle />
+            <a className="btn btn-primary" href={PDF_URL}>Open a tool <ArrowRight size={16} /></a>
+          </div>
         </div>
-        <div className="hero-card" aria-label="UtilFoundry product overview">
-          <div className="orbit orbit-one" /><div className="orbit orbit-two" />
-          <div className="hero-card-inner"><BrandMark size={52} className="brand-mark large" /><strong>One calm place<br />for useful work.</strong><span className="hero-card-note">No noise. No unnecessary uploads.</span></div>
+      </header>
+
+      <main id="main">
+        <section className="shell hero">
+          <div>
+            <p className="eyebrow"><Sparkles size={14} aria-hidden /> 136 tools across three workspaces</p>
+            <h1 className="hero-title">Useful tools.<br /><em>Quietly excellent.</em></h1>
+            <p className="hero-sub">
+              UtilFoundry is where the small jobs get done: a PDF that needs splitting, a token that needs
+              decoding, a screenshot that needs shrinking. Fast tools that respect your attention and your files.
+            </p>
+            <div className="hero-actions">
+              <a className="btn btn-primary" href="#products">Explore the tools <ArrowRight size={16} /></a>
+              <a className="btn btn-ghost" href="#principles">How we handle your files</a>
+            </div>
+            <div className="stat-row">
+              <div>
+                <p className="stat-value">136</p>
+                <p className="stat-label">Tools available today</p>
+              </div>
+              <div>
+                <p className="stat-value">3</p>
+                <p className="stat-label">Focused workspaces</p>
+              </div>
+              <div>
+                <p className="stat-value">0</p>
+                <p className="stat-label">Accounts required</p>
+              </div>
+            </div>
+          </div>
+
+          <div className="hero-panel">
+            <span className="hero-glow hero-glow-1" aria-hidden />
+            <span className="hero-glow hero-glow-2" aria-hidden />
+            <BrandMark size={52} />
+            <p className="hero-panel-title">One calm place for useful work.</p>
+            <div className="hero-panel-list">
+              <span><Check size={16} aria-hidden /> Developer tools run entirely in your browser</span>
+              <span><Check size={16} aria-hidden /> Image editing is local, bar four model-backed tools</span>
+              <span><Check size={16} aria-hidden /> No account, no sign-up, no upsell</span>
+            </div>
+            <p className="hero-panel-note">Nothing is stored after a job finishes.</p>
+          </div>
+        </section>
+
+        <section id="products" className="shell section">
+          <div className="section-head">
+            <p className="kicker">Explore the platform</p>
+            <h2 className="section-title">Tools for the work between the work.</h2>
+            <p className="section-lead">Three workspaces, each with its own tools, its own pages and the same standards.</p>
+          </div>
+          <div className="product-grid">
+            {products.map((product) => {
+              const Icon = product.icon;
+              return (
+                <a className="product-card" href={product.href} key={product.href}>
+                  <div className="product-top">
+                    <span className="product-icon" style={{ background: product.tone.tint, color: product.tone.color }}>
+                      <Icon size={24} aria-hidden />
+                    </span>
+                    <span className="product-count">{product.count}</span>
+                  </div>
+                  <p className="kicker">{product.label}</p>
+                  <h3 className="product-title">{product.title}</h3>
+                  <p className="product-desc">{product.description}</p>
+                  <span className="product-cta">Open workspace <ArrowRight size={15} aria-hidden /></span>
+                </a>
+              );
+            })}
+          </div>
+        </section>
+
+        <section id="principles" className="shell section">
+          <div className="section-head">
+            <p className="kicker">The UtilFoundry standard</p>
+            <h2 className="section-title">Designed to stay out of your way.</h2>
+          </div>
+          <div className="principle-grid">
+            {principles.map((principle) => {
+              const Icon = principle.icon;
+              return (
+                <div className="principle" key={principle.title}>
+                  <span className="principle-icon"><Icon size={20} aria-hidden /></span>
+                  <h3>{principle.title}</h3>
+                  <p>{principle.body}</p>
+                </div>
+              );
+            })}
+          </div>
+        </section>
+
+        <section id="roadmap" className="shell section">
+          <div className="roadmap-grid">
+            <div>
+              <p className="kicker">What is next</p>
+              <h2 className="section-title">A growing toolkit, one category at a time.</h2>
+              <p className="section-lead">
+                We add a category when it is genuinely finished, rather than shipping a menu of half-built screens.
+                These are the ones we are working towards.
+              </p>
+            </div>
+            <div className="chip-row">
+              {roadmap.map((item) => <span className="chip" key={item}>{item}</span>)}
+            </div>
+          </div>
+        </section>
+      </main>
+
+      <footer className="site-footer">
+        <div className="shell">
+          <div className="footer-top">
+            <div>
+              <Link className="brand" href="/">
+                <BrandMark size={30} />
+                <span className="brand-text">UtilFoundry</span>
+              </Link>
+              <p className="footer-blurb">Practical tools, crafted well. Most of them never send your file anywhere.</p>
+            </div>
+            <nav className="footer-nav" aria-label="Footer">
+              <div className="footer-col">
+                <strong>Products</strong>
+                <a href={PDF_URL}>PDF tools</a>
+                <a href={DEVELOPER_URL}>Developer tools</a>
+                <a href={IMAGES_URL}>Image tools</a>
+              </div>
+              <div className="footer-col">
+                <strong>This site</strong>
+                <a href="#products">Products</a>
+                <a href="#principles">Why UtilFoundry</a>
+                <a href="#roadmap">Roadmap</a>
+                {CONTACT_URL && <a href={CONTACT_URL}>Contact</a>}
+              </div>
+            </nav>
+          </div>
+          <p className="footer-legal">© {new Date().getFullYear()} UtilFoundry. All rights reserved.</p>
         </div>
-      </section>
-
-      <section id="products" className="products shell-width">
-        <div className="section-heading"><div><span className="section-kicker">Explore the platform</span><h2>Tools for the work between the work.</h2></div><p>Start with the tools you need today. More focused utilities are on the way.</p></div>
-        <div className="product-grid">{products.map((product) => { const Icon = product.icon; return <a className={`product-card ${product.tone}`} href={product.href} key={product.href}><div className="product-card-top"><span className="product-icon"><Icon size={21} /></span><ArrowRight className="product-arrow" size={19} /></div><span className="section-kicker">{product.label}</span><h3>{product.title}</h3><p>{product.description}</p><span className="product-link">Open workspace <ArrowRight size={15} /></span></a>; })}</div>
-      </section>
-
-      <section id="principles" className="principles shell-width"><div className="section-heading"><div><span className="section-kicker">The UtilFoundry standard</span><h2>Designed to stay out of your way.</h2></div></div><div className="principle-grid"><div><LockKeyhole size={20} /><h3>Private by default</h3><p>Browser-local processing wherever possible. Sensitive input is not sent to a server just to transform it.</p></div><div><Check size={20} /><h3>Clear and dependable</h3><p>Useful output, honest boundaries, helpful errors, and no placeholder features presented as finished work.</p></div><div><Sparkles size={20} /><h3>Small surface area</h3><p>Each tool does one job well, with fast interactions and interfaces that feel familiar from the first click.</p></div></div></section>
-
-      <section id="roadmap" className="roadmap shell-width"><div><span className="section-kicker">What is next</span><h2>A growing toolkit, one useful category at a time.</h2><p>We are building the practical utility layer for individuals and teams without turning it into another noisy dashboard.</p></div><div className="future-tools">{futureTools.map((tool) => <span key={tool}>{tool}</span>)}</div></section>
-
-      <footer className="footer shell-width"><Link className="brand" href="/"><BrandMark size={30} /><span>UtilFoundry</span></Link><span>Practical tools, crafted well.</span><span>© {new Date().getFullYear()} UtilFoundry</span></footer>
-    </main>
+      </footer>
+    </>
   );
 }

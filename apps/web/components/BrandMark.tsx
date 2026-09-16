@@ -14,7 +14,7 @@ export function BrandMark({ size = 30, className = "" }: BrandMarkProps) {
       aria-label="UtilFoundry mark"
       xmlns="http://www.w3.org/2000/svg"
     >
-      <rect width="64" height="64" rx="18" fill="#111827" />
+      <rect className="brand-tile" width="64" height="64" rx="18" fill="#111827" />
       <path d="M18 17V33C18 42.5 23.6 48 32 48C40.4 48 46 42.5 46 33V17" stroke="#F4B183" strokeWidth="5" strokeLinecap="round" />
       <path d="M16 51H48" stroke="#F4B183" strokeWidth="5" strokeLinecap="round" />
       <path d="M50 11L52.5 16.5L58 19L52.5 21.5L50 27L47.5 21.5L42 19L47.5 16.5L50 11Z" fill="#F4B183" />
