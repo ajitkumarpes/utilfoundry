@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import SiteHeader from "@/components/SiteHeader";
 import SiteFooter from "@/components/SiteFooter";
+import { CONTACT_EMAIL, GOVERNING_LAW, LAST_UPDATED } from "@/lib/legal";
 
 export const metadata: Metadata = {
   title: "Terms of Service",
@@ -13,7 +14,7 @@ export default function TermsPage() {
       <SiteHeader />
       <article className="legal-page">
         <h1>Terms of Service</h1>
-        <p className="updated">Last updated: 20 August 2026</p>
+        <p className="updated">Last updated: {LAST_UPDATED}</p>
 
         <p>
           These terms apply when you use UtilFoundry PDF (part of the UtilFoundry toolbox, &quot;we&quot;, &quot;us&quot;) at
@@ -84,11 +85,12 @@ export default function TermsPage() {
         <p>If these terms change in a way that matters, we&apos;ll update the date at the top of this page.</p>
 
         <h2>Governing law</h2>
-        <p>These terms are governed by the laws of <strong>[JURISDICTION — to be filled in]</strong>.</p>
+        <p>These terms are governed by the laws of {GOVERNING_LAW}, and the courts of {GOVERNING_LAW} have
+          exclusive jurisdiction over any dispute arising from them.</p>
 
         <h2>Contact</h2>
         <p>
-          Questions about these terms can be sent to <strong>[CONTACT_EMAIL — to be filled in]</strong>.
+          Questions about these terms can be sent to <a href={`mailto:${CONTACT_EMAIL}`}>{CONTACT_EMAIL}</a>.
         </p>
       </article>
       <SiteFooter />

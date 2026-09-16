@@ -1,8 +1,8 @@
-import Link from "next/link";
 import { ArrowRight, Check, Code2, FileText, ImageIcon, Layers, LockKeyhole, Sparkles } from "lucide-react";
 import { BrandMark } from "@/components/BrandMark";
-import { ThemeToggle } from "@/components/ThemeToggle";
-import { CONTACT_URL, DEVELOPER_URL, IMAGES_URL, PDF_URL } from "@/lib/links";
+import { SiteFooter } from "@/components/SiteFooter";
+import { SiteHeader } from "@/components/SiteHeader";
+import { DEVELOPER_URL, IMAGES_URL, PDF_URL } from "@/lib/links";
 
 /** Counts are the real number of tool pages in each app, not marketing numbers. */
 const products = [
@@ -39,7 +39,7 @@ const principles = [
   {
     icon: LockKeyhole,
     title: "Private by default",
-    body: "Developer tools never leave your browser. Image editing is local too, apart from four model-backed tools that run on our own server and keep nothing."
+    body: "Developer tools never leave your browser. Image editing is local too, apart from six tools — the compressor, the converter and the four model-backed ones — that run on our own server and keep nothing."
   },
   {
     icon: Check,
@@ -60,23 +60,7 @@ export default function Home() {
     <>
       <a className="skip-link" href="#main">Skip to content</a>
 
-      <header className="site-header">
-        <div className="shell header-inner">
-          <Link className="brand" href="/">
-            <BrandMark size={34} />
-            <span className="brand-text">UtilFoundry</span>
-          </Link>
-          <nav className="site-nav" aria-label="Primary">
-            <a href="#products">Products</a>
-            <a href="#principles">Why UtilFoundry</a>
-            <a href="#roadmap">Roadmap</a>
-          </nav>
-          <div className="header-actions">
-            <ThemeToggle />
-            <a className="btn btn-primary" href={PDF_URL}>Open a tool <ArrowRight size={16} /></a>
-          </div>
-        </div>
-      </header>
+      <SiteHeader />
 
       <main id="main">
         <section className="shell hero">
@@ -114,10 +98,10 @@ export default function Home() {
             <p className="hero-panel-title">One calm place for useful work.</p>
             <div className="hero-panel-list">
               <span><Check size={16} aria-hidden /> Developer tools run entirely in your browser</span>
-              <span><Check size={16} aria-hidden /> Image editing is local, bar four model-backed tools</span>
+              <span><Check size={16} aria-hidden /> Image editing is local, bar six server-backed tools</span>
               <span><Check size={16} aria-hidden /> No account, no sign-up, no upsell</span>
             </div>
-            <p className="hero-panel-note">Nothing is stored after a job finishes.</p>
+            <p className="hero-panel-note">Nothing is kept for longer than the job needs.</p>
           </div>
         </section>
 
@@ -184,35 +168,7 @@ export default function Home() {
         </section>
       </main>
 
-      <footer className="site-footer">
-        <div className="shell">
-          <div className="footer-top">
-            <div>
-              <Link className="brand" href="/">
-                <BrandMark size={30} />
-                <span className="brand-text">UtilFoundry</span>
-              </Link>
-              <p className="footer-blurb">Practical tools, crafted well. Most of them never send your file anywhere.</p>
-            </div>
-            <nav className="footer-nav" aria-label="Footer">
-              <div className="footer-col">
-                <strong>Products</strong>
-                <a href={PDF_URL}>PDF tools</a>
-                <a href={DEVELOPER_URL}>Developer tools</a>
-                <a href={IMAGES_URL}>Image tools</a>
-              </div>
-              <div className="footer-col">
-                <strong>This site</strong>
-                <a href="#products">Products</a>
-                <a href="#principles">Why UtilFoundry</a>
-                <a href="#roadmap">Roadmap</a>
-                {CONTACT_URL && <a href={CONTACT_URL}>Contact</a>}
-              </div>
-            </nav>
-          </div>
-          <p className="footer-legal">© {new Date().getFullYear()} UtilFoundry. All rights reserved.</p>
-        </div>
-      </footer>
+      <SiteFooter />
     </>
   );
 }

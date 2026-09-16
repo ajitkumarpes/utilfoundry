@@ -6,5 +6,8 @@ export const PARENT_URL = process.env.NEXT_PUBLIC_PARENT_URL || "https://utilfou
 export const PDF_URL = process.env.NEXT_PUBLIC_PDF_URL || "https://pdf.utilfoundry.com";
 export const IMAGES_URL = process.env.NEXT_PUBLIC_IMAGES_URL || "https://images.utilfoundry.com";
 
-/** A mailto: address or form URL. Unset means there is no contact channel yet, so nothing links to one. */
-export const CONTACT_URL = process.env.NEXT_PUBLIC_CONTACT_URL || "";
+/** The address the privacy policy, the terms and every feedback prompt point at. */
+export const CONTACT_EMAIL = process.env.NEXT_PUBLIC_CONTACT_EMAIL || "support@utilfoundry.com";
+
+/** Override with a form URL once one exists; the mailto: is the standing channel until then. */
+export const CONTACT_URL = process.env.NEXT_PUBLIC_CONTACT_URL || `mailto:${CONTACT_EMAIL}`;

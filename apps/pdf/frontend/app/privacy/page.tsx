@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import SiteHeader from "@/components/SiteHeader";
 import SiteFooter from "@/components/SiteFooter";
+import { CONTACT_EMAIL, LAST_UPDATED } from "@/lib/legal";
 
 export const metadata: Metadata = {
   title: "Privacy Policy",
@@ -13,7 +14,7 @@ export default function PrivacyPage() {
       <SiteHeader />
       <article className="legal-page">
         <h1>Privacy Policy</h1>
-        <p className="updated">Last updated: 20 August 2026</p>
+        <p className="updated">Last updated: {LAST_UPDATED}</p>
 
         <p>
           UtilFoundry PDF (part of the UtilFoundry toolbox, &quot;we&quot;, &quot;us&quot;) provides free PDF tools at this
@@ -87,7 +88,7 @@ export default function PrivacyPage() {
         <h2>Contact</h2>
         <p>
           Questions about this policy or a request about your data can be sent to{" "}
-          <strong>[CONTACT_EMAIL — to be filled in]</strong>.
+          <a href={`mailto:${CONTACT_EMAIL}`}>{CONTACT_EMAIL}</a>.
         </p>
       </article>
       <SiteFooter />

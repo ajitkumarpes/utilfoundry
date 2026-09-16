@@ -100,7 +100,7 @@ export const TOOLS: ToolDefinition[] = [
     multiple: true,
     needsBase64: false,
     output: "image",
-    highlights: ["100% Free", "No account required", "Processed locally", "No AI in core pipeline"],
+    highlights: ["100% Free", "No account required", "Processed on our server", "No AI in core pipeline"],
     action: "Compress Images",
     readyTitle: "Your compressed images are ready!",
     readyNote: "Download your image or try different settings."
@@ -304,7 +304,7 @@ export const TOOLS: ToolDefinition[] = [
     multiple: true,
     needsBase64: false,
     output: "image",
-    highlights: ["100% Free", "No account required", "Processed locally", "No AI in core pipeline"],
+    highlights: ["100% Free", "No account required", "Processed on our server", "No AI in core pipeline"],
     action: "Convert Images",
     readyTitle: "Your converted images are ready!",
     readyNote: "Download each file, or all of them as a ZIP."
@@ -423,7 +423,7 @@ export const TOOLS: ToolDefinition[] = [
     multiple: false,
     needsBase64: false,
     output: "image",
-    highlights: ["100% Free", "No account required", "Processed locally", "AI-powered"],
+    highlights: ["100% Free", "No account required", "Processed on our server", "AI-powered"],
     action: "Download PNG",
     readyTitle: "Background removed successfully!",
     readyNote: "Your image is ready to download with a transparent background."
@@ -440,7 +440,7 @@ export const TOOLS: ToolDefinition[] = [
     multiple: false,
     needsBase64: false,
     output: "image",
-    highlights: ["100% Free", "No account required", "Processed locally", "AI-powered"],
+    highlights: ["100% Free", "No account required", "Processed on our server", "AI-powered"],
     action: "Download PNG",
     readyTitle: "Image upscaled successfully!",
     readyNote: "Your high-resolution image is ready to download."
@@ -457,7 +457,7 @@ export const TOOLS: ToolDefinition[] = [
     multiple: false,
     needsBase64: false,
     output: "text",
-    highlights: ["100% Free", "No account required", "Processed locally", "AI-powered"],
+    highlights: ["100% Free", "No account required", "Processed on our server", "AI-powered"],
     action: "Download Text",
     readyTitle: "Text extracted successfully!",
     readyNote: "Your image has been processed using OCR."
@@ -474,7 +474,7 @@ export const TOOLS: ToolDefinition[] = [
     multiple: false,
     needsBase64: false,
     output: "text",
-    highlights: ["100% Free", "No account required", "Processed locally", "AI-powered OCR"],
+    highlights: ["100% Free", "No account required", "Processed on our server", "AI-powered OCR"],
     action: "Download Text",
     readyTitle: "Text extracted successfully!",
     readyNote: "Your screenshot has been processed using OCR."

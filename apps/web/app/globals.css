@@ -302,6 +302,30 @@ p { margin: 0; }
 .footer-legal { margin-top: var(--space-7); padding-top: var(--space-5); border-top: 1px solid var(--line); color: var(--faint); font-size: var(--text-xs); }
 
 /* ==========================================================================
+   Legal pages — privacy policy and terms
+   ========================================================================== */
+
+.legal-page { max-width: 760px; margin: 0 auto; padding: var(--space-8) 0 var(--space-7); line-height: 1.7; }
+.legal-page h1 { margin: 0 0 var(--space-2); font-size: clamp(30px, 4vw, 40px); letter-spacing: -.03em; }
+.legal-page h2 { margin: var(--space-7) 0 var(--space-3); font-size: var(--text-xl); letter-spacing: -.015em; }
+.legal-page p, .legal-page li { color: var(--muted); font-size: 15px; }
+.legal-page ul { margin: var(--space-3) 0; padding-left: 20px; display: grid; gap: var(--space-2); }
+.legal-page strong { color: var(--ink-soft); }
+.legal-page a { color: var(--accent); text-underline-offset: 2px; }
+.legal-page code {
+  padding: 1px 5px;
+  border: 1px solid var(--line);
+  border-radius: 5px;
+  background: var(--panel-sunken);
+  font-family: var(--mono);
+  font-size: .92em;
+  /* Long storage keys must wrap rather than widen the column. */
+  overflow-wrap: anywhere;
+}
+.legal-updated { margin: 0 0 var(--space-6); color: var(--faint); font-size: var(--text-xs); }
+.legal-lead { color: var(--ink-soft); font-size: var(--text-lg); }
+
+/* ==========================================================================
    Responsive
    ========================================================================== */
 

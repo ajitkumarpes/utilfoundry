@@ -6,9 +6,10 @@ import type { ToolDefinition } from "@/lib/tools";
 /** Picks the chip glyph from its wording, so tool definitions stay plain data. */
 function chipIcon(text: string) {
   const value = text.toLowerCase();
-  // Checked first: both phrases contain words the broader rules below would catch.
+  // Checked first: these phrases contain words the broader rules below would catch.
   if (value.includes("no ai")) return { icon: <Leaf size={15} />, color: "var(--green)", tint: "var(--green-tint)" };
-  if (value.includes("processed locally")) return { icon: <Server size={15} />, color: "var(--green)", tint: "var(--green-tint)" };
+  if (value.includes("server")) return { icon: <Server size={15} />, color: "var(--green)", tint: "var(--green-tint)" };
+  if (value.includes("processed locally")) return { icon: <ShieldCheck size={15} />, color: "var(--green)", tint: "var(--green-tint)" };
   if (value.includes("free")) return { icon: <ShieldCheck size={15} />, color: "var(--green)", tint: "var(--green-tint)" };
   if (value.includes("account")) return { icon: <Lock size={15} />, color: "var(--blue)", tint: "var(--blue-tint)" };
   if (value.includes("ai") || value.includes("powered")) return { icon: <Sparkles size={15} />, color: "var(--purple)", tint: "var(--purple-tint)" };

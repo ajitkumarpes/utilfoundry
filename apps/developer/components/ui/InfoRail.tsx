@@ -68,14 +68,11 @@ export function InfoRail({ tool }: { tool: ToolDefinition }) {
         </section>
       )}
 
-      {/* With no contact channel configured, no prompt is better than one that leads nowhere. */}
-      {CONTACT_URL && (
-        <a href={CONTACT_URL} className="card feedback-card">
-          <i aria-hidden><MessageSquareHeart size={20} /></i>
-          <span><b>Have feedback?</b><small>Help us improve these tools</small></span>
-          <ChevronRight size={18} aria-hidden />
-        </a>
-      )}
+      <a href={CONTACT_URL} className="card feedback-card">
+        <i aria-hidden><MessageSquareHeart size={20} /></i>
+        <span><b>Have feedback?</b><small>Help us improve these tools</small></span>
+        <ChevronRight size={18} aria-hidden />
+      </a>
     </>
   );
 }

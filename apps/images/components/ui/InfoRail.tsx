@@ -143,8 +143,6 @@ export function RelatedToolsCard({ ids }: { ids: ToolId[] }) {
 }
 
 export function FeedbackCard() {
-  // With no contact channel configured, no prompt is better than one that leads nowhere.
-  if (!CONTACT_URL) return null;
   return (
     <a href={CONTACT_URL} className="card feedback-card">
       <i aria-hidden><MessageSquareHeart size={20} /></i>

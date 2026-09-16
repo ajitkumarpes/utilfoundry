@@ -56,12 +56,10 @@ export function ToolSidebar({ open, onClose }: ToolSidebarProps) {
         <span><b>Private by default</b><small>Nothing leaves your browser</small></span>
       </div>
 
-      {CONTACT_URL && (
-        <a href={CONTACT_URL} className="nav-feature" onClick={onClose}>
-          <Lightbulb size={22} aria-hidden />
-          <span><b>Need a tool?</b><small>Tell us what you need</small></span>
-        </a>
-      )}
+      <a href={CONTACT_URL} className="nav-feature" onClick={onClose}>
+        <Lightbulb size={22} aria-hidden />
+        <span><b>Need a tool?</b><small>Tell us what you need</small></span>
+      </a>
     </aside>
   );
 }

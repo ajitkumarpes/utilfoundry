@@ -31,7 +31,7 @@ services:
         NEXT_PUBLIC_PDF_URL: https://pdf.${ROOT_DOMAIN}
         NEXT_PUBLIC_DEVELOPER_URL: https://dev.${ROOT_DOMAIN}
         NEXT_PUBLIC_IMAGES_URL: https://images.${ROOT_DOMAIN}
-        # Leave CONTACT_URL unset until there is an inbox or form; the prompts stay hidden.
+        # Unset falls back to the mailto: in the app's lib/links.ts; set this to point at a form instead.
         NEXT_PUBLIC_CONTACT_URL: ${CONTACT_URL:-}
     restart: unless-stopped
     expose:
@@ -50,7 +50,7 @@ services:
         NEXT_PUBLIC_PARENT_URL: https://${ROOT_DOMAIN}
         NEXT_PUBLIC_PDF_URL: https://pdf.${ROOT_DOMAIN}
         NEXT_PUBLIC_IMAGES_URL: https://images.${ROOT_DOMAIN}
-        # Leave CONTACT_URL unset until there is an inbox or form; the prompts stay hidden.
+        # Unset falls back to the mailto: in the app's lib/links.ts; set this to point at a form instead.
         NEXT_PUBLIC_CONTACT_URL: ${CONTACT_URL:-}
     restart: unless-stopped
     expose:
@@ -69,7 +69,7 @@ services:
         NEXT_PUBLIC_PARENT_URL: https://${ROOT_DOMAIN}
         NEXT_PUBLIC_PDF_URL: https://pdf.${ROOT_DOMAIN}
         NEXT_PUBLIC_DEVELOPER_URL: https://dev.${ROOT_DOMAIN}
-        # Leave CONTACT_URL unset until there is an inbox or form; the prompts stay hidden.
+        # Unset falls back to the mailto: in the app's lib/links.ts; set this to point at a form instead.
         NEXT_PUBLIC_CONTACT_URL: ${CONTACT_URL:-}
     restart: unless-stopped
     expose:
