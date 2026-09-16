@@ -475,6 +475,24 @@ a { color: var(--ink-soft); }
 .tool-options input:focus, .tool-options select:focus { border-color: var(--accent); box-shadow: var(--ring); }
 .file-picker input { min-width: 220px; padding: 6px 8px; }
 
+.input-hint {
+  display: flex;
+  gap: 8px;
+  margin: 0;
+  padding: 10px 12px;
+  border: 1px solid var(--accent-line);
+  border-radius: 9px;
+  background: var(--accent-tint);
+  color: var(--ink-soft);
+  font-size: 12.5px;
+  line-height: 1.5;
+}
+.input-hint code {
+  padding: 1px 5px;
+  border-radius: 4px;
+  background: var(--panel);
+  font: 12px var(--mono);
+}
 .pane { border: 1px solid var(--line); border-radius: 10px; overflow: hidden; background: var(--panel); }
 .pane-label {
   display: flex;
@@ -714,7 +732,9 @@ a { color: var(--ink-soft); }
   --ink: #edf1f8;
   --ink-soft: #c7d0e0;
   --muted: #96a2b6;
-  --faint: #7d8798;
+  /* Lifted from #7d8798, which read at only 3.85:1 on the active sidebar item, where the
+     accent tint lightens the panel to about #202b49. */
+  --faint: #8794a9;
   --line: #24314a;
   --line-soft: #1c2740;
   --paper: #0b121e;
@@ -743,6 +763,9 @@ a { color: var(--ink-soft); }
   --shadow: 0 1px 2px rgba(0, 0, 0, .3), 0 8px 24px rgba(0, 0, 0, .26);
   --ring: 0 0 0 3px rgba(125, 149, 255, .22);
 }
+/* The accent is light in this theme, so its filled button carries an ink label:
+   white on #7d95ff reads at 2.76:1, ink at 6.80:1. */
+[data-theme="dark"] .btn-primary { color: #0b121e; }
 [data-theme="dark"] .security-note, [data-theme="dark"] .security-warning { color: #f0cf94; }
 [data-theme="dark"] .image-preview img { background: #fff; }
 

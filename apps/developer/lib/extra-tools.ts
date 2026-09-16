@@ -1,4 +1,9 @@
-import Ajv from "ajv";
+/**
+ * An interpreter-based validator rather than Ajv: Ajv compiles schemas with
+ * `new Function`, which the production CSP forbids, so the schema tools worked in
+ * development and failed on the deployed site.
+ */
+import { Validator, type OutputUnit } from "@cfworker/json-schema";
 import { XMLBuilder, XMLParser, XMLValidator } from "fast-xml-parser";
 import QRCode from "qrcode";
 import semver from "semver";
@@ -7,8 +12,9 @@ import Papa from "papaparse";
 import { format as formatSqlDocument } from "sql-formatter";
 import { parse as parseGraphql, print as printGraphql } from "graphql";
 import { load as parseYaml } from "js-yaml";
-import OpenApiSchemaValidator from "openapi-schema-validator";
-import type { OpenAPI } from "openapi-types";
+/* The OpenAPI meta-schemas are plain JSON; only the package's Ajv-based runner is avoided. */
+import openapi20 from "openapi-schema-validator/dist/resources/openapi-2.0.json";
+import openapi30 from "openapi-schema-validator/dist/resources/openapi-3.0.json";
 import { JSONPath } from "jsonpath-plus";
 import { RegExpParser, visitRegExpAST, type AST } from "regexpp";
 import { marked } from "marked";
@@ -38,7 +44,10 @@ export function extractJsonPath(value: string, path: string) {
     path,
     json: root,
     wrap: true,
-    eval: false,
+    // "safe" runs filter expressions in the library's own miniature evaluator, which uses
+    // neither eval nor Function and so satisfies the CSP. Expressions see only the document:
+    // a filter that reaches for anything else fails with "not defined" rather than running.
+    eval: "safe",
   }) as unknown[];
   if (!matches.length) throw new Error("JSONPath returned no matches.");
   return JSON.stringify(matches.length === 1 ? matches[0] : matches, null, 2);
@@ -453,13 +462,19 @@ export function summarizeOpenApi(value: string) {
 export function validateOpenApi(value: string) {
   const document = parseStructuredDocument(value);
   const version = document.openapi ? 3 : 2;
-  const validator = new OpenApiSchemaValidator({ version });
-  const result = validator.validate(document as OpenAPI.Document);
+  // Both OpenAPI meta-schemas are written against draft-04, whichever spec version
+  // they describe. shortCircuit false so every problem is listed, not just the first.
+  const validator = new Validator(
+    (version === 3 ? openapi30 : openapi20) as object,
+    "4",
+    false,
+  );
+  const result = validator.validate(document);
   return JSON.stringify(
     {
-      valid: result.errors.length === 0,
+      valid: result.valid,
       version: version === 3 ? "3.0" : "2.0",
-      errors: result.errors,
+      errors: result.valid ? [] : readableErrors(result.errors),
     },
     null,
     2,
@@ -490,10 +505,41 @@ function parseStructuredDocument(value: string): Record<string, unknown> {
   }
 }
 
+/** Reads the draft the schema declares, defaulting to the current one. */
+function draftOf(schema: unknown): "4" | "7" | "2019-09" | "2020-12" {
+  const declared =
+    schema && typeof schema === "object" && "$schema" in schema
+      ? String((schema as Record<string, unknown>).$schema)
+      : "";
+  if (declared.includes("draft-04")) return "4";
+  if (declared.includes("draft-06") || declared.includes("draft-07")) return "7";
+  if (declared.includes("2019-09")) return "2019-09";
+  return "2020-12";
+}
+
+/** Each failure keeps the instance path that broke it, which is what the tool promises. */
+function readableErrors(errors: OutputUnit[]) {
+  return errors.map((unit) => ({
+    path: unit.instanceLocation,
+    keyword: unit.keyword,
+    schemaPath: unit.keywordLocation,
+    error: unit.error,
+  }));
+}
+
 export function validateSchema(value: string, schema: string) {
-  const ajv = new Ajv({ allErrors: true, strict: false });
-  const valid = ajv.compile(JSON.parse(schema))(JSON.parse(value));
-  return JSON.stringify({ valid, errors: valid ? [] : ajv.errors }, null, 2);
+  const parsedSchema = JSON.parse(schema);
+  // shortCircuit false so every failure is reported, not only the first.
+  const validator = new Validator(parsedSchema, draftOf(parsedSchema), false);
+  const result = validator.validate(JSON.parse(value));
+  return JSON.stringify(
+    {
+      valid: result.valid,
+      errors: result.valid ? [] : readableErrors(result.errors),
+    },
+    null,
+    2,
+  );
 }
 
 export function explainRegex(value: string) {

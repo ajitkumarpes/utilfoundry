@@ -12,6 +12,7 @@
     "test:e2e": "playwright test"
   },
   "dependencies": {
+    "@cfworker/json-schema": "^4.1.1",
     "@types/diff": "^7.0.2",
     "ajv": "^8.20.0",
     "cron-parser": "^5.10.0",

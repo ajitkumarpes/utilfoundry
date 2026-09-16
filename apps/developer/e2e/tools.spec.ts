@@ -14,7 +14,10 @@ test.describe("developer tools browser coverage", () => {
       await page.goto(`/${tool.slug}`);
       await expect(page.getByRole("heading", { level: 1, name: tool.name })).toBeVisible();
       await page.getByRole("button", { name: "Run tool" }).click();
-      await expect(page.locator(".notice")).toContainText(/Done locally|Check your input/);
+      // The shipped example must actually succeed. Accepting "Check your input" here let
+      // seven tools ship with examples that error the moment you press Run — and hid two
+      // tools that the production CSP broke outright.
+      await expect(page.locator(".notice")).toContainText("Done locally", { timeout: 15_000 });
       await expect(page.locator(".has-output, .preview, .image-preview")).toHaveCount(1);
     }
   });
@@ -55,11 +58,45 @@ test.describe("developer tools browser coverage", () => {
     }
   });
 
-  test("the root redirects to a tool page that has no accessibility violations", async ({ page }) => {
+  test("the root redirects to the first tool", async ({ page }) => {
     await page.goto("/");
     await expect(page).toHaveURL(/\/json-formatter$/);
-    const results = await new AxeBuilder({ page }).analyze();
-    expect(results.violations).toEqual([]);
+  });
+
+  /**
+   * One page per distinct shape of the workbench — plain panes, rendered HTML, an image
+   * result, extra option fields, the payments warning, and the file picker — rather than
+   * all seventy, since every tool draws from the same shell.
+   */
+  const A11Y_SAMPLE = [
+    "json-formatter",
+    "markdown-preview",
+    "qr-generator",
+    "jwt-hmac-signer",
+    "luhn-pan-check",
+    "image-to-base64",
+  ] as const;
+
+  for (const slug of A11Y_SAMPLE) {
+    test(`${slug} has no accessibility violations`, async ({ page }) => {
+      await page.goto(`/${slug}`);
+      await expect(page.getByRole("heading", { level: 1 })).toBeVisible();
+      const results = await new AxeBuilder({ page }).analyze();
+      expect(results.violations).toEqual([]);
+    });
+  }
+
+  test.describe("dark theme", () => {
+    test.use({ colorScheme: "dark" });
+
+    for (const slug of A11Y_SAMPLE) {
+      test(`${slug} has no accessibility violations in dark mode`, async ({ page }) => {
+        await page.goto(`/${slug}`);
+        await expect(page.locator("html")).toHaveAttribute("data-theme", "dark");
+        const results = await new AxeBuilder({ page }).analyze();
+        expect(results.violations).toEqual([]);
+      });
+    }
   });
 
   test("legacy deep links still land on the tool and warn before sensitive data is processed", async ({ page }) => {

@@ -254,15 +254,19 @@ export function Workbench({ tool }: { tool: ToolDefinition }) {
           </div>
 
           {needsInput ? (
-            <div className="pane">
-              <div className="pane-label">Input <span>{tool.inputLabel}</span></div>
-              <textarea
-                value={input}
-                onChange={(event) => setInput(event.target.value)}
-                spellCheck={false}
-                aria-label={`${tool.name} input`}
-              />
-            </div>
+            <>
+              {/* Tools with a format convention say so here, rather than in an error afterwards. */}
+              {tool.inputHint && <p className="input-hint">{tool.inputHint}</p>}
+              <div className="pane">
+                <div className="pane-label">Input <span>{tool.inputLabel}</span></div>
+                <textarea
+                  value={input}
+                  onChange={(event) => setInput(event.target.value)}
+                  spellCheck={false}
+                  aria-label={`${tool.name} input`}
+                />
+              </div>
+            </>
           ) : (
             <p className="pane-empty">Nothing to paste: press <b>Run tool</b> for a fresh value, as often as you like.</p>
           )}
