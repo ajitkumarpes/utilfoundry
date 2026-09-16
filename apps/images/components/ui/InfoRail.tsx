@@ -34,11 +34,11 @@ const ICONS: Record<ReasonIcon, LucideIcon> = {
 };
 
 export const TONES: Record<Tone, { color: string; tint: string }> = {
-  green: { color: "#16a34a", tint: "var(--green-tint)" },
-  blue: { color: "#2f6fed", tint: "var(--blue-tint)" },
-  purple: { color: "#7c4dee", tint: "var(--purple-tint)" },
+  green: { color: "var(--green)", tint: "var(--green-tint)" },
+  blue: { color: "var(--blue)", tint: "var(--blue-tint)" },
+  purple: { color: "var(--purple)", tint: "var(--purple-tint)" },
   amber: { color: "#e8912a", tint: "var(--amber-tint)" },
-  orange: { color: "#f04e23", tint: "var(--accent-tint)" }
+  orange: { color: "var(--accent)", tint: "var(--accent-tint)" }
 };
 
 export function WhyUseCard({ reasons }: { reasons: Reason[] }) {

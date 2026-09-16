@@ -6,25 +6,29 @@
 :root {
   --ink: #111c3d;
   --ink-soft: #2a3a5c;
-  --muted: #6b7789;
-  --faint: #8d97a7;
+  /* Dark enough to clear WCAG AA (4.5:1) on every surface they sit on, tints included. */
+  --muted: #5b6879;
+  --faint: #5f6a79;
   --line: #e5e9f0;
   --line-soft: #eef1f6;
   --paper: #f8f9fb;
   --panel: #ffffff;
   --panel-sunken: #f7f9fc;
 
-  --accent: #f04e23;
-  --accent-hover: #d93f16;
+  /* Darkened from #f04e23, which failed AA twice over: as text on --accent-tint (3.25:1)
+     and under the white label of its own primary button (3.60:1). */
+  --accent: #b8380f;
+  --accent-hover: #9d2f0c;
   --accent-tint: #fff0eb;
   --accent-line: #ffd6c7;
 
-  --blue: #2f6fed;
+  --blue: #2563c9;
   --blue-tint: #eaf1fe;
-  --green: #16a34a;
+  /* Carries white labels on .btn-success and .job-pill, which #16a34a did at only 3.3:1. */
+  --green: #15803d;
   --green-tint: #edfbf2;
   --green-line: #cfeeda;
-  --purple: #7c4dee;
+  --purple: #6b3fd4;
   --purple-tint: #f0eaff;
   --amber: #e8912a;
   --amber-tint: #fff3e2;
@@ -35,7 +39,7 @@
   --radius: 12px;
   --radius-sm: 8px;
   --shadow: 0 1px 2px rgba(17, 28, 61, .04), 0 8px 24px rgba(17, 28, 61, .04);
-  --ring: 0 0 0 3px rgba(240, 78, 35, .16);
+  --ring: 0 0 0 3px rgba(184, 56, 15, .16);
   --badge-bg: #111c3d;
   --badge-ink: #ffffff;
   --sidebar-w: 254px;
@@ -454,7 +458,7 @@ img { max-width: 100%; }
   color: #fff;
   font-size: 13.5px;
   font-weight: 650;
-  box-shadow: 0 6px 16px rgba(240, 78, 35, .22);
+  box-shadow: 0 6px 16px rgba(184, 56, 15, .22);
 }
 .upload-zone:hover .upload-cta { background: var(--accent-hover); }
 .upload-hint { color: var(--faint); font-size: 11.5px; line-height: 1.6; }
@@ -617,7 +621,8 @@ img { max-width: 100%; }
   left: 0;
   right: 0;
   text-align: center;
-  color: #6b7789;
+  /* The page sheet stays light in both themes, so this ink is fixed rather than tokenised. */
+  color: #5b6879;
   font-size: 9px;
 }
 .page-thumbs { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
@@ -966,7 +971,7 @@ input[type="range"]::-moz-range-thumb {
   text-decoration: none;
   white-space: nowrap;
 }
-.btn-primary { background: var(--accent); color: #fff; box-shadow: 0 6px 16px rgba(240, 78, 35, .22); }
+.btn-primary { background: var(--accent); color: #fff; box-shadow: 0 6px 16px rgba(184, 56, 15, .22); }
 .btn-primary:hover:not(:disabled) { background: var(--accent-hover); }
 .btn-secondary { border: 1px solid var(--line); background: var(--panel); color: var(--ink-soft); }
 .btn-secondary:hover:not(:disabled) { border-color: var(--accent); color: var(--accent); }
@@ -1451,7 +1456,7 @@ input[type="range"]::-moz-range-thumb {
   display: grid; place-items: center;
 }
 .thumb img { width: 100%; height: 100%; object-fit: cover; display: block; }
-.thumb[aria-selected="true"] { border-color: var(--accent); box-shadow: 0 0 0 3px rgba(240, 78, 35, .14); }
+.thumb[aria-selected="true"] { border-color: var(--accent); box-shadow: 0 0 0 3px rgba(184, 56, 15, .14); }
 .thumb:hover:not([aria-selected="true"]) { border-color: var(--accent-line); }
 .thumb-add { border: 1.5px dashed #c8d1e0; color: var(--muted); gap: 2px; font-size: 11.5px; font-weight: 600; line-height: 1.2; }
 .thumb-add:hover { border-color: var(--accent); color: var(--accent); background: var(--accent-tint); }
@@ -1532,7 +1537,7 @@ input[type="range"]::-moz-range-thumb {
 .action-tile b { font-size: 12.5px; font-weight: 600; }
 .action-tile small { color: var(--faint); font-size: 11.5px; }
 .action-tile:hover { border-color: var(--accent-line); background: var(--accent-tint); }
-.action-tile[aria-pressed="true"] { border-color: var(--accent); background: var(--accent-tint); box-shadow: 0 0 0 3px rgba(240, 78, 35, .1); }
+.action-tile[aria-pressed="true"] { border-color: var(--accent); background: var(--accent-tint); box-shadow: 0 0 0 3px rgba(184, 56, 15, .1); }
 .action-tile[aria-pressed="true"] > span { color: var(--accent); }
 
 .btn-block-lg { width: 100%; min-height: 50px; font-size: 15px; }
@@ -1784,7 +1789,7 @@ input[type="range"]::-moz-range-thumb {
 }
 .format-tile > span { color: var(--accent); display: grid; place-items: center; }
 .format-tile:hover { border-color: var(--accent-line); }
-.format-tile[aria-checked="true"] { border-color: var(--accent); background: var(--accent-tint); color: var(--accent); box-shadow: 0 0 0 3px rgba(240, 78, 35, .1); }
+.format-tile[aria-checked="true"] { border-color: var(--accent); background: var(--accent-tint); color: var(--accent); box-shadow: 0 0 0 3px rgba(184, 56, 15, .1); }
 .icon-size-row { display: flex; flex-wrap: wrap; gap: 8px; }
 .icon-size-row .chip { min-width: 52px; }
 .icon-size-row .chip[aria-pressed="true"] { border-color: var(--accent); background: var(--accent-tint); color: var(--accent); }
@@ -1818,7 +1823,7 @@ input[type="range"]::-moz-range-thumb {
   min-width: 0;
 }
 .arrange-card.is-dragging { opacity: .45; }
-.arrange-card.is-over { border-color: var(--accent); box-shadow: 0 0 0 3px rgba(240, 78, 35, .12); }
+.arrange-card.is-over { border-color: var(--accent); box-shadow: 0 0 0 3px rgba(184, 56, 15, .12); }
 .arrange-thumb { position: relative; aspect-ratio: 16 / 10; border-radius: 7px; overflow: hidden; background: var(--panel-sunken); }
 .arrange-thumb img { width: 100%; height: 100%; object-fit: cover; display: block; }
 .arrange-index { position: absolute; top: 6px; left: 6px; min-width: 22px; height: 22px; padding: 0 5px; border-radius: 6px; background: var(--ink); color: var(--panel); font-size: 12px; font-weight: 700; display: grid; place-items: center; }
@@ -1916,6 +1921,16 @@ button.row-icon:hover:not(:disabled) { background: var(--panel-sunken); color: v
   --panel: #151f2e;
   --panel-sunken: #101a27;
 
+  /* Dark needs its own hues: the light ones are darkened for white type on white
+     surfaces, which reads as mud on a dark tint. These clear AA against every dark
+     surface, so the fills that carry them flip to ink labels below. */
+  --faint: #8794a9;
+  --accent: #ff8a5c;
+  --accent-hover: #ff9f78;
+  --green: #4ade80;
+  --blue: #8ab0ff;
+  --purple: #b9a2ff;
+
   --accent-tint: #33201a;
   --accent-line: #4d2c20;
   --blue-tint: #1a2540;
@@ -1929,6 +1944,20 @@ button.row-icon:hover:not(:disabled) { background: var(--panel-sunken); color: v
   --badge-ink: #ffffff;
   --shadow: 0 1px 2px rgba(0, 0, 0, .3), 0 8px 24px rgba(0, 0, 0, .22);
 }
+
+/* Accent and blue are light in this theme, so their filled controls carry ink labels. */
+[data-theme="dark"] .btn-primary,
+[data-theme="dark"] .upload-cta,
+[data-theme="dark"] .lock-button[aria-pressed="true"] { color: #1c0f09; }
+/* Green is light in this theme too, so its filled surfaces carry ink.
+   The error state keeps white on --danger, which stays dark. */
+[data-theme="dark"] .btn-success,
+[data-theme="dark"] .status-bar:not(.is-idle):not(.is-error) .status-icon,
+[data-theme="dark"] .job-pill.is-done { color: #08240f; }
+[data-theme="dark"] .tab-row button[aria-selected="true"],
+[data-theme="dark"] .map-link { color: #0c1730; }
+/* Its light hover keeps the ink label readable. */
+[data-theme="dark"] .map-link:hover { background: #a6c2ff; }
 
 [data-theme="dark"] .upload-zone { border-color: #3a4759; }
 [data-theme="dark"] .radio i, [data-theme="dark"] .checkbox-row i { border-color: #47536a; }

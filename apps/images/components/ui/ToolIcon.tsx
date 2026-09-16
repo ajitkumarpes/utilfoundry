@@ -41,11 +41,11 @@ const ICONS: Record<ToolId, LucideIcon> = {
 
 /** Per-category accent, used for the sidebar glyph and the page hero tile. */
 export const TOOL_ACCENT: Record<string, { color: string; tint: string }> = {
-  Optimize: { color: "#f04e23", tint: "var(--accent-tint)" },
-  Transform: { color: "#7c4dee", tint: "var(--purple-tint)" },
-  Convert: { color: "#f04e23", tint: "var(--accent-tint)" },
-  "AI & OCR": { color: "#7c4dee", tint: "var(--purple-tint)" },
-  Utility: { color: "#16a34a", tint: "var(--green-tint)" }
+  Optimize: { color: "var(--accent)", tint: "var(--accent-tint)" },
+  Transform: { color: "var(--purple)", tint: "var(--purple-tint)" },
+  Convert: { color: "var(--accent)", tint: "var(--accent-tint)" },
+  "AI & OCR": { color: "var(--purple)", tint: "var(--purple-tint)" },
+  Utility: { color: "var(--green)", tint: "var(--green-tint)" }
 };
 
 export function ToolIcon({ id, size = 18, strokeWidth = 1.9 }: { id: ToolId; size?: number; strokeWidth?: number }) {

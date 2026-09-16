@@ -114,7 +114,13 @@ npm run lint
 npm run typecheck
 npm run test
 npm run build
+npm run test:e2e
 ```
+
+`npm run test:e2e` runs an Axe accessibility scan over one page per workbench shape, in
+both themes, on its own server at port 3041 (`E2E_PRODUCTION=1` scans the built output
+instead of the dev server). It is what the palette is held to: every token pair that
+carries text clears WCAG AA, tinted backgrounds and filled buttons included.
 
 Regenerate the sample assets after editing the generator:
 

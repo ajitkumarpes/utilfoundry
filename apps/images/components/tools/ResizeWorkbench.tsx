@@ -39,7 +39,7 @@ const BRAND = {
   linkedin: { icon: Linkedin, color: "#0a66c2" },
   x: { icon: Twitter, color: "#111827" },
   hd: { icon: Monitor, color: "#475569" },
-  print: { icon: Printer, color: "#7c4dee" }
+  print: { icon: Printer, color: "var(--purple)" }
 } as const;
 
 function PresetList({ activeId, onPick, limit }: { activeId?: string; onPick: (id: string) => void; limit?: number }) {

@@ -93,8 +93,8 @@ function Reasons({ items }: { items: { icon: React.ReactNode; color: string; tin
 
 const PRIVACY_REASONS = [
   { icon: <Zap size={17} />, color: "#e8912a", tint: "var(--amber-tint)", title: "Fast & easy", note: "Get results in seconds" },
-  { icon: <ShieldCheck size={17} />, color: "#16a34a", tint: "var(--green-tint)", title: "100% private", note: "Files are processed on this server, never stored" },
-  { icon: <Eye size={17} />, color: "#2f6fed", tint: "var(--blue-tint)", title: "No account required", note: "Start using immediately" }
+  { icon: <ShieldCheck size={17} />, color: "var(--green)", tint: "var(--green-tint)", title: "100% private", note: "Files are processed on this server, never stored" },
+  { icon: <Eye size={17} />, color: "var(--blue)", tint: "var(--blue-tint)", title: "No account required", note: "Start using immediately" }
 ];
 
 /* ------------------------------ Blur ----------------------------- */
@@ -398,7 +398,7 @@ function BackgroundOptions({ options, set }: Pick<RailProps, "options" | "set">)
         <p className="field-help">The model refines the mask edges on every run. Format and size are applied when you download.</p>
       </section>
       <Reasons items={[
-        { icon: <ShieldCheck size={17} />, color: "#7c4dee", tint: "var(--purple-tint)", title: "AI-powered accuracy", note: "Precisely detects and removes backgrounds" },
+        { icon: <ShieldCheck size={17} />, color: "var(--purple)", tint: "var(--purple-tint)", title: "AI-powered accuracy", note: "Precisely detects and removes backgrounds" },
         ...PRIVACY_REASONS
       ]} />
       <section className="card rail-card">
@@ -433,7 +433,7 @@ function UpscaleOptions({ options, set }: Pick<RailProps, "options" | "set">) {
         <p className="field-help">Runs the FSRCNN super-resolution model on this server: 2× per pass, so 4× and 8× take two and three passes. The format is applied when you download.</p>
       </section>
       <Reasons items={[
-        { icon: <Zap size={17} />, color: "#7c4dee", tint: "var(--purple-tint)", title: "Sharper details", note: "Enhance clarity and fine details" },
+        { icon: <Zap size={17} />, color: "var(--purple)", tint: "var(--purple-tint)", title: "Sharper details", note: "Enhance clarity and fine details" },
         ...PRIVACY_REASONS
       ]} />
     </>
@@ -474,9 +474,9 @@ function OcrOptions({ tool, options, set }: RailProps) {
         </div>
       </section>
       <Reasons items={[
-        { icon: <Target size={17} />, color: "#7c4dee", tint: "var(--purple-tint)", title: "High accuracy", note: "Powered by a locally hosted OCR engine" },
-        { icon: <Globe size={17} />, color: "#2f6fed", tint: "var(--blue-tint)", title: "Multiple languages", note: "Whatever language packs the worker has installed" },
-        { icon: <Server size={17} />, color: "#16a34a", tint: "var(--green-tint)", title: "No paid API", note: "Nothing is sent to a third-party service" },
+        { icon: <Target size={17} />, color: "var(--purple)", tint: "var(--purple-tint)", title: "High accuracy", note: "Powered by a locally hosted OCR engine" },
+        { icon: <Globe size={17} />, color: "var(--blue)", tint: "var(--blue-tint)", title: "Multiple languages", note: "Whatever language packs the worker has installed" },
+        { icon: <Server size={17} />, color: "var(--green)", tint: "var(--green-tint)", title: "No paid API", note: "Nothing is sent to a third-party service" },
         { icon: <Lock size={17} />, color: "#e8912a", tint: "var(--amber-tint)", title: "No account required", note: "Start using immediately" }
       ]} />
     </>

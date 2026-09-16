@@ -7,20 +7,20 @@ import type { ToolDefinition } from "@/lib/tools";
 function chipIcon(text: string) {
   const value = text.toLowerCase();
   // Checked first: both phrases contain words the broader rules below would catch.
-  if (value.includes("no ai")) return { icon: <Leaf size={15} />, color: "#16a34a", tint: "var(--green-tint)" };
-  if (value.includes("processed locally")) return { icon: <Server size={15} />, color: "#16a34a", tint: "var(--green-tint)" };
-  if (value.includes("free")) return { icon: <ShieldCheck size={15} />, color: "#16a34a", tint: "var(--green-tint)" };
-  if (value.includes("account")) return { icon: <Lock size={15} />, color: "#2f6fed", tint: "var(--blue-tint)" };
-  if (value.includes("ai") || value.includes("powered")) return { icon: <Sparkles size={15} />, color: "#7c4dee", tint: "var(--purple-tint)" };
-  if (value.includes("local") || value.includes("private")) return { icon: <ShieldCheck size={15} />, color: "#16a34a", tint: "var(--green-tint)" };
-  if (value.includes("accuracy") || value.includes("language")) return { icon: <Target size={15} />, color: "#2f6fed", tint: "var(--blue-tint)" };
+  if (value.includes("no ai")) return { icon: <Leaf size={15} />, color: "var(--green)", tint: "var(--green-tint)" };
+  if (value.includes("processed locally")) return { icon: <Server size={15} />, color: "var(--green)", tint: "var(--green-tint)" };
+  if (value.includes("free")) return { icon: <ShieldCheck size={15} />, color: "var(--green)", tint: "var(--green-tint)" };
+  if (value.includes("account")) return { icon: <Lock size={15} />, color: "var(--blue)", tint: "var(--blue-tint)" };
+  if (value.includes("ai") || value.includes("powered")) return { icon: <Sparkles size={15} />, color: "var(--purple)", tint: "var(--purple-tint)" };
+  if (value.includes("local") || value.includes("private")) return { icon: <ShieldCheck size={15} />, color: "var(--green)", tint: "var(--green-tint)" };
+  if (value.includes("accuracy") || value.includes("language")) return { icon: <Target size={15} />, color: "var(--blue)", tint: "var(--blue-tint)" };
   if (value.includes("fast")) return { icon: <Zap size={15} />, color: "#e8912a", tint: "var(--amber-tint)" };
   if (value.includes("reorder") || value.includes("customiz") || value.includes("mode") || value.includes("style")) {
-    return { icon: <SlidersHorizontal size={15} />, color: "#2f6fed", tint: "var(--blue-tint)" };
+    return { icon: <SlidersHorizontal size={15} />, color: "var(--blue)", tint: "var(--blue-tint)" };
   }
-  if (value.includes("preview") || value.includes("real-time")) return { icon: <CheckCircle2 size={15} />, color: "#16a34a", tint: "var(--green-tint)" };
-  if (value.includes("output") || value.includes("quality")) return { icon: <FileText size={15} />, color: "#2f6fed", tint: "var(--blue-tint)" };
-  return { icon: <ImageIcon size={15} />, color: "#16a34a", tint: "var(--green-tint)" };
+  if (value.includes("preview") || value.includes("real-time")) return { icon: <CheckCircle2 size={15} />, color: "var(--green)", tint: "var(--green-tint)" };
+  if (value.includes("output") || value.includes("quality")) return { icon: <FileText size={15} />, color: "var(--blue)", tint: "var(--blue-tint)" };
+  return { icon: <ImageIcon size={15} />, color: "var(--green)", tint: "var(--green-tint)" };
 }
 
 /** The honest version of where the pixels go, shown on hover. */
