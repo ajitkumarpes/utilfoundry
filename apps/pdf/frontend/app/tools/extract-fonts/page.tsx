@@ -117,7 +117,7 @@ export default function ExtractFontsPage() {
       </section>
 
       <section className="workspace">
-        <p style={{ fontSize: 12, color: "#888", margin: "0 0 18px" }}>
+        <p style={{ fontSize: 12, color: "var(--text-faint)", margin: "0 0 18px" }}>
           Only extract fonts you have the right to use outside this document. Most font licenses
           allow embedding a font in a PDF for display but don&apos;t allow reusing the font file
           itself elsewhere. Most PDFs embed a subset — just the characters that document actually

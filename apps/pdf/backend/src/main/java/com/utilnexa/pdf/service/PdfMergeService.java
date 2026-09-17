@@ -7,7 +7,9 @@ import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
 
+import com.utilnexa.pdf.service.support.PdfFileValidator;
 import org.apache.pdfbox.io.IOUtils;
+import org.apache.pdfbox.pdmodel.PDDocument;
 import org.apache.pdfbox.multipdf.PDFMergerUtility;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
@@ -73,10 +75,26 @@ public class PdfMergeService {
       if (file.getSize() > MAX_FILE_BYTES) {
         throw new IllegalArgumentException("Each PDF must be 50 MB or smaller.");
       }
+      requireReadable(file);
       totalBytes += file.getSize();
       if (totalBytes > MAX_TOTAL_BYTES) {
         throw new IllegalArgumentException("The combined PDF size must be 100 MB or smaller.");
       }
+    }
+  }
+
+  /**
+   * The same check every other tool runs. Without it an encrypted or damaged member escaped
+   * PDFMergerUtility as an unhandled exception: HTTP 500 "Internal Server Error", with no hint
+   * which file was the problem.
+   */
+  private void requireReadable(MultipartFile file) {
+    String name = file.getOriginalFilename() == null ? "One of the files" : "“" + file.getOriginalFilename() + "”";
+    try (PDDocument ignored = PdfFileValidator.loadDecrypted(file.getBytes())) {
+      // Readable and not encrypted.
+    } catch (IllegalArgumentException | java.io.IOException e) {
+      String reason = e instanceof IllegalArgumentException ? e.getMessage() : "It could not be read.";
+      throw new IllegalArgumentException(name + ": " + reason);
     }
   }
 

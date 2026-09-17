@@ -39,8 +39,13 @@ public class RedisRateLimiter implements RateLimiter {
 
   @Override
   public boolean tryConsume(String key) {
+    return tryConsume(key, requestsPerMinute);
+  }
+
+  @Override
+  public boolean tryConsume(String key, int perMinute) {
     try {
-      BucketProxy bucket = proxyManager.builder().build(key, this::configuration);
+      BucketProxy bucket = proxyManager.builder().build(key, () -> configuration(perMinute));
       boolean allowed = bucket.tryConsume(1);
       if (redisUnavailable.compareAndSet(true, false)) {
         fallbackBuckets.clear();
@@ -58,29 +63,21 @@ public class RedisRateLimiter implements RateLimiter {
       Bucket fallback = fallbackBuckets.get(key);
       if (fallback == null) {
         if (fallbackBuckets.size() >= MAX_FALLBACK_CLIENTS) return false;
-        fallback = fallbackBuckets.computeIfAbsent(key, ignored -> newFallbackBucket());
+        fallback = fallbackBuckets.computeIfAbsent(key, ignored -> newFallbackBucket(perMinute));
       }
       return fallback.tryConsume(1);
     }
   }
 
-  private Bucket newFallbackBucket() {
+  private Bucket newFallbackBucket(int perMinute) {
     return Bucket.builder()
-        .addLimit(
-            limit ->
-                limit
-                    .capacity(requestsPerMinute)
-                    .refillGreedy(requestsPerMinute, Duration.ofMinutes(1)))
+        .addLimit(limit -> limit.capacity(perMinute).refillGreedy(perMinute, Duration.ofMinutes(1)))
         .build();
   }
 
-  private BucketConfiguration configuration() {
+  private BucketConfiguration configuration(int perMinute) {
     return BucketConfiguration.builder()
-        .addLimit(
-            limit ->
-                limit
-                    .capacity(requestsPerMinute)
-                    .refillGreedy(requestsPerMinute, Duration.ofMinutes(1)))
+        .addLimit(limit -> limit.capacity(perMinute).refillGreedy(perMinute, Duration.ofMinutes(1)))
         .build();
   }
 }

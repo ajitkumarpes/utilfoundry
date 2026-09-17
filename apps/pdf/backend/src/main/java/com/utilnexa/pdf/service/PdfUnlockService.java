@@ -42,6 +42,9 @@ public class PdfUnlockService {
       return Loader.loadPDF(bytes, password);
     } catch (InvalidPasswordException e) {
       throw new IllegalArgumentException("Incorrect password.");
+    } catch (IOException e) {
+      // Same wording as every other tool; a damaged upload is bad input, not a server fault.
+      throw new IllegalArgumentException("This PDF could not be read — it appears to be corrupted or invalid.");
     }
   }
 }

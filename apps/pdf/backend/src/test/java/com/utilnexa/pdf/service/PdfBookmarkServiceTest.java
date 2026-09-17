@@ -109,4 +109,36 @@ class PdfBookmarkServiceTest {
   private MockMultipartFile pdfFile(byte[] bytes) {
     return new MockMultipartFile("file", "source.pdf", "application/pdf", bytes);
   }
+
+  @Test
+  void nestedBookmarksSurviveAnUnchangedReadAndSave() throws Exception {
+    MockMultipartFile file = pdfFile(pdfWithPages(6));
+    byte[] nested = service.writeBookmarks(file, List.of(
+        new BookmarkEntry(0, "Chapter 1", 0),
+        new BookmarkEntry(1, "Section 1.1", 1),
+        new BookmarkEntry(2, "Section 1.2", 1),
+        new BookmarkEntry(3, "Chapter 2", 0),
+        new BookmarkEntry(4, "Section 2.1", 1),
+        new BookmarkEntry(5, "Detail 2.1.1", 2)));
+
+    List<BookmarkEntry> read = service.readBookmarks(pdfFile(nested)).bookmarks();
+    byte[] resaved = service.writeBookmarks(pdfFile(nested), read);
+    List<BookmarkEntry> reread = service.readBookmarks(pdfFile(resaved)).bookmarks();
+
+    assertEquals(6, reread.size());
+    assertEquals(List.of(0, 1, 1, 0, 1, 2), reread.stream().map(BookmarkEntry::depth).toList());
+    assertEquals("Detail 2.1.1", reread.get(5).title());
+    assertEquals(5, reread.get(5).pageIndex());
+  }
+
+  @Test
+  void aLevelThatSkipsDepthsIsClampedIntoAValidTree() throws Exception {
+    byte[] result = service.writeBookmarks(pdfFile(pdfWithPages(2)), List.of(
+        new BookmarkEntry(0, "Top", 0),
+        new BookmarkEntry(1, "Too deep", 4)));
+
+    List<BookmarkEntry> read = service.readBookmarks(pdfFile(result)).bookmarks();
+
+    assertEquals(List.of(0, 1), read.stream().map(BookmarkEntry::depth).toList());
+  }
 }

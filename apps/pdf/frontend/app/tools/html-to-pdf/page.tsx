@@ -172,7 +172,7 @@ export default function HtmlToPdfPage() {
               }}
             />
 
-            <p style={{ fontSize: 12, color: "#888", margin: "0 0 18px" }}>
+            <p style={{ fontSize: 12, color: "var(--text-faint)", margin: "0 0 18px" }}>
               For privacy and security, remote images, stylesheets and fonts are never fetched — only
               images embedded directly as a <code>data:</code> URI will show up. SVG images aren&apos;t
               supported.

@@ -54,4 +54,15 @@ class PdfUnlockServiceTest {
   private MockMultipartFile pdfFile(byte[] bytes) {
     return new MockMultipartFile("file", "source.pdf", "application/pdf", bytes);
   }
+
+  @Test
+  void corruptInputIsABadRequestNotAServerError() {
+    MockMultipartFile file = pdfFile("definitely not a pdf".getBytes());
+
+    IllegalArgumentException thrown =
+        assertThrows(IllegalArgumentException.class, () -> service.unlock(file, "anything"));
+
+    org.junit.jupiter.api.Assertions.assertEquals(
+        "This PDF could not be read — it appears to be corrupted or invalid.", thrown.getMessage());
+  }
 }

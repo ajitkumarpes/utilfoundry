@@ -10,6 +10,8 @@ import {
   ChevronDown,
   ChevronUp,
   Download,
+  IndentDecrease,
+  IndentIncrease,
   Loader2,
   Plus,
   Trash2,
@@ -21,7 +23,20 @@ import SinglePdfInput from "@/components/SinglePdfInput";
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:8091";
 
-type BookmarkRow = { id: string; pageNumber: string; title: string };
+/** level: 0 for a top-level bookmark, 1 for a sub-section under the nearest level-0 row above it, and so on. */
+type BookmarkRow = { id: string; pageNumber: string; title: string; level: number };
+
+const MAX_LEVEL = 8;
+
+/** After a move or delete, no row may sit more than one level below the row above it. */
+function normalizeLevels(rows: BookmarkRow[]): BookmarkRow[] {
+  let ceiling = 0;
+  return rows.map(row => {
+    const level = Math.min(row.level, ceiling);
+    ceiling = Math.min(MAX_LEVEL, level + 1);
+    return level === row.level ? row : { ...row, level };
+  });
+}
 
 let idSeq = 0;
 const nextId = () => `bm${Date.now()}-${idSeq++}`;
@@ -61,10 +76,10 @@ export default function BookmarksPdfPage() {
         throw new Error(message);
       }
 
-      const data: { pageCount: number; bookmarks: { pageIndex: number; title: string }[] } = await response.json();
+      const data: { pageCount: number; bookmarks: { pageIndex: number; title: string; level?: number }[] } = await response.json();
       setPageCount(data.pageCount);
       setRows(
-        data.bookmarks.map(b => ({ id: nextId(), pageNumber: String(b.pageIndex + 1), title: b.title }))
+        data.bookmarks.map(b => ({ id: nextId(), pageNumber: String(b.pageIndex + 1), title: b.title, level: b.level ?? 0 }))
       );
     } catch (err) {
       setFile(null);
@@ -83,15 +98,28 @@ export default function BookmarksPdfPage() {
   };
 
   const addRow = () => {
-    setRows(prev => [...prev, { id: nextId(), pageNumber: "1", title: "" }]);
+    setRows(prev => [...prev, { id: nextId(), pageNumber: "1", title: "", level: 0 }]);
   };
 
   const removeRow = (id: string) => {
-    setRows(prev => prev.filter(r => r.id !== id));
+    setRows(prev => normalizeLevels(prev.filter(r => r.id !== id)));
   };
 
   const updateRow = (id: string, patch: Partial<BookmarkRow>) => {
     setRows(prev => prev.map(r => (r.id === id ? { ...r, ...patch } : r)));
+  };
+
+  /** A row can go one level deeper than the row above it, never further. */
+  const shiftLevel = (index: number, delta: -1 | 1) => {
+    setRows(prev => {
+      const row = prev[index];
+      const ceiling = index === 0 ? 0 : Math.min(MAX_LEVEL, prev[index - 1].level + 1);
+      const level = Math.max(0, Math.min(ceiling, row.level + delta));
+      if (level === row.level) return prev;
+      const next = [...prev];
+      next[index] = { ...row, level };
+      return next;
+    });
   };
 
   const moveRow = (index: number, direction: -1 | 1) => {
@@ -100,7 +128,7 @@ export default function BookmarksPdfPage() {
       if (target < 0 || target >= prev.length) return prev;
       const next = [...prev];
       [next[index], next[target]] = [next[target], next[index]];
-      return next;
+      return normalizeLevels(next);
     });
   };
 
@@ -127,7 +155,7 @@ export default function BookmarksPdfPage() {
     }
 
     try {
-      const bookmarks = rows.map(r => ({ pageIndex: Number(r.pageNumber) - 1, title: r.title.trim() }));
+      const bookmarks = rows.map(r => ({ pageIndex: Number(r.pageNumber) - 1, title: r.title.trim(), level: r.level }));
 
       const formData = new FormData();
       formData.append("file", file, file.name);
@@ -220,9 +248,9 @@ export default function BookmarksPdfPage() {
                 <p>
                   {rows.length === 0
                     ? "No existing bookmarks. Add one below."
-                    : `${rows.length} bookmark${rows.length !== 1 ? "s" : ""}. Existing entries that linked to a web ` +
-                      "address or a nested sub-bookmark are shown flattened to a plain page link — saving rewrites the " +
-                      "whole list."}
+                    : `${rows.length} bookmark${rows.length !== 1 ? "s" : ""}. Sub-bookmarks are indented under their ` +
+                      "chapter and keep their place when you save. Entries that linked to a web address are saved as a " +
+                      "link to the page shown."}
                 </p>
               </div>
               <button type="button" className="add-btn" onClick={addRow} disabled={processing}>
@@ -232,7 +260,7 @@ export default function BookmarksPdfPage() {
 
             <div className="file-list">
               {rows.map((row, i) => (
-                <div className="file-row" key={row.id}>
+                <div className="file-row" key={row.id} style={row.level ? { marginLeft: row.level * 24 } : undefined}>
                   <input
                     className="text-input"
                     type="number"
@@ -255,6 +283,26 @@ export default function BookmarksPdfPage() {
                     style={{ flex: 1 }}
                     aria-label="Bookmark title"
                   />
+                  <button
+                    type="button"
+                    className="icon-btn"
+                    onClick={() => shiftLevel(i, -1)}
+                    disabled={processing || row.level === 0}
+                    aria-label="Move out one level"
+                    title="Move out one level"
+                  >
+                    <IndentDecrease size={16} />
+                  </button>
+                  <button
+                    type="button"
+                    className="icon-btn"
+                    onClick={() => shiftLevel(i, 1)}
+                    disabled={processing || i === 0 || row.level > rows[i - 1].level || row.level >= MAX_LEVEL}
+                    aria-label="Make a sub-bookmark of the row above"
+                    title="Make a sub-bookmark of the row above"
+                  >
+                    <IndentIncrease size={16} />
+                  </button>
                   <button
                     type="button"
                     className="icon-btn"

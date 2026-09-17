@@ -236,7 +236,7 @@ export default function RedactPdfPage() {
             <div className="toolbar-row">
               <div>
                 <h2>Pages</h2>
-                <p style={{ margin: "4px 0 0", color: "#888", fontSize: 13 }}>
+                <p style={{ margin: "4px 0 0", color: "var(--text-faint)", fontSize: 13 }}>
                   {totalRects} area{totalRects !== 1 ? "s" : ""} marked across {thumbnails.length} page
                   {thumbnails.length !== 1 ? "s" : ""}
                 </p>

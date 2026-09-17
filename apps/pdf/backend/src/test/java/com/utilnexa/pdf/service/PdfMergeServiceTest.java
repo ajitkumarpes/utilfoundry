@@ -44,4 +44,31 @@ class PdfMergeServiceTest {
       return output.toByteArray();
     }
   }
+
+  @org.junit.jupiter.api.Test
+  void anEncryptedMemberIsABadRequestThatNamesTheFile() throws Exception {
+    byte[] locked = new PdfProtectService().protect(
+        new org.springframework.mock.web.MockMultipartFile("file", "a.pdf", "application/pdf", pdfWithPages(1)),
+        "secret123", true, false, false, false);
+    var files = java.util.List.<org.springframework.web.multipart.MultipartFile>of(
+        new org.springframework.mock.web.MockMultipartFile("files", "open.pdf", "application/pdf", pdfWithPages(1)),
+        new org.springframework.mock.web.MockMultipartFile("files", "locked.pdf", "application/pdf", locked));
+
+    IllegalArgumentException thrown = org.junit.jupiter.api.Assertions.assertThrows(
+        IllegalArgumentException.class, () -> new PdfMergeService().merge(files));
+
+    org.junit.jupiter.api.Assertions.assertTrue(thrown.getMessage().startsWith("“locked.pdf”: Password-protected"));
+  }
+
+  @org.junit.jupiter.api.Test
+  void aCorruptMemberIsABadRequestNotAServerError() throws Exception {
+    var files = java.util.List.<org.springframework.web.multipart.MultipartFile>of(
+        new org.springframework.mock.web.MockMultipartFile("files", "open.pdf", "application/pdf", pdfWithPages(1)),
+        new org.springframework.mock.web.MockMultipartFile("files", "broken.pdf", "application/pdf", "garbage".getBytes()));
+
+    IllegalArgumentException thrown = org.junit.jupiter.api.Assertions.assertThrows(
+        IllegalArgumentException.class, () -> new PdfMergeService().merge(files));
+
+    org.junit.jupiter.api.Assertions.assertTrue(thrown.getMessage().contains("broken.pdf"));
+  }
 }

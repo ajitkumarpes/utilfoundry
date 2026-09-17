@@ -149,4 +149,29 @@ class PdfOrganizeServiceTest {
   private MockMultipartFile pdfFile(byte[] bytes) {
     return new MockMultipartFile("file", "source.pdf", "application/pdf", bytes);
   }
+
+  @Test
+  void reorderingKeepsAPageThatWasAlreadySideways() throws Exception {
+    byte[] source;
+    try (PDDocument document = new PDDocument(); ByteArrayOutputStream output = new ByteArrayOutputStream()) {
+      PDPage sideways = new PDPage(PDRectangle.A4);
+      sideways.setRotation(90);
+      document.addPage(sideways);
+      document.addPage(new PDPage(PDRectangle.A4));
+      document.save(output);
+      source = output.toByteArray();
+    }
+    OrganizePlan plan = new OrganizePlan(List.of(
+        new PageOp(PageOp.Kind.SOURCE, 1, 0),
+        new PageOp(PageOp.Kind.SOURCE, 0, 0),
+        new PageOp(PageOp.Kind.SOURCE, 0, 90)));
+
+    byte[] result = service.organize(pdfFile(source), null, plan);
+
+    try (PDDocument doc = org.apache.pdfbox.Loader.loadPDF(result)) {
+      org.junit.jupiter.api.Assertions.assertEquals(0, doc.getPage(0).getRotation());
+      org.junit.jupiter.api.Assertions.assertEquals(90, doc.getPage(1).getRotation(), "untouched sideways page stays sideways");
+      org.junit.jupiter.api.Assertions.assertEquals(180, doc.getPage(2).getRotation(), "a user turn adds to the page's own rotation");
+    }
+  }
 }

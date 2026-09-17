@@ -41,7 +41,7 @@ public class Job {
   @Column(columnDefinition = "text")
   private String options;
 
-  @Column(name = "error_message")
+  @Column(name = "error_message", columnDefinition = "text")
   private String errorMessage;
 
   @Column(nullable = false)

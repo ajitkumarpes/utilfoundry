@@ -73,4 +73,37 @@ class JobDispatcherTest {
     job.setUpdatedAt(Instant.now());
     return job;
   }
+
+  @Test
+  void aConverterRejectionLongerThanTheOldColumnStillMarksTheJobFailed() {
+    Job job = job(JobStatus.PROCESSING);
+    when(repository.findById(job.getId())).thenReturn(Optional.of(job));
+    when(storage.get(job.getInputKey())).thenReturn("input".getBytes());
+    String stderr = "Error: source file could not be loaded\n".repeat(60);
+    when(processor.officeConvert(any(byte[].class), any(), any(), any(Duration.class)))
+        .thenThrow(new PermanentProcessingException(stderr));
+
+    dispatcher.processOne(job.getId());
+
+    assertEquals(JobStatus.FAILED, job.getStatus());
+    assertEquals(JobDispatcher.MAX_ERROR_LENGTH, job.getErrorMessage().length());
+  }
+
+  @Test
+  void aFailureThatCannotBeSavedWithItsDetailIsSavedWithAGenericMessage() {
+    Job job = job(JobStatus.PROCESSING);
+    when(repository.findById(job.getId())).thenReturn(Optional.of(job));
+    when(storage.get(job.getInputKey())).thenReturn("input".getBytes());
+    when(processor.officeConvert(any(byte[].class), any(), any(), any(Duration.class)))
+        .thenThrow(new PermanentProcessingException("encrypted"));
+    when(repository.save(job))
+        .thenThrow(new org.springframework.dao.DataIntegrityViolationException("value too long"))
+        .thenReturn(job);
+
+    dispatcher.processOne(job.getId());
+
+    assertEquals(JobStatus.FAILED, job.getStatus());
+    assertEquals(JobDispatcher.GENERIC_FAILURE, job.getErrorMessage());
+    verify(repository, org.mockito.Mockito.times(2)).save(job);
+  }
 }

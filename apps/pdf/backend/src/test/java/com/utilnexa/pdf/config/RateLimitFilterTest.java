@@ -87,6 +87,47 @@ class RateLimitFilterTest {
     assertEquals(429, secondResponse.getStatus());
   }
 
+  @Test
+  void jobStatusAndDownloadDrawOnTheirOwnAllowance() throws Exception {
+    Map<String, Integer> limits = new ConcurrentHashMap<>();
+    Map<String, AtomicInteger> counts = new ConcurrentHashMap<>();
+    RateLimiter limiter = new RateLimiter() {
+      @Override
+      public boolean tryConsume(String key) {
+        return tryConsume(key, 1);
+      }
+
+      @Override
+      public boolean tryConsume(String key, int perMinute) {
+        limits.put(key, perMinute);
+        return counts.computeIfAbsent(key, k -> new AtomicInteger()).incrementAndGet() <= perMinute;
+      }
+    };
+    RateLimitFilter filter = new RateLimitFilter(limiter, false, 3);
+
+    MockHttpServletResponse upload = new MockHttpServletResponse();
+    filter.doFilter(apiRequest("203.0.113.10"), upload, (req, res) -> {});
+    assertEquals(200, upload.getStatus());
+    MockHttpServletResponse secondUpload = new MockHttpServletResponse();
+    filter.doFilter(apiRequest("203.0.113.10"), secondUpload, (req, res) -> {});
+    assertEquals(429, secondUpload.getStatus(), "the upload allowance is spent");
+
+    for (String path : new String[] {"/api/v1/pdf/jobs/abc", "/api/v1/pdf/jobs/abc", "/api/v1/pdf/jobs/abc/download"}) {
+      MockHttpServletRequest read = new MockHttpServletRequest("GET", path);
+      read.setRemoteAddr("203.0.113.10");
+      MockHttpServletResponse response = new MockHttpServletResponse();
+      filter.doFilter(read, response, (req, res) -> {});
+      assertEquals(200, response.getStatus(), path + " is still allowed");
+    }
+    assertEquals(3, limits.get("job-read:203.0.113.10"));
+
+    MockHttpServletRequest submit = new MockHttpServletRequest("POST", "/api/v1/pdf/jobs/abc");
+    submit.setRemoteAddr("203.0.113.10");
+    MockHttpServletResponse submitResponse = new MockHttpServletResponse();
+    filter.doFilter(submit, submitResponse, (req, res) -> {});
+    assertEquals(429, submitResponse.getStatus(), "only GET reads are exempt from the upload allowance");
+  }
+
   private MockHttpServletRequest apiRequest(String remoteAddr) {
     MockHttpServletRequest request = new MockHttpServletRequest("POST", "/api/v1/pdf/merge");
     request.setRemoteAddr(remoteAddr);
