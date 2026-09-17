@@ -50,6 +50,7 @@ import {
   decodeHex,
   decodeBcd,
   decodeEbcdic,
+  encodeBcd,
   encodeHex,
   luhn,
   maskPan,
@@ -177,7 +178,7 @@ describe("developer tool processors", () => {
         (node) => node.type === "CapturingGroup",
       ),
     ).toBe(true);
-    expect(JSON.parse(convertNumber("ff", "16")).decimal).toBe(255);
+    expect(JSON.parse(convertNumber("ff", "16")).decimal).toBe("255");
     expect(() => convertNumber("12z", "10")).toThrow();
     expect(JSON.parse(convertColor("rgb(66, 99, 235)")).hex).toBe("#4263EB");
     expect(JSON.parse(convertColor("#4263EB80"))).toMatchObject({
@@ -301,5 +302,155 @@ describe("dates a calendar does not have", () => {
   it("leaves the rest of the parser alone", () => {
     expect(parseUserDate("2026-09-17T10:30:00Z").toISOString()).toBe("2026-09-17T10:30:00.000Z");
     expect(() => parseUserDate("not a date")).toThrow();
+  });
+});
+
+describe("integers wider than a double", () => {
+  it("converts a full 64-bit word instead of refusing it", () => {
+    // The everyday case this used to reject: 2^64 - 1 is past 2^53, so the old Number-based
+    // parser answered "outside the safe integer range" for a plain 16-digit hex word.
+    expect(JSON.parse(convertNumber("FFFFFFFFFFFFFFFF", "16"))).toEqual({
+      decimal: "18446744073709551615",
+      binary: "1".repeat(64),
+      octal: "1777777777777777777777",
+      hexadecimal: "FFFFFFFFFFFFFFFF",
+    });
+  });
+
+  it("keeps every digit of a value a double would round", () => {
+    const beyondDouble = "9007199254740993"; // 2^53 + 1, the first integer a double cannot hold.
+    expect(JSON.parse(convertNumber(beyondDouble, "10")).decimal).toBe(beyondDouble);
+  });
+
+  it("reads 0x only where it means something", () => {
+    // Stripping the prefix from every base made "0x10" read as decimal 10 under the decimal
+    // setting: a wrong answer, delivered without a warning.
+    expect(JSON.parse(convertNumber("0x10", "16")).decimal).toBe("16");
+    expect(() => convertNumber("0x10", "10")).toThrow(/valid base-10/);
+  });
+
+  it("refuses a value long enough to lock the tab", () => {
+    expect(() => convertNumber("1".repeat(4097), "10")).toThrow(/at most 4096 digits/);
+    expect(() => convertNumber("1".repeat(4096), "10")).not.toThrow();
+  });
+
+  it("still rejects what is not a number in that base", () => {
+    expect(() => convertNumber("2", "2")).toThrow(/valid base-2/);
+    expect(() => convertNumber("8", "8")).toThrow(/valid base-8/);
+    expect(() => convertNumber("", "10")).toThrow(/valid base-10/);
+  });
+});
+
+describe("BCD packing follows the payments convention", () => {
+  it("fills an odd digit count on the right, the way ISO 8583 does", () => {
+    expect(encodeBcd("12345")).toBe("12 34 5F");
+    expect(encodeBcd("4111111111111111111")).toBe("41 11 11 11 11 11 11 11 11 1F");
+  });
+
+  it("round-trips an odd-length value exactly", () => {
+    expect(decodeBcd(encodeBcd("12345"))).toBe("12345");
+    expect(decodeBcd(encodeBcd("1234567890"))).toBe("1234567890");
+  });
+
+  it("still offers the leading-zero convention for fixed-length fields", () => {
+    expect(encodeBcd("12345", "zero")).toBe("01 23 45");
+  });
+
+  it("leaves an even digit count untouched by either convention", () => {
+    expect(encodeBcd("1234")).toBe("12 34");
+    expect(encodeBcd("1234", "zero")).toBe("12 34");
+  });
+
+  it("reports a leading zero rather than swallowing it", () => {
+    // A YYMMDD of 012345 is six digits. Stripping the first one returned a five-digit date.
+    expect(decodeBcd("01 23 45")).toBe("012345");
+    expect(decodeBcd("00 12")).toBe("0012");
+  });
+
+  it("keeps rejecting filler in the wrong place and stray input", () => {
+    expect(() => decodeBcd("F1 23")).toThrow();
+    expect(() => decodeBcd("12 3")).toThrow();
+    expect(() => encodeBcd("12A4")).toThrow(/digits only/);
+  });
+});
+
+/**
+ * A real self-signed certificate whose notBefore is a UTCTime and whose notAfter is past 2050,
+ * which forces a GeneralizedTime — so one fixture exercises both of the DER time forms.
+ */
+const CERTIFICATE_PEM = `-----BEGIN CERTIFICATE-----
+MIIDazCCAlOgAwIBAgIUbBbQcHlXoNCIYAUUkXx0a470HKMwDQYJKoZIhvcNAQEL
+BQAwRDEfMB0GA1UEAwwWVXRpbEZvdW5kcnkgRmFyIEZ1dHVyZTEUMBIGA1UECgwL
+VXRpbEZvdW5kcnkxCzAJBgNVBAYTAklOMCAXDTI2MDkxNjIzMTUyNloYDzIwNTkw
+NzI1MjMxNTI2WjBEMR8wHQYDVQQDDBZVdGlsRm91bmRyeSBGYXIgRnV0dXJlMRQw
+EgYDVQQKDAtVdGlsRm91bmRyeTELMAkGA1UEBhMCSU4wggEiMA0GCSqGSIb3DQEB
+AQUAA4IBDwAwggEKAoIBAQCPojiQnhNhgZk96x/7l9hOvcvw8m0T78OY/yU2K8iA
+D+yOGqGgbToxT4oIb44dm0qfceVptZxj4uzax5OH93ZKoIfvre8A/W17nV0ur/U/
+HIIfHJw+9ckGI/gb1xO6YH/UpPJP6B4EI5ABwT52uC6mjbz9LD/fRO5KyPQkp5mG
+zLu8lXfgQcYgYd9ql+F5XHTYodV4c67/RYb8b4iahbyseiY2oP+zaOw2J0EjVoKx
+iHTjIgeLwY4XtJL+sS3cLSPkV1VtSHiVYFXgm3IwoLhQkKhReFeu71soTM3XBUPZ
+dg/33tk2YyNjMLOj2ecQQSfBBFcKlsCe1pIhRgRAUj2jAgMBAAGjUzBRMB0GA1Ud
+DgQWBBTzs0Q+taHEQTa21Apb+Sd27TiPcDAfBgNVHSMEGDAWgBTzs0Q+taHEQTa2
+1Apb+Sd27TiPcDAPBgNVHRMBAf8EBTADAQH/MA0GCSqGSIb3DQEBCwUAA4IBAQAg
+5o/aZSKmV/DaPY1sdjXbiPxyaOIaSelx66620v7jFaa6+XS8wR3YzEB0sTD3re4h
+NR1pkwOUWEAakm0mPq84LcE2xSA4brFaCI4f/T3SqXlJRq4AYfhOWVdDFB7oizrd
+w5PXxa6jJKgg2vqqaUS02zPGORZn/aL171i5kyYmoQ0ucUSLCnA+do5//oX1XHG4
+rzQWGO/cD763ONltxg5yMUtmyToyVb3Kr0T5/hOU5+e2A/ogGT6jZsb6VlLboavA
+LWSUqhnun2ITesJhhEbPE7BctCxWCJ2bO7diAZv3HP3V4fhxc0+UnuX5KW0/3b0/
+qPm1sszkbiimmqQz0s12
+-----END CERTIFICATE-----`;
+
+/** Rewrites one DER time in place. Same length in, same length out, so every DER length stands. */
+function withValidity(from: string, to: string) {
+  if (from.length !== to.length) throw new Error("the replacement must not change any DER length");
+  const body = CERTIFICATE_PEM.replace(/-----[^-]+-----/g, "").replace(/\s/g, "");
+  const bytes = Buffer.from(body, "base64").toString("binary");
+  const patched = bytes.replace(from, to);
+  if (patched === bytes) throw new Error(`the fixture does not contain ${from}`);
+  const base64 = Buffer.from(patched, "binary").toString("base64");
+  return `-----BEGIN CERTIFICATE-----\n${base64.match(/.{1,64}/g)!.join("\n")}\n-----END CERTIFICATE-----`;
+}
+
+describe("certificate validity times", () => {
+  it("reads both DER time forms from a real certificate", () => {
+    const parsed = JSON.parse(decodePem(CERTIFICATE_PEM));
+    expect(parsed.certificate).toMatchObject({
+      // UTCTime: RFC 5280 reads a two-digit year under 50 as 20xx.
+      notBefore: "2026-09-16T23:15:26.000Z",
+      // GeneralizedTime, because the year is past 2049.
+      notAfter: "2059-07-25T23:15:26.000Z",
+    });
+    expect(parsed.certificate.subject).toContain("CN=UtilFoundry Far Future");
+  });
+
+  it("names the field when a certificate carries a date that does not exist", () => {
+    // Month 13. This used to reach `new Date(...).toISOString()` and raise a bare
+    // "Invalid time value" with nothing to say which of the two dates was wrong.
+    const month = JSON.parse(decodePem(withValidity("260916231526Z", "261316231526Z")));
+    expect(month.certificateError).toMatch(/month 13, which does not exist/);
+    expect(month.certificate).toBeUndefined();
+
+    const day = JSON.parse(decodePem(withValidity("260916231526Z", "260931231526Z")));
+    expect(day.certificateError).toMatch(/September 31, 2026, and that month has 30 days/);
+  });
+
+  it("names the field when the time of day is not a real one", () => {
+    const parsed = JSON.parse(decodePem(withValidity("260916231526Z", "260916256026Z")));
+    expect(parsed.certificateError).toMatch(/25:60:26, which is not a real time of day/);
+  });
+
+  it("refuses a validity that is not a UTC time at all", () => {
+    const parsed = JSON.parse(decodePem(withValidity("260916231526Z", "2609162315+00")));
+    expect(parsed.certificateError).toMatch(/not a UTCTime in UTC/);
+  });
+
+  it("says why a certificate could not be read rather than quietly leaving it out", () => {
+    // A block that is valid Base64 and a complete PEM, but not a certificate: the envelope
+    // facts still stand, and the reason the metadata is missing is now part of the answer.
+    const parsed = JSON.parse(decodePem("-----BEGIN CERTIFICATE-----\nSGVsbG8=\n-----END CERTIFICATE-----"));
+    expect(parsed).toMatchObject({ type: "CERTIFICATE", bytes: 5, completeBlock: true });
+    expect(parsed.certificate).toBeUndefined();
+    expect(typeof parsed.certificateError).toBe("string");
+    expect(parsed.certificateError.length).toBeGreaterThan(0);
   });
 });

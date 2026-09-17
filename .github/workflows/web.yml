@@ -31,3 +31,17 @@ jobs:
       - run: npm run lint
       - run: npm run typecheck
       - run: npm run build
+      - run: npx playwright install --with-deps chromium
+      - run: npm run test:e2e
+        env:
+          E2E_PRODUCTION: "1"
+      # Without this a browser failure leaves nothing to look at afterwards: the log has the
+      # assertion, but not the trace, the screenshot or the page that produced it.
+      - if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: web-playwright-report
+          path: |
+            apps/web/playwright-report
+            apps/web/test-results
+          retention-days: 7

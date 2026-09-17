@@ -32,6 +32,20 @@ jobs:
       - run: npm run typecheck
       - run: npm test
       - run: npm run build
+      - run: npx playwright install --with-deps chromium
+      - run: npm run test:e2e
+        env:
+          E2E_PRODUCTION: "1"
+      # Without this a browser failure leaves nothing to look at afterwards: the log has the
+      # assertion, but not the trace, the screenshot or the page that produced it.
+      - if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: images-playwright-report
+          path: |
+            apps/images/playwright-report
+            apps/images/test-results
+          retention-days: 7
 
   worker:
     runs-on: ubuntu-latest

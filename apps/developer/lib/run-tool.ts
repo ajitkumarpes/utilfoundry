@@ -259,7 +259,8 @@ export const HANDLERS: Record<string, Handler> = {
   env: ({ input }) => formatEnv(input),
   hex: ({ input, option }) => (option === "decode" ? decodeHex(input) : encodeHex(input)),
   binary: ({ input, option }) => (option === "binary-to-hex" ? binaryToHex(input) : hexToBinary(input)),
-  bcd: ({ input, option }) => (option === "decode" ? decodeBcd(input) : encodeBcd(input)),
+  bcd: ({ input, option }) =>
+    option === "decode" ? decodeBcd(input) : encodeBcd(input, option === "encode-zero" ? "zero" : "f"),
   ebcdic: ({ input }) => decodeEbcdic(input),
   "iso-bitmap": ({ input }) => parseBitmap(input),
   iso8583: ({ input }) => parseIso8583(input),

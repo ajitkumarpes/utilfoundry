@@ -308,6 +308,22 @@ export function renderMarkdown(value: string) {
     .replace(/javascript:/gi, "");
 }
 
+/** Past this the arbitrary-precision parse gets slow enough to lock the tab, and no real
+ *  value needs it: 4096 hex digits is a 16384-bit key, far beyond anything in use. */
+const MAX_NUMBER_DIGITS = 4096;
+
+const BIGINT_PREFIX: Record<number, string> = { 2: "0b", 8: "0o", 10: "", 16: "0x" };
+
+/**
+ * Converts one integer between bases.
+ *
+ * Arbitrary precision, because the values people bring here are routinely wider than a double:
+ * a 64-bit id, a card number, a register dump, a key modulus. This used to parse through
+ * Number and refuse anything past 2^53, which turned the everyday case of a 16-digit hex word
+ * into an error. Every field of the result is therefore a string — 2^64 - 1 has no faithful
+ * JSON number form, and a field that is sometimes a number and sometimes a string is worse to
+ * consume than one that is always a string.
+ */
 export function convertNumber(value: string, base: string) {
   const radix = Number(base);
   if (![2, 8, 10, 16].includes(radix))
@@ -320,15 +336,18 @@ export function convertNumber(value: string, base: string) {
         : radix === 10
           ? /^\d+$/
           : /^[0-9a-f]+$/i;
-  const clean = value.trim().replace(/^0x/i, "");
+  // Only hexadecimal carries a 0x prefix. Stripping it from every base let "0x10" read as
+  // decimal 10 under the decimal setting, which is a wrong answer given confidently.
+  const trimmed = value.trim();
+  const clean = radix === 16 ? trimmed.replace(/^0x/i, "") : trimmed;
   if (!pattern.test(clean))
     throw new Error(`Enter a valid base-${radix} number.`);
-  const decimal = Number.parseInt(clean, radix);
-  if (!Number.isSafeInteger(decimal))
-    throw new Error("Enter a value within JavaScript's safe integer range.");
+  if (clean.length > MAX_NUMBER_DIGITS)
+    throw new Error(`Enter at most ${MAX_NUMBER_DIGITS} digits; this one has ${clean.length}.`);
+  const decimal = BigInt(`${BIGINT_PREFIX[radix]}${clean}`);
   return JSON.stringify(
     {
-      decimal,
+      decimal: decimal.toString(10),
       binary: decimal.toString(2),
       octal: decimal.toString(8),
       hexadecimal: decimal.toString(16).toUpperCase(),
@@ -898,15 +917,51 @@ function derName(bytes: Uint8Array, node: DerNode) {
     .join(", ");
 }
 
+/**
+ * Reads one of a certificate's two validity times.
+ *
+ * Both DER forms are accepted: UTCTime, whose two-digit year RFC 5280 reads as 1950–2049, and
+ * GeneralizedTime, which spells the year out and may carry a fractional second. Seconds are
+ * optional in UTCTime, so the value is matched against its shape rather than sliced at fixed
+ * offsets — slicing silently produced "2026-09-1T7:Z" for a time without them, and every
+ * malformed value ended at `new Date(...).toISOString()`, which answers with a bare
+ * "Invalid time value" that names neither the field nor what was wrong with it.
+ */
 function derTime(bytes: Uint8Array, node: DerNode) {
-  const raw = derText(bytes, node).replace(/Z$/, "");
-  const year =
-    node.tag === 0x17
-      ? Number(raw.slice(0, 2)) + (Number(raw.slice(0, 2)) >= 50 ? 1900 : 2000)
-      : Number(raw.slice(0, 4));
-  const start = node.tag === 0x17 ? 2 : 4;
-  const iso = `${String(year).padStart(4, "0")}-${raw.slice(start, start + 2)}-${raw.slice(start + 2, start + 4)}T${raw.slice(start + 4, start + 6)}:${raw.slice(start + 6, start + 8)}:${raw.slice(start + 8, start + 10)}Z`;
-  return new Date(iso).toISOString();
+  const raw = derText(bytes, node).trim();
+  const isUtcTime = node.tag === 0x17;
+  const shape = isUtcTime
+    ? /^(\d{2})(\d{2})(\d{2})(\d{2})(\d{2})(\d{2})?Z$/
+    : /^(\d{4})(\d{2})(\d{2})(\d{2})(\d{2})(\d{2})?(?:\.\d+)?Z$/;
+  const parts = shape.exec(raw);
+  if (!parts)
+    throw new Error(
+      `Certificate validity is not a ${isUtcTime ? "UTCTime" : "GeneralizedTime"} in UTC: ${raw || "(empty)"}.`,
+    );
+
+  const [, yearText, monthText, dayText, hourText, minuteText, secondText = "00"] = parts;
+  const shortYear = Number(yearText);
+  const year = isUtcTime ? shortYear + (shortYear >= 50 ? 1900 : 2000) : shortYear;
+  const month = Number(monthText);
+  const day = Number(dayText);
+  const [hour, minute, second] = [hourText, minuteText, secondText].map(Number);
+
+  if (month < 1 || month > 12)
+    throw new Error(`Certificate validity names month ${monthText}, which does not exist.`);
+  const available = daysInMonth(year, month);
+  if (day < 1 || day > available)
+    throw new Error(
+      `Certificate validity names ${MONTH_NAMES[month - 1]} ${day}, ${year}, and that month has ${available} days.`,
+    );
+  if (hour > 23 || minute > 59 || second > 59)
+    throw new Error(
+      `Certificate validity names the time ${hourText}:${minuteText}:${secondText}, which is not a real time of day.`,
+    );
+
+  const date = new Date(Date.UTC(year, month - 1, day, hour, minute, second));
+  // Date.UTC reads a year under 100 as 19xx; a GeneralizedTime may legitimately carry one.
+  if (year < 100) date.setUTCFullYear(year);
+  return date.toISOString();
 }
 
 function certificateMetadata(bytes: Uint8Array) {
@@ -957,11 +1012,16 @@ export function decodePem(value: string) {
     throw new Error("PEM body is not valid Base64.");
   }
   let certificate: Record<string, unknown> | undefined;
+  let certificateError: string | undefined;
   if (match[1] === "CERTIFICATE") {
     try {
       certificate = certificateMetadata(decoded);
-    } catch {
-      certificate = undefined;
+    } catch (error) {
+      // The envelope facts above are still worth reporting for a certificate this parser
+      // cannot read, but the reason has to come with them: swallowing it returned a result
+      // that looked entirely healthy and simply had no certificate section, leaving the
+      // reader to conclude the file was fine.
+      certificateError = error instanceof Error ? error.message : "Unable to read this certificate.";
     }
   }
   return JSON.stringify(
@@ -971,6 +1031,7 @@ export function decodePem(value: string) {
       base64Length: body.length,
       completeBlock: true,
       ...(certificate ? { certificate } : {}),
+      ...(certificateError ? { certificateError } : {}),
       note: "Metadata only; key and certificate material never leaves this browser.",
     },
     null,

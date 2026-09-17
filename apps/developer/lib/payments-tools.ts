@@ -68,23 +68,36 @@ export function binaryToHex(value: string) {
   );
 }
 
-export function encodeBcd(value: string) {
+/**
+ * Packs digits two to a byte.
+ *
+ * An odd digit count needs a spare nibble, and where it goes is not a detail: ISO 8583 pads
+ * its variable-length numeric fields — the PAN and Track 2 among them — on the right with an
+ * F, so the digits keep their positions and the filler is visibly not a digit. Left-padding
+ * with a zero is the other convention in use, for fixed-length fields whose leading zero is
+ * part of the value, so it stays available; it is lossy in a way the F filler is not, since
+ * nothing downstream can tell that zero from one the caller meant.
+ */
+export function encodeBcd(value: string, filler: "f" | "zero" = "f") {
   const digits = value.replace(/\s/g, "");
-  if (!/^\d+$/.test(digits))
-    throw new Error("BCD input must contain digits only.");
-  const padded = digits.length % 2 ? `0${digits}` : digits;
+  if (!/^\d+$/.test(digits)) throw new Error("BCD input must contain digits only.");
+  const padded = digits.length % 2 === 0 ? digits : filler === "zero" ? `0${digits}` : `${digits}F`;
   return (
     padded
       .match(/../g)
-      ?.map(
-        (pair) =>
-          `${parseInt(pair[0], 10).toString(16)}${parseInt(pair[1], 10).toString(16)}`,
-      )
+      ?.map((pair) => `${pair[0]}${pair[1]}`)
       .join(" ")
       .toUpperCase() ?? ""
   );
 }
 
+/**
+ * Unpacks BCD bytes back to digits, reporting what the bytes hold rather than guessing.
+ *
+ * A trailing F is an explicit filler and is dropped. A leading zero is not: it is a digit like
+ * any other, and this used to strip one, so `00 12` came back as "012" and a six-digit YYMMDD
+ * of 012345 came back five digits long. Callers who packed with a leading zero know they did.
+ */
 export function decodeBcd(value: string) {
   const clean = value.replace(/\s/g, "").toUpperCase();
   if (!/^[0-9]+F?$/.test(clean) || clean.length % 2)
@@ -94,10 +107,7 @@ export function decodeBcd(value: string) {
   const nibbles = clean.split("");
   if (nibbles.includes("F") && nibbles[nibbles.length - 1] !== "F")
     throw new Error("Only the final BCD nibble may be F filler.");
-  return nibbles
-    .filter((nibble) => nibble !== "F")
-    .join("")
-    .replace(/^0(?=\d)/, "");
+  return nibbles.filter((nibble) => nibble !== "F").join("");
 }
 
 // IBM037 is the common EBCDIC code page used by mainframe/payment hosts.

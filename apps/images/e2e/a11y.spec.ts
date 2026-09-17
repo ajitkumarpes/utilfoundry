@@ -1,6 +1,22 @@
-import { expect, test } from "@playwright/test";
+import { expect, test, type Page } from "@playwright/test";
 import AxeBuilder from "@axe-core/playwright";
 import { TOOLS } from "../lib/tools";
+
+/**
+ * Opens a page with the dark colour scheme genuinely in force.
+ *
+ * `test.use({ colorScheme: "dark" })` is not enough on its own in every engine: Firefox drops
+ * the context-level setting on a page's first navigation, and only an `emulateMedia` call made
+ * on a loaded page, followed by a reload, takes. The developer app's suite ran its whole
+ * dark-mode section in light mode for that reason. This suite is Chromium-only today, where
+ * the reload is merely redundant; it means the section still measures what it says it does if
+ * a browser is ever added here.
+ */
+async function gotoInDarkMode(page: Page, path: string) {
+  await page.goto(path);
+  await page.emulateMedia({ colorScheme: "dark" });
+  await page.reload();
+}
 
 /**
  * One page per workbench shape rather than all thirty: the header, sidebar, hero,
@@ -39,7 +55,7 @@ test.describe("image tools accessibility", () => {
     // surface that stays light in dark mode (the PDF page sheet) only shows up here.
     for (const id of SAMPLE) {
       test(`${id} has no automated accessibility violations in dark mode`, async ({ page }) => {
-        await page.goto(`/${id}`);
+        await gotoInDarkMode(page, `/${id}`);
         await expect(page.getByRole("heading", { level: 1 })).toBeVisible();
         await expect(page.locator("html")).toHaveAttribute("data-theme", "dark");
         const results = await new AxeBuilder({ page }).analyze();

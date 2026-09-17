@@ -11,17 +11,38 @@ import { STARTERS, defaultOption } from "@/lib/samples";
 import type { ToolDefinition } from "@/lib/tools";
 
 /** Tools whose single option is a plain encode/decode switch. */
-const MODE_TOOLS = ["base64", "url", "yaml", "csv", "html", "hex", "bcd"];
+const MODE_TOOLS = ["base64", "url", "yaml", "csv", "html", "hex"];
+
+/**
+ * Reads a field's current value so React can start from it instead of from the shipped default.
+ *
+ * Every tool page is prerendered, so the example text and the default option are on screen and
+ * editable well before this island hydrates. React seeds its state on that first client render
+ * and then writes the seed back over the DOM, so a paste or a mode change made in the gap is
+ * discarded without a trace. Measured in WebKit against a slow server: text typed into the input
+ * box before hydration was replaced by the shipped example, and the tool then ran on the example.
+ *
+ * The id is per tool, so a client-side move to a different tool cannot adopt the outgoing page's
+ * value — that element carries the previous tool's id and no longer matches.
+ */
+function seedFromField(id: string, fallback: string) {
+  if (typeof document === "undefined") return fallback;
+  const field = document.getElementById(id);
+  const isFormField =
+    field instanceof HTMLTextAreaElement || field instanceof HTMLInputElement || field instanceof HTMLSelectElement;
+  return isFormField ? field.value : fallback;
+}
 
 export function Workbench({ tool }: { tool: ToolDefinition }) {
-  const [input, setInput] = useState(() => STARTERS[tool.id] ?? "");
+  const fieldId = (name: string) => `wb-${tool.id}-${name}`;
+  const [input, setInput] = useState(() => seedFromField(fieldId("input"), STARTERS[tool.id] ?? ""));
   const [output, setOutput] = useState("");
   const [notice, setNotice] = useState("");
   const [tone, setTone] = useState<StatusTone>("idle");
-  const [option, setOption] = useState(() => defaultOption(tool.id));
-  const [pattern, setPattern] = useState("\\b[A-Z][a-z]+\\b");
-  const [flags, setFlags] = useState("g");
-  const [secret, setSecret] = useState("change-me-locally");
+  const [option, setOption] = useState(() => seedFromField(fieldId("option"), defaultOption(tool.id)));
+  const [pattern, setPattern] = useState(() => seedFromField(fieldId("pattern"), "\\b[A-Z][a-z]+\\b"));
+  const [flags, setFlags] = useState(() => seedFromField(fieldId("flags"), "g"));
+  const [secret, setSecret] = useState(() => seedFromField(fieldId("secret"), "change-me-locally"));
   const [securityWarning, setSecurityWarning] = useState("");
   const workspaceFileRef = useRef<HTMLInputElement>(null);
 
@@ -175,16 +196,28 @@ export function Workbench({ tool }: { tool: ToolDefinition }) {
             {MODE_TOOLS.includes(tool.id) && (
               <label>
                 Mode
-                <select value={option} onChange={(event) => setOption(event.target.value)}>
+                <select id={fieldId("option")} value={option} onChange={(event) => setOption(event.target.value)}>
                   <option value="encode">Encode / convert</option>
                   <option value="decode">Decode / convert</option>
+                </select>
+              </label>
+            )}
+            {/* Packing is the only one of the three that has a real choice to make, so the
+                filler the payments world actually uses is named in the label rather than hidden. */}
+            {tool.id === "bcd" && (
+              <label>
+                Mode
+                <select id={fieldId("option")} value={option} onChange={(event) => setOption(event.target.value)}>
+                  <option value="encode">Pack digits (odd count filled with F)</option>
+                  <option value="encode-zero">Pack digits (odd count padded with a leading 0)</option>
+                  <option value="decode">Unpack BCD bytes</option>
                 </select>
               </label>
             )}
             {tool.id === "binary" && (
               <label>
                 Mode
-                <select value={option} onChange={(event) => setOption(event.target.value)}>
+                <select id={fieldId("option")} value={option} onChange={(event) => setOption(event.target.value)}>
                   <option value="hex-to-binary">Hex → binary</option>
                   <option value="binary-to-hex">Binary → hex</option>
                 </select>
@@ -193,7 +226,7 @@ export function Workbench({ tool }: { tool: ToolDefinition }) {
             {tool.id === "hash" && (
               <label>
                 Algorithm
-                <select value={option} onChange={(event) => setOption(event.target.value)}>
+                <select id={fieldId("option")} value={option} onChange={(event) => setOption(event.target.value)}>
                   <option>SHA-256</option>
                   <option>SHA-1</option>
                 </select>
@@ -201,14 +234,14 @@ export function Workbench({ tool }: { tool: ToolDefinition }) {
             )}
             {(tool.id === "regex" || tool.id === "regex-safe") && (
               <>
-                <label>Pattern<input value={pattern} onChange={(event) => setPattern(event.target.value)} /></label>
-                <label>Flags<input value={flags} onChange={(event) => setFlags(event.target.value)} /></label>
+                <label>Pattern<input id={fieldId("pattern")} value={pattern} onChange={(event) => setPattern(event.target.value)} /></label>
+                <label>Flags<input id={fieldId("flags")} value={flags} onChange={(event) => setFlags(event.target.value)} /></label>
               </>
             )}
             {tool.id === "number" && (
               <label>
                 Input base
-                <select value={option} onChange={(event) => setOption(event.target.value)}>
+                <select id={fieldId("option")} value={option} onChange={(event) => setOption(event.target.value)}>
                   <option value="2">Binary (2)</option>
                   <option value="8">Octal (8)</option>
                   <option value="10">Decimal (10)</option>
@@ -216,12 +249,12 @@ export function Workbench({ tool }: { tool: ToolDefinition }) {
                 </select>
               </label>
             )}
-            {tool.id === "jsonpath" && <label>Path<input value={option} onChange={(event) => setOption(event.target.value)} /></label>}
-            {tool.id === "timezone" && <label>Timezone<input value={option} onChange={(event) => setOption(event.target.value)} /></label>}
+            {tool.id === "jsonpath" && <label>Path<input id={fieldId("option")} value={option} onChange={(event) => setOption(event.target.value)} /></label>}
+            {tool.id === "timezone" && <label>Timezone<input id={fieldId("option")} value={option} onChange={(event) => setOption(event.target.value)} /></label>}
             {tool.id === "code-formatter" && (
               <label>
                 Language
-                <select value={option} onChange={(event) => setOption(event.target.value)}>
+                <select id={fieldId("option")} value={option} onChange={(event) => setOption(event.target.value)}>
                   <option value="javascript">JavaScript</option>
                   <option value="typescript">TypeScript</option>
                   <option value="json">JSON</option>
@@ -231,18 +264,18 @@ export function Workbench({ tool }: { tool: ToolDefinition }) {
               </label>
             )}
             {tool.id === "password" && (
-              <label>Length<input type="number" min="8" max="128" value={option} onChange={(event) => setOption(event.target.value)} /></label>
+              <label>Length<input id={fieldId("option")} type="number" min="8" max="128" value={option} onChange={(event) => setOption(event.target.value)} /></label>
             )}
             {tool.id === "jwt-sign" && (
               <>
                 <label>
                   Mode
-                  <select value={option} onChange={(event) => setOption(event.target.value)}>
+                  <select id={fieldId("option")} value={option} onChange={(event) => setOption(event.target.value)}>
                     <option value="sign">Sign payload</option>
                     <option value="verify">Verify token</option>
                   </select>
                 </label>
-                <label>HMAC secret<input type="password" value={secret} onChange={(event) => setSecret(event.target.value)} /></label>
+                <label>HMAC secret<input id={fieldId("secret")} type="password" value={secret} onChange={(event) => setSecret(event.target.value)} /></label>
               </>
             )}
             {tool.id === "image-base64" && (
@@ -260,6 +293,7 @@ export function Workbench({ tool }: { tool: ToolDefinition }) {
               <div className="pane">
                 <div className="pane-label">Input <span>{tool.inputLabel}</span></div>
                 <textarea
+                  id={fieldId("input")}
                   value={input}
                   onChange={(event) => setInput(event.target.value)}
                   spellCheck={false}
