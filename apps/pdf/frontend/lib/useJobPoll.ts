@@ -62,9 +62,10 @@ export function useJobPoll(jobId: string | null) {
       }
     };
 
+    // Every caller returns early when cancelled, so this never schedules onto a dead component.
     const schedule = (delay: number) => {
       clear();
-      if (!cancelled) timerRef.current = setTimeout(poll, delay);
+      timerRef.current = setTimeout(poll, delay);
     };
 
     const giveUp = (error: string) => {

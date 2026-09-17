@@ -1,9 +1,19 @@
 import { act, renderHook } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { MAX_TRANSIENT_FAILURES, POLL_INTERVAL_MS, useJobPoll } from "../lib/useJobPoll";
+import { MAX_BACKOFF_MS, MAX_TRANSIENT_FAILURES, POLL_INTERVAL_MS, useJobPoll } from "../lib/useJobPoll";
 
-function jsonResponse(body: unknown, ok = true, status = 200) {
-  return { ok, status, json: async () => body } as unknown as Response;
+function jsonResponse(body: unknown, ok = true, status = 200, headers: Record<string, string> = {}) {
+  return {
+    ok,
+    status,
+    headers: { get: (name: string) => headers[name] ?? null },
+    json: async () => body,
+  } as unknown as Response;
+}
+
+/** A refusal with no headers object at all, as a fetch polyfill or a stub may produce. */
+function bareResponse(status: number) {
+  return { ok: false, status, json: async () => null } as unknown as Response;
 }
 
 function job(status: string, extra: Record<string, unknown> = {}) {
@@ -145,6 +155,62 @@ describe("useJobPoll", () => {
     expect(result.current.error).toBeNull();
     expect(result.current.status).toBe("SUCCEEDED");
     expect(result.current.resultFilename).toBe("out.docx");
+  });
+
+  it("waits as long as a Retry-After header asks", async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(jsonResponse(null, false, 429, { "Retry-After": "5" }))
+      .mockResolvedValueOnce(jsonResponse(job("SUCCEEDED", { resultFilename: "late.pdf" })));
+    vi.stubGlobal("fetch", fetchMock);
+
+    const { result } = renderHook(() => useJobPoll("job-1"));
+    await flush();
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+
+    // The usual interval passes without a retry, because the server asked for five seconds.
+    await tick();
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(2000);
+    });
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+    expect(result.current.status).toBe("SUCCEEDED");
+  });
+
+  it("ignores a Retry-After it cannot read, and a response with no headers", async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(jsonResponse(null, false, 429, { "Retry-After": "in a bit" }))
+      .mockResolvedValueOnce(bareResponse(503))
+      .mockResolvedValueOnce(jsonResponse(job("SUCCEEDED", { resultFilename: "ok.pdf" })));
+    vi.stubGlobal("fetch", fetchMock);
+
+    const { result } = renderHook(() => useJobPoll("job-1"));
+    await flush();
+
+    await tick();
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(POLL_INTERVAL_MS * 2);
+    });
+    expect(result.current.status).toBe("SUCCEEDED");
+    expect(result.current.error).toBeNull();
+  });
+
+  it("never waits longer than the backoff ceiling", async () => {
+    const fetchMock = vi.fn().mockResolvedValue(jsonResponse(null, false, 429, { "Retry-After": "600" }));
+    vi.stubGlobal("fetch", fetchMock);
+
+    renderHook(() => useJobPoll("job-1"));
+    await flush();
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(MAX_BACKOFF_MS);
+    });
+    expect(fetchMock).toHaveBeenCalledTimes(2);
   });
 
   it("backs off between retries instead of hammering a busy server", async () => {
