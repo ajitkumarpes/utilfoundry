@@ -317,7 +317,7 @@ export default function OrganizePdfPage() {
                 <h2>
                   {pages.length} page{pages.length !== 1 ? "s" : ""}
                 </h2>
-                <p style={{ margin: "4px 0 0", color: "#888", fontSize: 13 }}>
+                <p style={{ margin: "4px 0 0", color: "var(--text-faint)", fontSize: 13 }}>
                   {activeCount} will be kept · drag to reorder · use the icons to rotate, duplicate, or remove a page
                 </p>
               </div>

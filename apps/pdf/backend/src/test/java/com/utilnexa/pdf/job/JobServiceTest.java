@@ -68,7 +68,7 @@ class JobServiceTest {
 
   @Test
   void submitOcrDefaultsToEnglish() {
-    MockMultipartFile pdf = new MockMultipartFile("file", "scan.pdf", "application/pdf", "content".getBytes());
+    MockMultipartFile pdf = new MockMultipartFile("file", "scan.pdf", "application/pdf", onePagePdf());
 
     Job job = service.submitOcr(pdf, null);
 
@@ -144,5 +144,38 @@ class JobServiceTest {
     job.setCreatedAt(java.time.Instant.now());
     job.setUpdatedAt(java.time.Instant.now());
     return job;
+  }
+
+  @Test
+  void encryptedPdfIsRefusedAtSubmitInsteadOfFailingInTheConverter() throws Exception {
+    byte[] locked = new com.utilnexa.pdf.service.PdfProtectService().protect(
+        new MockMultipartFile("file", "a.pdf", "application/pdf", onePagePdf()), "secret123", true, false, false, false);
+    MockMultipartFile pdf = new MockMultipartFile("file", "locked.pdf", "application/pdf", locked);
+
+    IllegalArgumentException thrown = assertThrows(
+        IllegalArgumentException.class, () -> service.submitOfficeConversion(JobType.PDF_TO_WORD, pdf));
+
+    assertEquals("Password-protected PDFs are not supported yet.", thrown.getMessage());
+    verify(storage, never()).put(anyString(), any(byte[].class), any());
+  }
+
+  @Test
+  void corruptPdfIsRefusedAtSubmit() {
+    MockMultipartFile pdf = new MockMultipartFile("file", "broken.pdf", "application/pdf", "not a pdf".getBytes());
+
+    assertThrows(IllegalArgumentException.class, () -> service.submitOfficeConversion(JobType.PDF_TO_PPT, pdf));
+    assertThrows(IllegalArgumentException.class, () -> service.submitOcr(pdf, "eng"));
+    verify(storage, never()).put(anyString(), any(byte[].class), any());
+  }
+
+  private static byte[] onePagePdf() {
+    try (org.apache.pdfbox.pdmodel.PDDocument document = new org.apache.pdfbox.pdmodel.PDDocument();
+        java.io.ByteArrayOutputStream output = new java.io.ByteArrayOutputStream()) {
+      document.addPage(new org.apache.pdfbox.pdmodel.PDPage());
+      document.save(output);
+      return output.toByteArray();
+    } catch (java.io.IOException e) {
+      throw new java.io.UncheckedIOException(e);
+    }
   }
 }

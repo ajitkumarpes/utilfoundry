@@ -4,6 +4,7 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.io.ByteArrayOutputStream;
+import java.util.List;
 
 import org.apache.pdfbox.Loader;
 import org.apache.pdfbox.pdmodel.PDDocument;
@@ -110,5 +111,59 @@ class PdfWatermarkServiceTest {
 
   private MockMultipartFile pdfFile(byte[] bytes) {
     return new MockMultipartFile("file", "source.pdf", "application/pdf", bytes);
+  }
+
+  @Test
+  void theLongestTextTheFieldAcceptsStillFitsOnThePage() throws Exception {
+    // 80 characters is the field's own limit, so no accepted text may be refused for length.
+    byte[] result = service.watermark(pdfFile(pdfWithPages(1)), "W".repeat(80), "center");
+
+    try (PDDocument doc = Loader.loadPDF(result)) {
+      assertTrue(new PDFTextStripper().getText(doc).contains("WWWWW"));
+    }
+  }
+
+  @Test
+  void aLongWatermarkIsShrunkToFitInsideThePageInBothPositions() throws Exception {
+    String notice = "STRICTLY CONFIDENTIAL - INTERNAL DISTRIBUTION ONLY - DO NOT FORWARD 2026";
+    for (String position : List.of("diagonal", "center")) {
+      byte[] result = service.watermark(pdfFile(pdfWithPages(1)), notice, position);
+
+      try (PDDocument doc = Loader.loadPDF(result)) {
+        float width = doc.getPage(0).getMediaBox().getWidth();
+        float height = doc.getPage(0).getMediaBox().getHeight();
+        List<float[]> outside = new java.util.ArrayList<>();
+        PDFTextStripper stripper = new PDFTextStripper() {
+          @Override
+          protected void writeString(String text, List<org.apache.pdfbox.text.TextPosition> positions) {
+            for (org.apache.pdfbox.text.TextPosition p : positions) {
+              if (p.getX() < 0 || p.getX() > width || p.getY() < 0 || p.getY() > height) {
+                outside.add(new float[] {p.getX(), p.getY()});
+              }
+            }
+          }
+        };
+        stripper.setSortByPosition(false);
+        stripper.getText(doc);
+        assertTrue(outside.isEmpty(), position + ": " + outside.size() + " glyphs drawn off the page");
+      }
+    }
+  }
+
+  @Test
+  void cyrillicTextIsDrawnWithAnEmbeddedFont() throws Exception {
+    byte[] result = service.watermark(pdfFile(pdfWithPages(1)), "Секретно", "center");
+
+    try (PDDocument doc = Loader.loadPDF(result)) {
+      assertTrue(new PDFTextStripper().getText(doc).contains("Секретно"));
+    }
+  }
+
+  @Test
+  void textNoBundledFontCanDrawIsRefusedWithAPlainMessage() throws Exception {
+    IllegalArgumentException thrown = assertThrows(
+        IllegalArgumentException.class, () -> service.watermark(pdfFile(pdfWithPages(1)), "机密文件", "center"));
+
+    assertTrue(thrown.getMessage().contains("Chinese"), thrown.getMessage());
   }
 }

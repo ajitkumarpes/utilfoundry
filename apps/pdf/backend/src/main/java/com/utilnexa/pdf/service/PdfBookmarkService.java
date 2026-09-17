@@ -17,17 +17,17 @@ import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
 
 /**
- * Reads/writes a flat list of page bookmarks (the PDF outline). Existing entries that point at a
- * URL or named destination rather than a page (rare, but real - e.g. a PDF built with a "visit
- * our website" bookmark) resolve to no destination page here and are reported at page 0; nested
- * sub-bookmarks aren't walked at all - this tool works on one flat list, and rewrites the whole
- * outline on save, same disclosed boundary as the frontend copy.
+ * Reads/writes the PDF outline as a depth-first list, each entry carrying its nesting level, so
+ * chapters keep their sub-sections through a read-edit-save round trip. (Reading only the top
+ * level and rewriting the outline used to delete every sub-section on save.) Entries that point
+ * at a URL or named destination rather than a page resolve to no page and are reported at page 0.
  */
 @Service
 public class PdfBookmarkService {
 
   private static final int MAX_ENTRIES = 200;
   private static final int MAX_TITLE_LENGTH = 300;
+  private static final int MAX_DEPTH = 8;
 
   public BookmarksReadResult readBookmarks(MultipartFile file) throws IOException {
     PdfFileValidator.requirePdf(file);
@@ -37,14 +37,23 @@ public class PdfBookmarkService {
       List<BookmarkEntry> entries = new ArrayList<>();
       PDDocumentOutline outline = document.getDocumentCatalog().getDocumentOutline();
       if (outline != null) {
-        for (PDOutlineItem item : outline.children()) {
-          PDPage page = item.findDestinationPage(document);
-          int pageIndex = page == null ? 0 : Math.max(0, document.getPages().indexOf(page));
-          String title = item.getTitle();
-          entries.add(new BookmarkEntry(pageIndex, title == null ? "" : title));
-        }
+        collect(document, outline.children(), 0, entries);
       }
       return new BookmarksReadResult(document.getNumberOfPages(), entries);
+    }
+  }
+
+  private void collect(PDDocument document, Iterable<PDOutlineItem> items, int level, List<BookmarkEntry> entries)
+      throws IOException {
+    for (PDOutlineItem item : items) {
+      if (entries.size() >= MAX_ENTRIES) return;
+      PDPage page = item.findDestinationPage(document);
+      int pageIndex = page == null ? 0 : Math.max(0, document.getPages().indexOf(page));
+      String title = item.getTitle();
+      entries.add(new BookmarkEntry(pageIndex, title == null ? "" : title, Math.min(level, MAX_DEPTH)));
+      if (level < MAX_DEPTH) {
+        collect(document, item.children(), level + 1, entries);
+      }
     }
   }
 
@@ -63,6 +72,10 @@ public class PdfBookmarkService {
         document.getDocumentCatalog().setDocumentOutline(null);
       } else {
         PDDocumentOutline outline = new PDDocumentOutline();
+        // parents[d] is the most recent item at depth d; an entry at depth d attaches under
+        // parents[d - 1]. A depth that jumps more than one level deeper is clamped, so a list
+        // edited into an odd shape still saves as a valid tree.
+        List<PDOutlineItem> parents = new ArrayList<>();
         for (BookmarkEntry entry : safeEntries) {
           if (entry.pageIndex() < 0 || entry.pageIndex() >= pageCount) {
             throw new IllegalArgumentException("Page " + (entry.pageIndex() + 1) + " is out of range.");
@@ -78,7 +91,15 @@ public class PdfBookmarkService {
           PDOutlineItem item = new PDOutlineItem();
           item.setTitle(title);
           item.setDestination(document.getPage(entry.pageIndex()));
-          outline.addLast(item);
+
+          int depth = Math.min(Math.min(entry.depth(), MAX_DEPTH), parents.size());
+          if (depth == 0) {
+            outline.addLast(item);
+          } else {
+            parents.get(depth - 1).addLast(item);
+          }
+          while (parents.size() > depth) parents.remove(parents.size() - 1);
+          parents.add(item);
         }
         outline.openNode();
         document.getDocumentCatalog().setDocumentOutline(outline);

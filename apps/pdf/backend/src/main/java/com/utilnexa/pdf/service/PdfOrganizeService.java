@@ -49,18 +49,22 @@ public class PdfOrganizeService {
           switch (op.kind()) {
             case SOURCE -> {
               requireIndex(op.sourceIndex(), pageCount, "Page");
-              result.importPage(source.getPage(op.sourceIndex()));
-              applyRotation(result, op.rotation());
+              PDPage page = source.getPage(op.sourceIndex());
+              int ownRotation = page.getRotation();
+              result.importPage(page);
+              applyRotation(result, ownRotation, op.rotation());
             }
             case SOURCE2 -> {
               requireIndex(op.sourceIndex(), pageCount2, "Second file page");
-              result.importPage(source2.getPage(op.sourceIndex()));
-              applyRotation(result, op.rotation());
+              PDPage page = source2.getPage(op.sourceIndex());
+              int ownRotation = page.getRotation();
+              result.importPage(page);
+              applyRotation(result, ownRotation, op.rotation());
             }
             case BLANK -> {
               PDRectangle size = nearestPageSize(ops, i, source, source2);
               result.addPage(new PDPage(size));
-              applyRotation(result, op.rotation());
+              applyRotation(result, 0, op.rotation());
             }
           }
         }
@@ -83,9 +87,18 @@ public class PdfOrganizeService {
     }
   }
 
-  private void applyRotation(PDDocument result, Integer rotation) {
+  /**
+   * The plan's rotation is what the user turned the page by in the organizer, which starts every
+   * page at 0 and shows it the way it already displays. It is added to the page's own /Rotate
+   * rather than replacing it: replacing it silently straightened every sideways scan the moment
+   * someone reordered pages without touching rotation.
+   */
+  private void applyRotation(PDDocument result, int ownRotation, Integer rotation) {
     PDPage imported = result.getPage(result.getNumberOfPages() - 1);
-    imported.setRotation(normalizeRotation(rotation == null ? 0 : rotation));
+    int turnedBy = normalizeRotation(rotation == null ? 0 : rotation);
+    // Read from the source before import: a /Rotate inherited from the source's page tree
+    // is not carried over when the page is re-parented into the new document.
+    imported.setRotation(normalizeRotation(ownRotation + turnedBy));
   }
 
   private int normalizeRotation(int rotation) {

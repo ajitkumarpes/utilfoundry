@@ -21,7 +21,8 @@ async function loadPdfDocument(file: File) {
   ).toString();
 
   const buffer = await file.arrayBuffer();
-  return pdfjsLib.getDocument({ data: buffer }).promise;
+  // No eval: the site's Content-Security-Policy forbids it, and pdf.js has a slower path without it.
+  return pdfjsLib.getDocument({ data: buffer, isEvalSupported: false }).promise;
 }
 
 async function renderPageToDataUrl(

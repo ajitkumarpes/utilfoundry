@@ -6,4 +6,9 @@ package com.utilnexa.pdf.config;
 public interface RateLimiter {
 
   boolean tryConsume(String key);
+
+  /** The same, with a per-minute allowance other than the configured default for this key. */
+  default boolean tryConsume(String key, int requestsPerMinute) {
+    return tryConsume(key);
+  }
 }

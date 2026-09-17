@@ -186,7 +186,7 @@ export default function FlattenPdfPage() {
               </label>
             </div>
 
-            <p style={{ fontSize: 13, color: "#888", margin: "0 0 16px" }}>
+            <p style={{ fontSize: 13, color: "var(--text-faint)", margin: "0 0 16px" }}>
               A small number of annotations with a rotated or skewed appearance may be left as-is
               rather than flattened incorrectly — everything else about the file is unaffected.
             </p>

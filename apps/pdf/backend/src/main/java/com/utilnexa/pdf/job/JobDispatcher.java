@@ -32,6 +32,8 @@ public class JobDispatcher {
   private static final Duration OFFICE_TIMEOUT = Duration.ofSeconds(150);
   private static final Duration OCR_TIMEOUT = Duration.ofMinutes(11);
   private static final Duration IDLE_POLL_DELAY = Duration.ofMillis(500);
+  static final int MAX_ERROR_LENGTH = 500;
+  static final String GENERIC_FAILURE = "This file could not be converted. It may be password-protected or damaged.";
 
   private final JobRepository jobRepository;
   private final S3StorageService storage;
@@ -156,9 +158,24 @@ public class JobDispatcher {
 
   private void fail(Job job, String message) {
     job.setStatus(JobStatus.FAILED);
-    job.setErrorMessage(message);
+    job.setErrorMessage(boundedMessage(message));
     job.setUpdatedAt(Instant.now());
-    jobRepository.save(job);
+    try {
+      jobRepository.save(job);
+    } catch (RuntimeException e) {
+      // The detail is what made the save fail more often than anything else. Record the
+      // failure without it rather than leave the job PROCESSING with nobody working on it.
+      log.warn("Could not save the failure detail for job {}; saving a generic message", job.getId(), e);
+      job.setErrorMessage(GENERIC_FAILURE);
+      jobRepository.save(job);
+    }
+  }
+
+  /** Converter output can be pages of stderr; keep what a person can read. */
+  static String boundedMessage(String message) {
+    if (message == null || message.isBlank()) return GENERIC_FAILURE;
+    String clean = message.strip();
+    return clean.length() <= MAX_ERROR_LENGTH ? clean : clean.substring(0, MAX_ERROR_LENGTH - 1) + "…";
   }
 
   private void pause(Duration duration) {

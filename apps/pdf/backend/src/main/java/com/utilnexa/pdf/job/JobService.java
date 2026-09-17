@@ -2,6 +2,7 @@ package com.utilnexa.pdf.job;
 
 import tools.jackson.databind.ObjectMapper;
 import com.utilnexa.pdf.service.ImageToPdfService;
+import com.utilnexa.pdf.service.support.PdfFileValidator;
 import java.io.IOException;
 import java.time.Instant;
 import java.util.List;
@@ -49,6 +50,7 @@ public class JobService {
     String pdfFilename;
     if (isPdf(file)) {
       pdfBytes = readBytes(file);
+      requireReadablePdf(pdfBytes);
       pdfFilename = file.getOriginalFilename();
     } else {
       try {
@@ -89,7 +91,26 @@ public class JobService {
           validateFile(file, Set.of("application/pdf"), Set.of(".pdf"));
       case OCR -> throw new IllegalArgumentException("Use submitOcr for OCR jobs.");
     }
-    return submitBytes(type, readBytes(file), file.getOriginalFilename(), null);
+    byte[] bytes = readBytes(file);
+    if (type == JobType.PDF_TO_WORD || type == JobType.PDF_TO_PPT) {
+      requireReadablePdf(bytes);
+    }
+    return submitBytes(type, bytes, file.getOriginalFilename(), null);
+  }
+
+  /**
+   * Rejects an encrypted or unreadable PDF at submit, with the same message the synchronous
+   * tools give. Left to the converter, such a file used to fail minutes later with converter
+   * stderr as the only explanation.
+   */
+  private void requireReadablePdf(byte[] bytes) {
+    try (var document = PdfFileValidator.loadDecrypted(bytes)) {
+      if (document.getNumberOfPages() == 0) {
+        throw new IllegalArgumentException("This PDF has no pages.");
+      }
+    } catch (IOException e) {
+      throw new IllegalArgumentException("This PDF could not be read — it appears to be corrupted or invalid.");
+    }
   }
 
   private Job submitBytes(JobType type, byte[] content, String filename, String options) {
