@@ -21,6 +21,8 @@ services:
         condition: service_healthy
       images:
         condition: service_healthy
+      admin:
+        condition: service_healthy
       minio:
         condition: service_started
 
@@ -31,6 +33,7 @@ services:
         NEXT_PUBLIC_PDF_URL: https://pdf.${ROOT_DOMAIN}
         NEXT_PUBLIC_DEVELOPER_URL: https://dev.${ROOT_DOMAIN}
         NEXT_PUBLIC_IMAGES_URL: https://images.${ROOT_DOMAIN}
+        NEXT_PUBLIC_ADMIN_URL: https://admin.${ROOT_DOMAIN}
         # Unset falls back to the mailto: in the app's lib/links.ts; set this to point at a form instead.
         NEXT_PUBLIC_CONTACT_URL: ${CONTACT_URL:-}
     restart: unless-stopped
@@ -50,6 +53,7 @@ services:
         NEXT_PUBLIC_PARENT_URL: https://${ROOT_DOMAIN}
         NEXT_PUBLIC_PDF_URL: https://pdf.${ROOT_DOMAIN}
         NEXT_PUBLIC_IMAGES_URL: https://images.${ROOT_DOMAIN}
+        NEXT_PUBLIC_ADMIN_URL: https://admin.${ROOT_DOMAIN}
         # Unset falls back to the mailto: in the app's lib/links.ts; set this to point at a form instead.
         NEXT_PUBLIC_CONTACT_URL: ${CONTACT_URL:-}
     restart: unless-stopped
@@ -69,6 +73,7 @@ services:
         NEXT_PUBLIC_PARENT_URL: https://${ROOT_DOMAIN}
         NEXT_PUBLIC_PDF_URL: https://pdf.${ROOT_DOMAIN}
         NEXT_PUBLIC_DEVELOPER_URL: https://dev.${ROOT_DOMAIN}
+        NEXT_PUBLIC_ADMIN_URL: https://admin.${ROOT_DOMAIN}
         # Unset falls back to the mailto: in the app's lib/links.ts; set this to point at a form instead.
         NEXT_PUBLIC_CONTACT_URL: ${CONTACT_URL:-}
     restart: unless-stopped
@@ -219,6 +224,7 @@ services:
         NEXT_PUBLIC_SITE_URL: https://pdf.${ROOT_DOMAIN}
         # "Explore all tools" links back to the landing page; the default is a local dev URL.
         NEXT_PUBLIC_PARENT_URL: https://${ROOT_DOMAIN}
+        NEXT_PUBLIC_ADMIN_URL: https://admin.${ROOT_DOMAIN}
     restart: unless-stopped
     expose:
       - "3000"
@@ -234,9 +240,48 @@ services:
     security_opt:
       - no-new-privileges:true
 
+  admin-postgres:
+    image: postgres:17-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${ADMIN_POSTGRES_DB:-admin_platform}
+      POSTGRES_USER: ${ADMIN_POSTGRES_USER:?ADMIN_POSTGRES_USER is required}
+      POSTGRES_PASSWORD: ${ADMIN_POSTGRES_PASSWORD:?ADMIN_POSTGRES_PASSWORD is required}
+    volumes:
+      - admin_postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  admin:
+    build:
+      context: ../apps/admin
+    restart: unless-stopped
+    expose:
+      - "3000"
+    environment:
+      DATABASE_URL: postgres://${ADMIN_POSTGRES_USER}:${ADMIN_POSTGRES_PASSWORD}@admin-postgres:5432/${ADMIN_POSTGRES_DB:-admin_platform}
+      ADMIN_PASSWORD: ${ADMIN_PASSWORD:?ADMIN_PASSWORD is required}
+      ADMIN_SESSION_SECRET: ${ADMIN_SESSION_SECRET:?ADMIN_SESSION_SECRET is required}
+      CORS_ALLOWED_ORIGINS: https://${ROOT_DOMAIN},https://dev.${ROOT_DOMAIN},https://images.${ROOT_DOMAIN},https://pdf.${ROOT_DOMAIN}
+    depends_on:
+      admin-postgres:
+        condition: service_healthy
+    security_opt:
+      - no-new-privileges:true
+    healthcheck:
+      test: ["CMD", "wget", "--spider", "-q", "http://127.0.0.1:3000/admin/login"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 20s
+
 volumes:
   caddy_data:
   caddy_config:
   postgres_data:
   redis_data:
   minio_data:
+  admin_postgres_data:

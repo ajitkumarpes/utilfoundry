@@ -17,9 +17,9 @@ export default function PrivacyPage() {
         <p className="legal-updated">Last updated: {LAST_UPDATED}</p>
 
         <p className="legal-lead">
-          {OPERATOR} Images is a set of free image tools. There is no account, no tracking and no advertising.
-          Most tools finish inside your browser and the image never reaches us at all. The ones that do need a server
-          are named below, tool by tool, rather than left for you to guess.
+          {OPERATOR} Images is a set of free image tools. There is no account, no third-party tracking and no
+          advertising. Most tools finish inside your browser and the image never reaches us at all. The ones that do
+          need a server are named below, tool by tool, rather than left for you to guess.
         </p>
 
         <h2>Who we are</h2>
@@ -95,19 +95,35 @@ export default function PrivacyPage() {
           anyone else&apos;s.
         </p>
 
-        <h2>Analytics, cookies and third parties</h2>
+        <h2>Feedback, visit signals, cookies and third parties</h2>
         <ul>
-          <li>No analytics, advertising or tracking scripts run on this site. There is no third-party script at all.</li>
           <li>
-            We set no cookies. The only thing stored in your browser is <code>utilfoundry-theme</code>, which holds
-            the word <code>light</code> or <code>dark</code> so the page does not flash the wrong palette on reload.
-            It stays on your device, and clearing site data removes it.
+            No third-party analytics, advertising or tracking scripts run on this site — nothing from Google, Meta,
+            an ad network or a data broker.
           </li>
           <li>
-            The page is served with a Content Security Policy that only permits resources from this site, so a
-            third-party tracker cannot be loaded even by accident.
+            <strong>The &quot;Give feedback&quot; button</strong> is voluntary. If you open it and press Submit, we
+            store what you typed — your message, an optional star rating, and which tool you were on if you leave
+            &quot;include tool details&quot; checked. It never includes an image you uploaded, and nothing is sent
+            unless you press Submit.
           </li>
-          <li>We do not sell, rent or share your files or any data about you. There is no one to share it with.</li>
+          <li>
+            <strong>An anonymous visit signal</strong> is sent for each page you view: which page, and a coarse
+            location (country, region, city) resolved from your IP address by an offline lookup table we run
+            ourselves. Your IP address itself is never stored.
+          </li>
+          <li>
+            Both of those go only to our own <code>admin.utilfoundry.com</code>, never a third party. That
+            subdomain sets one cookie — a random id, not your identity, used only to tell a repeat visit from a new
+            one. This site itself sets no cookie of its own; the only thing stored in your browser directly is{" "}
+            <code>utilfoundry-theme</code>, which holds the word <code>light</code> or <code>dark</code> so the page
+            does not flash the wrong palette on reload.
+          </li>
+          <li>
+            The page is served with a Content Security Policy whose <code>connect-src</code> allows only this site
+            and <code>admin.utilfoundry.com</code>, so nothing else can be loaded or contacted even by accident.
+          </li>
+          <li>We do not sell, rent or share your files or any data about you.</li>
         </ul>
 
         <h2>Server records and your IP address</h2>

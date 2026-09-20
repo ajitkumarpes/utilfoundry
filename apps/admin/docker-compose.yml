@@ -1,0 +1,24 @@
+# Local dev only: a Postgres instance matching .env.example's DATABASE_URL, so
+# `npm install && npm run dev` in this folder has something to talk to. The app
+# itself runs with `npm run dev`, same as every other app in this repo — this compose
+# file exists only because, unlike them, this one needs a database.
+services:
+  postgres:
+    image: postgres:17-alpine
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:5434:5432"
+    environment:
+      POSTGRES_DB: admin_platform
+      POSTGRES_USER: admin_user
+      POSTGRES_PASSWORD: admin_password
+    volumes:
+      - admin_postgres_dev_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U admin_user -d admin_platform"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+volumes:
+  admin_postgres_dev_data:

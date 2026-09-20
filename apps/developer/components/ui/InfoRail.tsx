@@ -1,10 +1,9 @@
 import Link from "next/link";
 import {
   Braces, ChevronRight, Clock3, Code2, CreditCard, Eye, KeyRound, Lightbulb, Lock,
-  MessageSquareHeart, ShieldCheck, Zap, type LucideIcon
+  ShieldCheck, Zap, type LucideIcon
 } from "lucide-react";
 import { ToolIcon } from "@/components/ui/ToolIcon";
-import { CONTACT_URL } from "@/lib/links";
 import { reasonsFor, relatedTo, tipsFor, type ReasonIcon, type Tone } from "@/lib/tool-content";
 import type { ToolDefinition } from "@/lib/tools";
 
@@ -27,8 +26,14 @@ const TONES: Record<Tone, { color: string; tint: string }> = {
   amber: { color: "#e8912a", tint: "var(--amber-tint)" }
 };
 
-export function InfoRail({ tool }: { tool: ToolDefinition }) {
-  const related = relatedTo(tool);
+/**
+ * `showRelated` is false while ResultSummary is showing its own "Next steps" list for the
+ * same tool (right above this one, in the same rail) — otherwise the two would repeat each
+ * other. It stays true the rest of the time, so related tools are still discoverable before
+ * (or without) a run.
+ */
+export function InfoRail({ tool, showRelated = true }: { tool: ToolDefinition; showRelated?: boolean }) {
+  const related = showRelated ? relatedTo(tool) : [];
   return (
     <>
       <section className="card rail-card">
@@ -67,12 +72,6 @@ export function InfoRail({ tool }: { tool: ToolDefinition }) {
           </div>
         </section>
       )}
-
-      <a href={CONTACT_URL} className="card feedback-card">
-        <i aria-hidden><MessageSquareHeart size={20} /></i>
-        <span><b>Have feedback?</b><small>Help us improve these tools</small></span>
-        <ChevronRight size={18} aria-hidden />
-      </a>
     </>
   );
 }

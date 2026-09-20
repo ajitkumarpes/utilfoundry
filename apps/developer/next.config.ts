@@ -1,5 +1,15 @@
 import type { NextConfig } from "next";
 
+// The feedback widget and visit beacon fetch() this origin directly, which CSP's
+// connect-src must allow explicitly — it does not fall under 'self'.
+function adminOrigin(): string {
+  try {
+    return new URL(process.env.NEXT_PUBLIC_ADMIN_URL || "https://admin.utilfoundry.com").origin;
+  } catch {
+    return "https://admin.utilfoundry.com";
+  }
+}
+
 const nextConfig: NextConfig = {
   reactStrictMode: true,
   poweredByHeader: false,
@@ -17,7 +27,7 @@ const nextConfig: NextConfig = {
       "style-src 'self' 'unsafe-inline'",
       "worker-src 'self' blob:",
       `script-src 'self' 'unsafe-inline'${isDevelopment ? " 'unsafe-eval'" : ""}`,
-      `connect-src 'self'${isDevelopment ? " ws: http://localhost:*" : ""}`,
+      `connect-src 'self' ${adminOrigin()}${isDevelopment ? " ws: http://localhost:*" : ""}`,
     ].join("; ");
     return [
       {

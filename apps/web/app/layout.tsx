@@ -1,6 +1,8 @@
 import type { Metadata, Viewport } from "next";
 import { Inter } from "next/font/google";
 import "./globals.css";
+import FeedbackWidget from "@/components/FeedbackWidget";
+import VisitBeacon from "@/components/VisitBeacon";
 
 /** A real typeface, self-hosted by next/font so there is no third-party request. */
 const inter = Inter({
@@ -46,7 +48,11 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
       <head>
         <script dangerouslySetInnerHTML={{ __html: THEME_SCRIPT }} />
       </head>
-      <body>{children}</body>
+      <body>
+        {children}
+        <FeedbackWidget />
+        <VisitBeacon />
+      </body>
     </html>
   );
 }

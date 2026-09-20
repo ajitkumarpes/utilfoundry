@@ -1,0 +1,41 @@
+name: Admin
+
+on:
+  pull_request:
+    paths:
+      - "apps/admin/**"
+      - ".github/workflows/admin.yml"
+  push:
+    branches: [main]
+    paths:
+      - "apps/admin/**"
+      - ".github/workflows/admin.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: apps/admin
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: apps/admin/package-lock.json
+      - run: npm ci
+      - run: npm run lint
+      - run: npm run typecheck
+      - run: npm test
+      - run: npm run build
+        env:
+          # Build-time placeholders only: every page here is force-dynamic, so nothing
+          # queries Postgres during the build, but the lib/db.ts and lib/session.ts
+          # modules still read these at import time and throw if they're unset.
+          DATABASE_URL: postgres://placeholder:placeholder@localhost:5432/placeholder
+          ADMIN_PASSWORD: placeholder
+          ADMIN_SESSION_SECRET: placeholder

@@ -64,10 +64,32 @@ export default function PrivacyPage() {
           <li>This site does not process payments or store payment information — every tool here is free.</li>
         </ul>
 
+        <h2>Feedback button and visit signal</h2>
+        <p>
+          Two things we built ourselves run only against our own <code>admin.utilfoundry.com</code>, never a third
+          party:
+        </p>
+        <ul>
+          <li>
+            <strong>The &quot;Give feedback&quot; button</strong>, on every page, is voluntary. If you open it and
+            press Submit, we store what you typed — your message, an optional star rating, and which tool you were
+            on if you leave &quot;include tool details&quot; checked. It never includes a file you uploaded, and
+            nothing is sent unless you press Submit.
+          </li>
+          <li>
+            <strong>An anonymous visit signal</strong> is sent for each page you view: which page, and a coarse
+            location (country, region, city) resolved from your IP address by an offline lookup table we run
+            ourselves. Your IP address itself is never stored.
+          </li>
+        </ul>
+
         <h2>Cookies</h2>
         <p>
-          We don&apos;t set advertising or tracking cookies. Your browser may still handle standard technical
-          mechanisms (such as caching) needed simply to load the page.
+          We don&apos;t set advertising or tracking cookies. <code>admin.utilfoundry.com</code>, the subdomain
+          behind the feedback button and visit signal above, sets one cookie of its own — a random id, not your
+          identity, used only to tell a repeat visit from a new one. This site does not set or read that cookie.
+          Your browser may still handle standard technical mechanisms (such as caching) needed simply to load the
+          page.
         </p>
 
         <h2>Security</h2>

@@ -2,6 +2,8 @@ import "./globals.css";
 import type { Metadata } from "next";
 import { TOOL_COUNT } from "@/lib/tools";
 import { THEME_COOKIE, THEMES } from "@/lib/theme";
+import FeedbackWidget from "@/components/FeedbackWidget";
+import VisitBeacon from "@/components/VisitBeacon";
 
 // Applies the saved theme cookie to <html> before first paint, so pages stay
 // statically prerenderable (no server-side cookie read forcing dynamic
@@ -37,7 +39,11 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       <head>
         <script dangerouslySetInnerHTML={{ __html: THEME_INIT_SCRIPT }} />
       </head>
-      <body>{children}</body>
+      <body>
+        {children}
+        <FeedbackWidget />
+        <VisitBeacon />
+      </body>
     </html>
   );
 }

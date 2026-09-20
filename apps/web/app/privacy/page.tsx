@@ -21,9 +21,9 @@ export default function PrivacyPage() {
           <p className="legal-updated">Last updated: {LAST_UPDATED}</p>
 
           <p className="legal-lead">
-            {OPERATOR} runs this site and three tool workspaces. None of them has accounts, analytics or advertising.
-            This page covers utilfoundry.com itself and the parts that are common to all of them; because each
-            workspace handles files differently, each has its own policy with the specifics.
+            {OPERATOR} runs this site and three tool workspaces. None of them has accounts, third-party analytics or
+            advertising. This page covers utilfoundry.com itself and the parts that are common to all of them;
+            because each workspace handles files differently, each has its own policy with the specifics.
           </p>
 
           <h2>Who we are</h2>
@@ -40,19 +40,35 @@ export default function PrivacyPage() {
             with.
           </p>
           <ul>
-            <li>No analytics, advertising or tracking script runs. There is no third-party script at all.</li>
-            <li>We set no cookies.</li>
             <li>
-              The only thing stored in your browser is <code>utilfoundry-theme</code>, holding the word{" "}
-              <code>light</code> or <code>dark</code> so the page does not flash the wrong palette on reload. It never
-              leaves your device.
+              No third-party analytics, advertising or tracking script runs — nothing from Google, Meta, an ad
+              network or a data broker.
             </li>
             <li>
-              The page is served with a Content Security Policy that permits resources only from this site, so a
-              third-party tracker cannot be loaded even by accident.
+              <strong>The &quot;Give feedback&quot; button</strong>, on every page, is voluntary. If you open it and
+              press Submit, we store what you typed — your message, an optional star rating, and which category you
+              chose. Nothing is sent unless you press Submit.
             </li>
             <li>
-              Our web front end is not configured to write access logs, so we hold no stored record of your visit.
+              <strong>An anonymous visit signal</strong> is sent for each page you view: which page, and a coarse
+              location (country, region, city) resolved from your IP address by an offline lookup table we run
+              ourselves. Your IP address itself is never stored.
+            </li>
+            <li>
+              Both go only to our own <code>admin.utilfoundry.com</code>, never a third party. That subdomain sets
+              one cookie — a random id, not your identity, used only to tell a repeat visit from a new one. This site
+              itself sets no cookie of its own except <code>utilfoundry-theme</code>, holding the word{" "}
+              <code>light</code> or <code>dark</code> so the page does not flash the wrong palette on reload; it
+              never leaves your device.
+            </li>
+            <li>
+              The page is served with a Content Security Policy whose <code>connect-src</code> permits only this
+              site and <code>admin.utilfoundry.com</code>, so nothing else can be loaded or contacted even by
+              accident.
+            </li>
+            <li>
+              Our web front end is not configured to write access logs, so we hold no stored record of your visit
+              beyond the anonymous signal above.
             </li>
           </ul>
 
@@ -77,8 +93,10 @@ export default function PrivacyPage() {
             </li>
           </ul>
           <p>
-            What is true everywhere: no account, no analytics, no advertising, no third-party AI service, and your
-            files are never used to train any model or shared with anyone.
+            What is true everywhere: no account, no third-party analytics, no advertising, no third-party AI
+            service, and your files are never used to train any model or shared with anyone. Every workspace also
+            has the same optional feedback button and anonymous visit signal described above, going only to our own{" "}
+            <code>admin.utilfoundry.com</code>.
           </p>
 
           <h2>Your rights</h2>

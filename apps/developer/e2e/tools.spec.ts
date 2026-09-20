@@ -29,7 +29,9 @@ async function gotoInDarkMode(page: Page, path: string) {
  * a separate question, covered by its own test below.
  */
 async function hydratedInput(page: Page) {
-  const textarea = page.locator("textarea");
+  // Scoped past readonly (the output pane) and the feedback dialog's own textarea,
+  // which also live in the DOM now — a bare "textarea" locator matches all three.
+  const textarea = page.locator(".pane textarea:not([readonly])");
   await expect(textarea).toBeVisible();
   await expect
     .poll(() => textarea.evaluate((el) => Object.keys(el).some((key) => key.startsWith("__reactFiber$"))))
@@ -52,7 +54,7 @@ test.describe("developer tools browser coverage", () => {
       // The shipped example must actually succeed. Accepting "Check your input" here let
       // seven tools ship with examples that error the moment you press Run — and hid two
       // tools that the production CSP broke outright.
-      await expect(page.locator(".notice")).toContainText("Done locally", { timeout: 15_000 });
+      await expect(page.locator(".notice")).toContainText("Done", { timeout: 15_000 });
       await expect(page.locator(".has-output, .preview, .image-preview")).toHaveCount(1);
     }
   });
@@ -116,7 +118,7 @@ test.describe("developer tools browser coverage", () => {
     });
 
     await page.goto("/json-formatter", { waitUntil: "commit" });
-    const textarea = page.locator("textarea");
+    const textarea = page.locator(".pane textarea:not([readonly])");
     await expect(textarea).toBeVisible();
 
     const pasted = '{"pasted":"before hydration"}';

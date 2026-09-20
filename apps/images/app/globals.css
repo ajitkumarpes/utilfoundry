@@ -2148,3 +2148,152 @@ button.row-icon:hover:not(:disabled) { background: var(--panel-sunken); color: v
    letterbox the same way, so they stay aligned. */
 .slider-stage img { max-height: min(68vh, 620px); object-fit: contain; }
 .slider-stage .slider-top img { object-fit: contain; }
+
+/* ==========================================================================
+   Feedback widget
+   ========================================================================== */
+
+.feedback-fab {
+  position: fixed;
+  right: 20px;
+  bottom: 20px;
+  z-index: 40;
+  width: 52px;
+  height: 52px;
+  border-radius: 999px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--accent);
+  color: #fff;
+  box-shadow: 0 10px 26px rgba(184, 56, 15, .35);
+}
+.feedback-fab:hover { background: var(--accent-hover); }
+
+.feedback-dialog {
+  border: 1.5px solid var(--accent-line);
+  border-radius: var(--radius);
+  padding: 0;
+  width: min(420px, calc(100vw - 32px));
+  max-height: min(640px, calc(100vh - 48px));
+  /* Nudged lighter than --panel itself so the dialog reads as elevated above the
+     sidebar/header, which are also --panel — in dark mode those two are otherwise
+     too close in lightness and the dialog disappears into the page. */
+  background: color-mix(in srgb, var(--panel) 88%, white 12%);
+  color: var(--ink);
+  box-shadow: 0 24px 70px rgba(0, 0, 0, .45);
+}
+.feedback-dialog::backdrop { background: rgba(3, 5, 10, .72); backdrop-filter: blur(3px); }
+.feedback-dialog form,
+.feedback-dialog .feedback-thanks {
+  padding: 22px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.feedback-dialog-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 14px;
+}
+.feedback-dialog-head h2 { margin: 0 0 4px; font-size: 17px; }
+.feedback-dialog-head p { margin: 0; color: var(--muted); font-size: 13px; }
+.feedback-close {
+  flex-shrink: 0;
+  width: 30px;
+  height: 30px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--radius-sm);
+  color: var(--muted);
+}
+.feedback-close:hover { background: var(--paper); color: var(--ink); }
+
+.feedback-categories {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  margin-bottom: 14px;
+}
+.feedback-category {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 6px;
+  padding: 10px 12px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  background: var(--panel);
+  color: var(--ink-soft);
+  font-size: 12.5px;
+  font-weight: 600;
+  text-align: left;
+}
+.feedback-category.active {
+  border-color: var(--accent);
+  background: var(--accent-tint);
+  color: var(--accent);
+}
+
+.feedback-label {
+  display: block;
+  font-size: 12.5px;
+  font-weight: 700;
+  color: var(--ink-soft);
+  margin: 10px 0 8px;
+}
+
+.feedback-stars {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  margin-bottom: 4px;
+}
+.feedback-star { color: var(--amber, #e8912a); padding: 2px; }
+.feedback-rating-caption { margin-left: 8px; font-size: 12.5px; color: var(--muted); }
+
+.feedback-dialog textarea {
+  width: 100%;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  padding: 10px 12px;
+  font: inherit;
+  font-size: 13.5px;
+  color: var(--ink);
+  background: var(--panel);
+  resize: vertical;
+}
+.feedback-counter { align-self: flex-end; font-size: 11.5px; color: var(--faint); margin-top: 4px; }
+
+.feedback-checkbox {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12.5px;
+  color: var(--ink-soft);
+  margin-top: 12px;
+}
+
+.feedback-error { color: var(--danger); font-size: 12.5px; margin: 10px 0 0; }
+
+.feedback-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  margin-top: 18px;
+}
+.feedback-actions .btn { min-height: 40px; padding: 0 16px; }
+
+.feedback-thanks { align-items: center; text-align: center; gap: 8px; padding-top: 32px !important; padding-bottom: 28px !important; }
+.feedback-thanks-icon { color: var(--green); margin-bottom: 6px; }
+.feedback-thanks h2 { margin: 0; font-size: 19px; }
+.feedback-thanks p { margin: 0 0 14px; color: var(--muted); font-size: 13.5px; }
+
+@media (max-width: 640px) {
+  .feedback-fab { right: 16px; bottom: 16px; }
+  .feedback-categories { grid-template-columns: 1fr; }
+}

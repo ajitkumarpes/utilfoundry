@@ -31,6 +31,10 @@ images.{$ROOT_DOMAIN} {
   reverse_proxy images:3000
 }
 
+admin.{$ROOT_DOMAIN} {
+  reverse_proxy admin:3000
+}
+
 storage.{$ROOT_DOMAIN} {
   reverse_proxy minio:9000
 }

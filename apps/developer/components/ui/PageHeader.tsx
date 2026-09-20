@@ -1,7 +1,10 @@
+"use client";
+
 import Link from "next/link";
-import { CreditCard, Lock, ShieldCheck, Zap } from "lucide-react";
+import { CreditCard, Lock, ShieldCheck, Star, Zap } from "lucide-react";
 import { ACCENTS, ToolIcon } from "@/components/ui/ToolIcon";
 import { PARENT_URL } from "@/lib/links";
+import { useFavorites } from "@/lib/tool-prefs";
 import { highlightsFor, type ToolDefinition } from "@/lib/tools";
 
 /** Picks the chip glyph from its wording, so tool definitions stay plain data. */
@@ -15,6 +18,9 @@ function chipIcon(text: string) {
 
 export function PageHeader({ tool }: { tool: ToolDefinition }) {
   const accent = ACCENTS[tool.accent];
+  const { favorites, toggle } = useFavorites();
+  const isFavorite = favorites.includes(tool.id);
+
   return (
     <>
       <div className="crumb-row">
@@ -25,10 +31,21 @@ export function PageHeader({ tool }: { tool: ToolDefinition }) {
           <span aria-hidden>/</span>
           <span aria-current="page">{tool.name}</span>
         </nav>
-        <span className="processing-pill" title="Processed in your browser. Nothing is uploaded and nothing is stored.">
-          <i aria-hidden />
-          Runs in your browser
-        </span>
+        <div className="crumb-row-actions">
+          <button
+            type="button"
+            className={`favorite-toggle${isFavorite ? " is-active" : ""}`}
+            onClick={() => toggle(tool.id)}
+            aria-pressed={isFavorite}
+          >
+            <Star size={15} fill={isFavorite ? "currentColor" : "none"} />
+            {isFavorite ? "Favorited" : "Add to favorites"}
+          </button>
+          <span className="processing-pill" title="Processed in your browser. Nothing is uploaded and nothing is stored.">
+            <i aria-hidden />
+            Runs locally
+          </span>
+        </div>
       </div>
 
       <div className="tool-hero">

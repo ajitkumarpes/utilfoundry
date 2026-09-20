@@ -2,16 +2,28 @@
 /* QR data URLs are generated locally and intentionally rendered as a native image. */
 /* eslint-disable @next/next/no-img-element */
 
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Copy, Download, Play, RotateCcw, ShieldCheck } from "lucide-react";
 import { StepCard } from "@/components/ui/StepCard";
 import { StatusBar, type StatusTone } from "@/components/ui/StatusBar";
+import { CodePane, type CodePaneHandle } from "@/components/ui/CodePane";
+import { ResultSummary } from "@/components/ui/ResultSummary";
+import { InfoRail } from "@/components/ui/InfoRail";
 import { detectSensitiveInput, runTool } from "@/lib/run-tool";
 import { STARTERS, defaultOption } from "@/lib/samples";
+import { locateJsonError, type JsonErrorLocation } from "@/lib/json-error";
 import type { ToolDefinition } from "@/lib/tools";
 
 /** Tools whose single option is a plain encode/decode switch. */
 const MODE_TOOLS = ["base64", "url", "yaml", "csv", "html", "hex"];
+
+/**
+ * Tools where a thrown JSON.parse error's "position N" lands directly in the full
+ * `input` textarea, so it can drive "jump to error". json-diff and json-schema parse a
+ * *half* of the input (split on a --- line), where that same offset would point at the
+ * wrong place, so they're deliberately left out rather than jumping somewhere wrong.
+ */
+const JSON_ERROR_LOCATABLE = new Set(["json", "json-validator", "json-minifier", "jsonpath", "json-schema-generator"]);
 
 /**
  * Reads a field's current value so React can start from it instead of from the shipped default.
@@ -44,7 +56,10 @@ export function Workbench({ tool }: { tool: ToolDefinition }) {
   const [flags, setFlags] = useState(() => seedFromField(fieldId("flags"), "g"));
   const [secret, setSecret] = useState(() => seedFromField(fieldId("secret"), "change-me-locally"));
   const [securityWarning, setSecurityWarning] = useState("");
+  const [errorMessage, setErrorMessage] = useState("");
+  const [errorLocation, setErrorLocation] = useState<JsonErrorLocation | null>(null);
   const workspaceFileRef = useRef<HTMLInputElement>(null);
+  const inputPaneRef = useRef<CodePaneHandle>(null);
 
   async function run() {
     const findings = detectSensitiveInput(input);
@@ -56,14 +71,39 @@ export function Workbench({ tool }: { tool: ToolDefinition }) {
     setTone("busy");
     try {
       setOutput(await runTool(tool.id, { input, option, pattern, flags, secret }));
-      setNotice("Done locally in your browser");
+      setNotice("Done");
+      setErrorMessage("");
+      setErrorLocation(null);
       setTone("ready");
     } catch (error) {
-      setOutput(error instanceof Error ? error.message : "Unable to process input.");
+      const message = error instanceof Error ? error.message : "Unable to process input.";
+      setOutput(message);
       setNotice("Check your input");
+      setErrorMessage(message);
+      setErrorLocation(JSON_ERROR_LOCATABLE.has(tool.id) ? locateJsonError(input) : null);
       setTone("error");
     }
   }
+
+  // Cmd/Ctrl+Enter runs the tool, matching the hint next to the Run button — the same
+  // dual metaKey/ctrlKey check SiteHeader's own ⌘K shortcut uses. The listener is
+  // attached once; a ref keeps it calling the latest `run` without resubscribing on
+  // every keystroke into the input.
+  const runRef = useRef(run);
+  useEffect(() => {
+    runRef.current = run;
+  });
+
+  useEffect(() => {
+    function onKeyDown(event: KeyboardEvent) {
+      if ((event.metaKey || event.ctrlKey) && event.key === "Enter") {
+        event.preventDefault();
+        runRef.current();
+      }
+    }
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, []);
 
   async function copyOutput() {
     if (!output) return;
@@ -153,12 +193,12 @@ export function Workbench({ tool }: { tool: ToolDefinition }) {
   // A generator ignores the input box, and a control that does nothing is worse than none.
   const needsInput = tool.inputLabel !== "Not needed";
 
-  const statusTitle = tone === "ready" ? "Done locally in your browser"
+  const statusTitle = tone === "ready" ? "Completed locally"
     : tone === "error" ? "Check your input"
       : tone === "busy" ? "Working…"
         : `Ready to run ${tool.name}`;
   const statusNote = tone === "error" ? "The message in the output pane says what went wrong."
-    : tone === "ready" ? "Copy the result or download it as a file."
+    : tone === "ready" ? "Nothing uploaded"
       : "Nothing is uploaded. The tool runs in this tab.";
 
   return (
@@ -176,17 +216,41 @@ export function Workbench({ tool }: { tool: ToolDefinition }) {
         </div>
       )}
 
-      <div className="workbench-grid">
+      <div className="workspace-split">
+        <div className="workspace-main">
+          <div className="workbench-grid">
         <StepCard
           step={1}
           title="Input"
           subtitle={needsInput ? "Paste or edit the input, then run the tool" : "This generator takes no input"}
           actions={needsInput ? (
             <>
-              <button type="button" className="btn btn-outline btn-sm" onClick={() => { setInput(STARTERS[tool.id] ?? ""); setOutput(""); setTone("idle"); setNotice("Example restored"); }}>
+              <button
+                type="button"
+                className="btn btn-outline btn-sm"
+                onClick={() => {
+                  setInput(STARTERS[tool.id] ?? "");
+                  setOutput("");
+                  setTone("idle");
+                  setNotice("Example restored");
+                  setErrorMessage("");
+                  setErrorLocation(null);
+                }}
+              >
                 <RotateCcw size={14} /> Example
               </button>
-              <button type="button" className="btn btn-outline btn-sm" onClick={() => { setInput(""); setOutput(""); setNotice(""); setTone("idle"); }}>
+              <button
+                type="button"
+                className="btn btn-outline btn-sm"
+                onClick={() => {
+                  setInput("");
+                  setOutput("");
+                  setNotice("");
+                  setTone("idle");
+                  setErrorMessage("");
+                  setErrorLocation(null);
+                }}
+              >
                 Clear
               </button>
             </>
@@ -292,12 +356,13 @@ export function Workbench({ tool }: { tool: ToolDefinition }) {
               {tool.inputHint && <p className="input-hint">{tool.inputHint}</p>}
               <div className="pane">
                 <div className="pane-label">Input <span>{tool.inputLabel}</span></div>
-                <textarea
+                <CodePane
+                  ref={inputPaneRef}
                   id={fieldId("input")}
                   value={input}
-                  onChange={(event) => setInput(event.target.value)}
-                  spellCheck={false}
-                  aria-label={`${tool.name} input`}
+                  onChange={setInput}
+                  ariaLabel={`${tool.name} input`}
+                  errorLine={errorLocation?.line}
                 />
               </div>
             </>
@@ -324,29 +389,52 @@ export function Workbench({ tool }: { tool: ToolDefinition }) {
             ) : tool.id === "qr" && output.startsWith("data:image/") ? (
               <div className="image-preview"><img src={output} alt="Generated QR code" /></div>
             ) : (
-              <pre className={output ? "has-output" : ""} aria-live="polite">
-                {output || "Run the tool to see the result here."}
-              </pre>
+              <CodePane
+                value={output}
+                readOnly
+                placeholder="Run the tool to see the result here."
+                ariaLabel={`${tool.name} output`}
+              />
             )}
           </div>
         </StepCard>
+          </div>
+
+          <StatusBar tone={tone} title={statusTitle} note={statusNote}>
+            <span className="status-actions-secondary">
+              <button type="button" className="btn btn-outline btn-sm" onClick={saveWorkspace}>Save local</button>
+              <button type="button" className="btn btn-outline btn-sm" onClick={exportWorkspace}>Export</button>
+              <button type="button" className="btn btn-outline btn-sm" onClick={() => workspaceFileRef.current?.click()}>Import</button>
+              <input
+                ref={workspaceFileRef}
+                type="file"
+                accept="application/json,.json"
+                hidden
+                onChange={(event) => importWorkspace(event.target.files?.[0])}
+              />
+            </span>
+            <span className="status-actions-primary">
+              <button type="button" className="btn btn-primary btn-run" onClick={run}>
+                <Play size={16} /> Run tool <kbd>⌘ ⏎</kbd>
+              </button>
+            </span>
+          </StatusBar>
+        </div>
+
+        <aside className="rail" aria-label={`About ${tool.name}`}>
+          <ResultSummary
+            tool={tool}
+            tone={tone}
+            output={output}
+            errorMessage={errorMessage}
+            errorLocation={errorLocation}
+            onCopy={copyOutput}
+            onDownload={downloadOutput}
+            onJumpToError={() => errorLocation && inputPaneRef.current?.jumpTo(errorLocation.offset)}
+          />
+          <InfoRail tool={tool} showRelated={tone !== "ready"} />
+        </aside>
       </div>
-
-      <StatusBar tone={tone} title={statusTitle} note={statusNote}>
-        <button type="button" className="btn btn-outline btn-sm" onClick={saveWorkspace}>Save local</button>
-        <button type="button" className="btn btn-outline btn-sm" onClick={exportWorkspace}>Export</button>
-        <button type="button" className="btn btn-outline btn-sm" onClick={() => workspaceFileRef.current?.click()}>Import</button>
-        <input
-          ref={workspaceFileRef}
-          type="file"
-          accept="application/json,.json"
-          hidden
-          onChange={(event) => importWorkspace(event.target.files?.[0])}
-        />
-        <button type="button" className="btn btn-primary" onClick={run}><Play size={16} /> Run tool</button>
-      </StatusBar>
-
-      <p className="privacy-note"><ShieldCheck size={15} aria-hidden /> Processed locally in your browser. Your input is never uploaded.</p>
     </>
   );
 }

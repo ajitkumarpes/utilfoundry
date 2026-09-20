@@ -1,6 +1,5 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
-import { InfoRail } from "@/components/ui/InfoRail";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { SiteFooter } from "@/components/layout/SiteFooter";
 import { Workbench } from "@/components/Workbench";
@@ -31,15 +30,8 @@ export default async function Page({ params }: PageProps) {
   return (
     <>
       <PageHeader tool={tool} />
-      <div className="workspace-split">
-        <div className="workspace-main">
-          {/* Keyed so moving between tools starts a fresh bench instead of carrying state over. */}
-          <Workbench key={tool.id} tool={tool} />
-        </div>
-        <aside className="rail" aria-label={`About ${tool.name}`}>
-          <InfoRail tool={tool} />
-        </aside>
-      </div>
+      {/* Keyed so moving between tools starts a fresh bench instead of carrying state over. */}
+      <Workbench key={tool.id} tool={tool} />
       <SiteFooter />
     </>
   );

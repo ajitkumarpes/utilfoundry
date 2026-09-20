@@ -154,9 +154,13 @@ export function getToolById(id: string) {
   return BY_ID.get(id);
 }
 
-/** Tools that read secrets or card data say so; everything else shares the standard set. */
+/**
+ * Tools that read secrets or card data say so; everything else shares the standard set.
+ * "Runs in your browser" is deliberately not repeated here — the processing-pill in
+ * PageHeader already says it, right above these chips.
+ */
 export function highlightsFor(tool: ToolDefinition): string[] {
-  const chips = ["100% Free", "No account required", "Runs in your browser"];
+  const chips = ["100% Free", "No account required"];
   if (tool.category === "Payments") return [...chips, "Masked test data only"];
   if (tool.category === "Security") return [...chips, "Secrets stay in this tab"];
   return [...chips, "No upload required"];

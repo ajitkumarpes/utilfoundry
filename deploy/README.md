@@ -7,20 +7,24 @@ This Compose project runs every UtilFoundry surface behind Caddy, all built from
 - `dev.utilfoundry.com` → the developer tools (`apps/developer`)
 - `images.utilfoundry.com` → the image tools and their OCR and ML worker (`apps/images`)
 - `storage.utilfoundry.com` → the private MinIO endpoint used by PDF signed URLs
+- `admin.utilfoundry.com` → the feedback + visitor-analytics dashboard (`apps/admin`), fed by a widget on
+  every other app and its own PostgreSQL database
 
-The PDF backend and processor, PostgreSQL, Redis, MinIO and the image worker have no public host ports; Caddy is
-the only public ingress.
+The PDF backend and processor, PostgreSQL (both instances), Redis, MinIO and the image worker have no public
+host ports; Caddy is the only public ingress.
 
 ## First deployment
 
 1. Clone this repository on the server.
 2. In `deploy/`, copy `.env.example` to `.env` and replace every `replace-with-*` value with a unique secret.
-3. Point the apex and the `pdf`, `dev`, `images` and `storage` subdomains at the server with DNS A/AAAA records.
+3. Point the apex and the `pdf`, `dev`, `images`, `storage` and `admin` subdomains at the server with DNS A/AAAA
+   records.
 4. From `deploy/`, run `docker compose build` followed by `docker compose up -d`.
 5. Verify `https://utilfoundry.com` and each subdomain before opening traffic.
 
 Caddy obtains and renews certificates automatically. Keep ports 80/443 open, restrict SSH to trusted addresses,
-and back up `caddy_data`, `postgres_data`, and `minio_data`. Redis is a cache and does not need backups.
+and back up `caddy_data`, `postgres_data`, `admin_postgres_data`, and `minio_data`. Redis is a cache and does not
+need backups.
 
 ## Testing on your own machine
 
@@ -31,7 +35,7 @@ Before DNS points at a server, you can run the whole stack locally under the rea
 2. Point the hostnames at your machine (asks for your admin password):
 
    ```bash
-   sudo sh -c 'printf "\n# UtilFoundry local testing: remove before going live\n127.0.0.1 utilfoundry.com pdf.utilfoundry.com dev.utilfoundry.com images.utilfoundry.com storage.utilfoundry.com\n" >> /etc/hosts'
+   sudo sh -c 'printf "\n# UtilFoundry local testing: remove before going live\n127.0.0.1 utilfoundry.com pdf.utilfoundry.com dev.utilfoundry.com images.utilfoundry.com storage.utilfoundry.com admin.utilfoundry.com\n" >> /etc/hosts'
    ```
 
 3. Start the stack with `docker compose up -d`, then trust Caddy's local root certificate once:
@@ -49,7 +53,7 @@ Remove the `/etc/hosts` line when you are done, or the public site will be unrea
 ## Updating one app
 
 `docker compose up -d --build images` rebuilds and restarts only that service. The other service names are
-`landing`, `developer`, `pdf-frontend`, `pdf-backend` and `pdf-processor`.
+`landing`, `developer`, `pdf-frontend`, `pdf-backend`, `pdf-processor` and `admin`.
 
 For immutable releases, replace the `build` entries with pinned registry images after publishing and sign those
 images.

@@ -41,8 +41,9 @@ export default function PrivacyPage() {
             libraries that do it are downloaded to your browser and run there.
           </li>
           <li>
-            The page is served with a Content Security Policy whose <code>connect-src</code> is limited to this site,
-            so the page cannot open a connection to anywhere else even if something on it tried to.
+            The page is served with a Content Security Policy whose <code>connect-src</code> allows only this site
+            and <code>admin.utilfoundry.com</code> — the feedback and visit signal described below. It cannot reach
+            anywhere else, even if something on the page tried to.
           </li>
           <li>
             A page you already have open keeps working with the network disconnected, which is the plainest
@@ -50,11 +51,27 @@ export default function PrivacyPage() {
           </li>
         </ul>
 
-        <h2>No account, no analytics, no cookies</h2>
+        <h2>No account. An optional feedback button, and one anonymous visit signal.</h2>
         <p>
-          There is no sign-up, so we collect no name or email address. No analytics, advertising or tracking script
-          runs here, and we set no cookies.
+          There is no sign-up, so we collect no name or email address. No third-party analytics, advertising or
+          tracking script runs here — nothing from Google, Meta, an ad network or a data broker. Two things we built
+          ourselves run only against our own <code>admin.utilfoundry.com</code>, never a third party:
         </p>
+        <ul>
+          <li>
+            <strong>The &quot;Give feedback&quot; button</strong> is entirely voluntary. If you open it and press
+            Submit, we store what you typed — your message, an optional star rating, and which tool you were on if
+            you leave &quot;include tool details&quot; checked. Nothing is sent unless you press Submit, and none of
+            it is the JSON, YAML or other input you were formatting.
+          </li>
+          <li>
+            <strong>An anonymous visit signal</strong> is sent for each page you view: which page, and a coarse
+            location (country, region, city) resolved from your IP address by an offline lookup table we run
+            ourselves. Your IP address itself is never stored. <code>admin.utilfoundry.com</code> sets one cookie —
+            a random id, not your identity — so a repeat visit can be told from a new one; this site itself does not
+            set or read that cookie.
+          </li>
+        </ul>
 
         <h2>What is stored on your device</h2>
         <p>Two items, both in your browser&apos;s local storage, both invisible to us:</p>

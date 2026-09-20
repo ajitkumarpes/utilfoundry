@@ -6,6 +6,9 @@ export const PARENT_URL = process.env.NEXT_PUBLIC_PARENT_URL || "https://utilfou
 export const PDF_URL = process.env.NEXT_PUBLIC_PDF_URL || "https://pdf.utilfoundry.com";
 export const DEVELOPER_URL = process.env.NEXT_PUBLIC_DEVELOPER_URL || "https://dev.utilfoundry.com";
 
+/** Where the feedback widget and visit beacon send data. */
+export const ADMIN_URL = process.env.NEXT_PUBLIC_ADMIN_URL || "https://admin.utilfoundry.com";
+
 /** The address the privacy policy, the terms and every feedback prompt point at. */
 export const CONTACT_EMAIL = process.env.NEXT_PUBLIC_CONTACT_EMAIL || "support@utilfoundry.com";
 

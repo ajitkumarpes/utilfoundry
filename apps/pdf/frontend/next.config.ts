@@ -11,6 +11,16 @@ function apiOrigin() {
   }
 }
 
+// The feedback widget and visit beacon fetch() this origin directly, which CSP's
+// connect-src must allow explicitly — it does not fall under 'self'.
+function adminOrigin(): string {
+  try {
+    return new URL(process.env.NEXT_PUBLIC_ADMIN_URL || "https://admin.utilfoundry.com").origin;
+  } catch {
+    return "https://admin.utilfoundry.com";
+  }
+}
+
 const contentSecurityPolicy = [
   "default-src 'self'",
   "base-uri 'self'",
@@ -26,7 +36,7 @@ const contentSecurityPolicy = [
   `script-src 'self' 'unsafe-inline'${isDevelopment ? " 'unsafe-eval'" : ""}`,
   // pdf.js renders thumbnails in a module worker served from this origin.
   "worker-src 'self' blob:",
-  `connect-src 'self' ${apiOrigin()}${isDevelopment ? " ws: http://localhost:*" : ""}`.trim()
+  `connect-src 'self' ${apiOrigin()} ${adminOrigin()}${isDevelopment ? " ws: http://localhost:*" : ""}`.trim()
 ].join("; ");
 
 const securityHeaders = [
