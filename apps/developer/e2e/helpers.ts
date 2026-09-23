@@ -4,15 +4,19 @@ import { getTool, type ToolDefinition } from "../lib/tools";
 /** True once React has attached to the element, i.e. the island is live and clicks will land. */
 export async function waitForHydration(locator: Locator) {
   await expect(locator).toBeVisible();
+  // Generous on purpose: this waits for readiness, it does not measure it, and with every
+  // browser running in parallel hydration of a full tool page can take longer than 5 s.
   await expect
-    .poll(() => locator.evaluate((el) => Object.keys(el).some((key) => key.startsWith("__reactProps$"))))
+    .poll(() => locator.evaluate((el) => Object.keys(el).some((key) => key.startsWith("__reactProps$"))), { timeout: 15_000 })
     .toBe(true);
 }
 
 export async function openTool(page: Page, slug: string): Promise<ToolDefinition> {
   const tool = getTool(slug);
   if (!tool) throw new Error(`No tool with slug ${slug}`);
-  await page.goto(`/${slug}`);
+  // The heading and hydration checks below are the real readiness signal; waiting for "load"
+  // as well only adds a way to time out on a slow subresource (seen on CI in Firefox).
+  await page.goto(`/${slug}`, { waitUntil: "domcontentloaded" });
   await expect(page.getByRole("heading", { level: 1, name: tool.name })).toBeVisible();
   await waitForHydration(runButton(page));
   return tool;

@@ -296,13 +296,15 @@ test.describe("navigation and preferences", () => {
     await openTool(page, "url-encoder");
     await expect(page.getByRole("link", { name: /^Recently used/ })).toContainText("3");
     await page.goto("/tools?view=recent");
-    const names = await page.locator(".catalog-card b").allTextContents();
-    expect(names).toEqual(["URL Encoder", "Base64 Encoder", "JSON Formatter"]);
+    // Retried: the page shows every tool until it has read this browser's history.
+    await expect(page.locator(".catalog-card b")).toHaveText(["URL Encoder", "Base64 Encoder", "JSON Formatter"]);
   });
 
   test("the sidebar filter narrows the list, / focuses it and Escape clears it", async ({ page }) => {
     await openTool(page, "json-formatter");
-    await page.locator("body").click({ position: { x: 700, y: 20 } });
+    // Leave the editor without clicking anything: a fixed click position can land on a header
+    // link when fonts differ (it did on Linux CI).
+    await page.evaluate(() => (document.activeElement as HTMLElement | null)?.blur());
     await page.keyboard.press("/");
     const filter = page.getByRole("searchbox", { name: "Filter tools in this list" });
     await expect(filter).toBeFocused();
@@ -411,6 +413,15 @@ test.describe("feedback", () => {
 });
 
 test.describe("accessibility of states that only appear after interaction", () => {
+  test("off a Mac the shortcut hints read Ctrl, and stay legible", async ({ page }) => {
+    // Mac hints are symbols (⌘ ↵), which the contrast check skips; "Ctrl" is text it measures.
+    await page.addInitScript(() => Object.defineProperty(Navigator.prototype, "platform", { get: () => "Win32" }));
+    await openTool(page, "json-formatter");
+    await expect(runButton(page).locator("kbd")).toHaveText("Ctrl ↵");
+    const scan = await new AxeBuilder({ page }).include(".btn-run").withRules(["color-contrast"]).analyze();
+    expect(scan.violations).toEqual([]);
+  });
+
   for (const theme of ["light", "dark"] as const) {
     test(`result, error and documentation states have no violations (${theme})`, async ({ page }) => {
       await page.addInitScript((t) => localStorage.setItem("utilfoundry-theme", t), theme);
