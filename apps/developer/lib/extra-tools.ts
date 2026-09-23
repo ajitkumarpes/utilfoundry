@@ -86,12 +86,19 @@ export function diffJson(left: string, right: string) {
   return JSON.stringify(changes, null, 2);
 }
 
+/**
+ * Unified-diff style: every line carries its own marker. jsdiff groups consecutive changed
+ * lines into one part, so marking only the start of each part left the second of two removed
+ * lines looking unchanged — and two one-line inputs ran together as "-before+after".
+ */
 export function diffText(left: string, right: string) {
-  return diffLines(left, right)
-    .map(
-      (part) => `${part.added ? "+" : part.removed ? "-" : " "}${part.value}`,
-    )
-    .join("");
+  const withNewline = (text: string) => (text.endsWith("\n") ? text : `${text}\n`);
+  const lines: string[] = [];
+  for (const part of diffLines(withNewline(left), withNewline(right))) {
+    const marker = part.added ? "+" : part.removed ? "-" : " ";
+    for (const line of part.value.slice(0, -1).split("\n")) lines.push(`${marker}${line}`);
+  }
+  return lines.join("\n");
 }
 
 export function validateXml(value: string) {
@@ -103,6 +110,11 @@ export function validateXml(value: string) {
 
 export function formatXmlDocument(value: string) {
   if (!value.trim()) throw new Error("Enter an XML document to format.");
+  // The parser below is lenient and would "format" a broken document into something that
+  // looks plausible, so it is checked for well-formedness first and the fault is reported.
+  const check = XMLValidator.validate(value);
+  if (check !== true)
+    throw new Error(`${check.err.msg} (line ${check.err.line}, column ${check.err.col}).`);
   const options = {
     ignoreAttributes: false,
     preserveOrder: true,
@@ -179,8 +191,41 @@ export function convertTimezone(value: string, timezone: string) {
   }).format(date);
 }
 
+/**
+ * Query parameters as an object, keeping every value of a repeated key: `?tag=a&tag=b` is
+ * `{ tag: ["a", "b"] }`. Object.fromEntries kept only the last one, silently.
+ */
+export function searchParamsToObject(params: URLSearchParams) {
+  const result: Record<string, string | string[]> = {};
+  for (const [key, value] of params) {
+    const existing = result[key];
+    result[key] = existing === undefined ? value : Array.isArray(existing) ? [...existing, value] : [existing, value];
+  }
+  return result;
+}
+
+/** The reverse: an array value becomes the key repeated, the way servers read it back. */
+export function objectToSearchParams(value: unknown) {
+  if (!value || typeof value !== "object" || Array.isArray(value))
+    throw new Error("To build a query string, enter a JSON object such as {\"q\": \"shoes\", \"page\": 2}.");
+  const params = new URLSearchParams();
+  for (const [key, field] of Object.entries(value as Record<string, unknown>)) {
+    for (const item of Array.isArray(field) ? field : [field]) {
+      if (item === null || item === undefined) continue;
+      params.append(key, typeof item === "object" ? JSON.stringify(item) : String(item));
+    }
+  }
+  return params.toString();
+}
+
 export function parseUrl(value: string) {
-  const url = new URL(value);
+  let url: URL;
+  try {
+    url = new URL(value.trim());
+  } catch {
+    // Each engine words this differently ("Invalid URL", "… is not a valid URL"); one message.
+    throw new Error("Enter a full URL including its scheme, such as https://example.com/path?q=1.");
+  }
   return JSON.stringify(
     {
       href: url.href,
@@ -191,7 +236,7 @@ export function parseUrl(value: string) {
       port: url.port,
       pathname: url.pathname,
       hash: url.hash,
-      query: Object.fromEntries(url.searchParams.entries()),
+      query: searchParamsToObject(url.searchParams),
     },
     null,
     2,
@@ -206,31 +251,62 @@ const mimeTypes: Record<string, string> = {
   mjs: "text/javascript",
   ts: "text/typescript",
   json: "application/json",
+  jsonld: "application/ld+json",
+  map: "application/json",
+  webmanifest: "application/manifest+json",
   xml: "application/xml",
   yaml: "application/yaml",
   yml: "application/yaml",
   csv: "text/csv",
+  txt: "text/plain",
+  md: "text/markdown",
+  ics: "text/calendar",
   pdf: "application/pdf",
   zip: "application/zip",
+  gz: "application/gzip",
+  tar: "application/x-tar",
+  wasm: "application/wasm",
+  doc: "application/msword",
+  docx: "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+  xls: "application/vnd.ms-excel",
+  xlsx: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+  ppt: "application/vnd.ms-powerpoint",
+  pptx: "application/vnd.openxmlformats-officedocument.presentationml.presentation",
   png: "image/png",
   jpg: "image/jpeg",
   jpeg: "image/jpeg",
+  gif: "image/gif",
   svg: "image/svg+xml",
   webp: "image/webp",
-  txt: "text/plain",
-  md: "text/markdown",
-  wasm: "application/wasm",
+  avif: "image/avif",
+  ico: "image/x-icon",
+  bmp: "image/bmp",
+  mp3: "audio/mpeg",
+  wav: "audio/wav",
+  ogg: "audio/ogg",
+  mp4: "video/mp4",
+  webm: "video/webm",
+  woff: "font/woff",
+  woff2: "font/woff2",
+  ttf: "font/ttf",
+  otf: "font/otf",
 };
 
+const MIME_NOT_FOUND =
+  "MIME type not found. Try an extension such as json, html, png or pdf, or a type such as image/png.";
+
+/** An extension or file name gives its type; a type (anything with a /) gives its extensions. */
 export function lookupMime(value: string) {
-  const key = value
-    .trim()
-    .toLowerCase()
-    .replace(/^\./, "")
-    .replace(/^.*\./, "");
-  return mimeTypes[key]
-    ? `${key}: ${mimeTypes[key]}`
-    : "MIME type not found. Try an extension such as json, html, png, or pdf.";
+  const query = value.trim().toLowerCase();
+  if (query.includes("/")) {
+    const type = query.split(";")[0].trim();
+    const extensions = Object.entries(mimeTypes)
+      .filter(([, mime]) => mime === type)
+      .map(([extension]) => `.${extension}`);
+    return extensions.length ? `${type}: ${extensions.join(", ")}` : MIME_NOT_FOUND;
+  }
+  const key = query.replace(/^\./, "").replace(/^.*\./, "");
+  return mimeTypes[key] ? `${key}: ${mimeTypes[key]}` : MIME_NOT_FOUND;
 }
 
 export async function formatCode(value: string, language: string) {
@@ -675,8 +751,18 @@ export function validateCompose(value: string) {
       else if (!service.image && !service.build)
         errors.push(`${name}: define image or build.`);
     }
+  const details = serviceNames.map((name) => {
+    const service = asRecord(services?.[name]) ?? {};
+    return {
+      name,
+      image: service.image ?? null,
+      build: service.build ?? null,
+      ports: Array.isArray(service.ports) ? service.ports : [],
+      volumes: Array.isArray(service.volumes) ? service.volumes : [],
+    };
+  });
   return JSON.stringify(
-    { valid: errors.length === 0, services: serviceNames, errors },
+    { valid: errors.length === 0, services: details, errors },
     null,
     2,
   );
@@ -684,9 +770,27 @@ export function validateCompose(value: string) {
 
 const gitignoreTemplates: Record<string, string> = {
   Node: "node_modules/\n.next/\ndist/\n.env*\n*.log",
-  Java: "target/\n.classpath\n.project\n*.log",
-  Python: "__pycache__/\n.venv/\n*.py[cod]\n.env",
+  Python: "__pycache__/\n.venv/\n*.py[cod]\n.env\n.pytest_cache/",
+  Java: "target/\n.classpath\n.project\n*.class\n*.log",
+  Go: "bin/\n*.exe\n*.test\n*.out\nvendor/",
+  Rust: "target/\n**/*.rs.bk",
+  Ruby: ".bundle/\nvendor/bundle/\nlog/\ntmp/\n.env",
+  PHP: "vendor/\n.env\n*.cache",
+  DotNet: "bin/\nobj/\n*.user\n.vs/",
+  Terraform: ".terraform/\n*.tfstate\n*.tfstate.*\n.terraform.lock.hcl\n*.tfvars",
   macOS: ".DS_Store\n.AppleDouble\n.LSOverride",
+  Windows: "Thumbs.db\nehthumbs.db\nDesktop.ini\n$RECYCLE.BIN/",
+  Linux: "*~\n.directory\n.Trash-*",
+  VSCode: ".vscode/*\n!.vscode/settings.json\n!.vscode/extensions.json",
+  JetBrains: ".idea/\n*.iml\nout/",
+};
+
+/** What people actually type for a stack, lower-cased, mapped to the template's name. */
+const GITIGNORE_ALIASES: Record<string, string> = {
+  "node.js": "Node", nodejs: "Node", js: "Node", javascript: "Node", typescript: "Node",
+  ".net": "DotNet", net: "DotNet", csharp: "DotNet", "c#": "DotNet",
+  mac: "macOS", osx: "macOS", "vs code": "VSCode", code: "VSCode", intellij: "JetBrains", idea: "JetBrains",
+  golang: "Go", py: "Python",
 };
 
 export function generateGitignore(value: string) {
@@ -696,17 +800,24 @@ export function generateGitignore(value: string) {
     .filter(Boolean);
   if (!names.length)
     throw new Error("Enter one or more templates, such as Node or Python.");
+  const known = Object.keys(gitignoreTemplates);
   return names
-    .map((name) => gitignoreTemplates[name] ?? `# ${name}`)
+    .map((name) => {
+      const lower = name.toLowerCase();
+      const match = GITIGNORE_ALIASES[lower] ?? known.find((key) => key.toLowerCase() === lower);
+      return match
+        ? `# ${match}\n${gitignoreTemplates[match]}`
+        : `# No template for "${name}". Known: ${known.join(", ")}.`;
+    })
     .join("\n\n");
 }
 
 export function formatNginx(value: string) {
   let depth = 0;
   return value
-    .replace(/[{};]/g, (token) =>
-      token === "{" ? "{\n" : token === "}" ? "\n}" : ";\n",
-    )
+    .replace(/\s*\{\s*/g, " {\n")
+    .replace(/\s*\}\s*/g, "\n}\n")
+    .replace(/;[ \t]*/g, ";\n")
     .split("\n")
     .map((line) => {
       const text = line.trim();
@@ -1039,8 +1150,25 @@ export function decodePem(value: string) {
   );
 }
 
+const WEBHOOK_SUMMARY_KEYS = [
+  "event", "type", "event_type", "eventType", "action", "topic",
+  "id", "event_id", "eventId", "delivery_id", "deliveryId", "webhook_id", "request_id", "requestId",
+  "created", "created_at", "createdAt", "timestamp", "occurred_at", "time",
+];
+
+/** The fields a reader looks for first — what happened, which event, when — ahead of the body. */
 export function formatWebhook(value: string) {
-  return JSON.stringify(JSON.parse(value), null, 2);
+  const payload = JSON.parse(value);
+  if (!payload || typeof payload !== "object" || Array.isArray(payload))
+    return JSON.stringify(payload, null, 2);
+  const summary = Object.fromEntries(
+    WEBHOOK_SUMMARY_KEYS.filter((key) => {
+      const field = (payload as Record<string, unknown>)[key];
+      return field !== undefined && (field === null || typeof field !== "object");
+    }).map((key) => [key, (payload as Record<string, unknown>)[key]]),
+  );
+  if (!Object.keys(summary).length) return JSON.stringify(payload, null, 2);
+  return JSON.stringify({ summary, payload }, null, 2);
 }
 
 export function buildApiRequest(value: string) {
@@ -1154,7 +1282,7 @@ export function compareVersions(value: string) {
 }
 
 export function formatEnv(value: string) {
-  return value
+  const lines = value
     .split(/\r?\n/)
     .filter((line) => line.trim() && !line.trim().startsWith("#"))
     .map((line) => {
@@ -1162,9 +1290,15 @@ export function formatEnv(value: string) {
       return index < 0
         ? line.trim()
         : `${line.slice(0, index).trim()}=${line.slice(index + 1).trim()}`;
-    })
-    .sort()
-    .join("\n");
+    });
+  const seen = new Map<string, number>();
+  for (const line of lines) {
+    const key = line.split("=")[0];
+    seen.set(key, (seen.get(key) ?? 0) + 1);
+  }
+  const duplicates = [...seen].filter(([, count]) => count > 1).map(([key]) => key);
+  const body = lines.sort().join("\n");
+  return duplicates.length ? `${body}\n\n# Duplicate keys: ${duplicates.join(", ")}` : body;
 }
 
 export function generatePassword(lengthValue: string) {
@@ -1334,6 +1468,7 @@ export function redactSecrets(value: string) {
   replace(/(api[_-]?key\s*[:=]\s*)[^\s,;]+/gi, "API key", "$1[REDACTED]");
   replace(/(secret|password|token)\s*[:=]\s*([^\s,;]+)/gi, "credential", "$1=[REDACTED]");
   replace(/\b(?:AKIA|ASIA)[A-Z0-9]{16}\b/g, "AWS access key", "[REDACTED_AWS_KEY]");
+  replace(/[A-Z0-9._%+-]+@[A-Z0-9-]+(?:\.[A-Z0-9-]+)*\.[A-Z]{2,}/gi, "email address", "[REDACTED_EMAIL]");
   replace(/\b(?:\d[ -]*?){13,19}\b/g, "card-like number", "[REDACTED_CARD]");
   return JSON.stringify({ redacted, findings: Array.from(new Set(findings)) }, null, 2);
 }

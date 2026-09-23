@@ -105,6 +105,26 @@ describe("developer tool processors", () => {
     ).toBe(true);
   });
 
+  it("does what each description promises", () => {
+    expect(lookupMime("application/json")).toBe("application/json: .json, .map");
+    expect(lookupMime("image/jpeg")).toBe("image/jpeg: .jpg, .jpeg");
+    expect(lookupMime("report.final.PDF")).toBe("pdf: application/pdf");
+    expect(lookupMime("application/x-unknown")).toContain("not found");
+
+    const redacted = JSON.parse(redactSecrets("user email=a.person@example.co.uk failed login"));
+    expect(redacted.redacted).toBe("user email=[REDACTED_EMAIL] failed login");
+    expect(redacted.findings).toContain("email address");
+
+    expect(formatEnv("PORT=3000\nHOST=x\nPORT=4000")).toBe("HOST=x\nPORT=3000\nPORT=4000\n\n# Duplicate keys: PORT");
+
+    const compose = JSON.parse(validateCompose("services:\n  api:\n    image: node:22\n    ports: [\"3000:3000\"]\n    volumes: [\"./src:/app\"]"));
+    expect(compose.services[0]).toEqual({ name: "api", image: "node:22", build: null, ports: ["3000:3000"], volumes: ["./src:/app"] });
+
+    const webhook = JSON.parse(formatWebhook('{"data":{"amount":5},"type":"payment.succeeded","id":"evt_1"}'));
+    expect(Object.keys(webhook)).toEqual(["summary", "payload"]);
+    expect(webhook.summary).toEqual({ type: "payment.succeeded", id: "evt_1" });
+  });
+
   it("compares semantic versions", () => {
     expect(JSON.parse(compareVersions("1.2.0 1.1.9")).relation).toBe(
       "left is newer",

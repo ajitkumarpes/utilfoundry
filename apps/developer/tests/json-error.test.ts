@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { locateJsonError } from "../lib/json-error";
+import { explainJsonError, locateJsonError } from "../lib/json-error";
 
 /** Cross-checks every case against the real parser: whenever JSON.parse accepts an
  *  input, locateJsonError must say null; whenever it throws, locateJsonError must
@@ -64,5 +64,34 @@ describe("locateJsonError", () => {
       '{"a":1,}', "[", "{", '"unterminated', "01", "1.", ".1", "1e", "--1"
     ];
     for (const input of cases) expectAgreesWithNativeParser(input);
+  });
+});
+
+describe("explainJsonError", () => {
+  const cases: Array<[string, string, RegExp]> = [
+    ["trailing comma in an array", '{"roles": ["admin", "dev",]}', /Trailing comma before ']'/],
+    ["trailing comma in an object", '{"a": 1,}', /Trailing comma before '}'/],
+    ["missing comma between properties", '{"a": 1 "b": 2}', /comma is missing between two properties/],
+    ["missing comma between items", "[1 2]", /comma is missing between two array items/],
+    ["single quotes", "{'a': 1}", /double quotes/],
+    ["unquoted key", "{name: 1}", /Property names must be wrapped in double quotes/],
+    ["missing colon", '{"a" 1}', /colon \(:\) is missing/],
+    ["unclosed object", '{"a": 1', /object is not closed/],
+    ["unclosed array", "[1, 2", /array is not closed/],
+    ["unclosed string", '{"a": "open}', /string is not closed/],
+    ["bare word", '{"a": yes}', /yes is not a JSON value/],
+    ["comment", '{"a": 1 // note\n}', /comments/],
+    ["two documents", "{} {}", /extra text after the end/],
+    ["empty input", "", /empty/]
+  ];
+
+  for (const [name, input, expected] of cases) {
+    it(`explains ${name}`, () => {
+      expect(explainJsonError(input)).toMatch(expected);
+    });
+  }
+
+  it("says nothing about valid JSON", () => {
+    expect(explainJsonError('{"a": [1, 2, {"b": null}]}')).toBeNull();
   });
 });

@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState, type FormEvent } from "react";
+import { useEffect, useRef, useState, type FormEvent } from "react";
 import { usePathname } from "next/navigation";
 import { AlertTriangle, CheckCircle2, Heart, Lightbulb, MessageCircle, Send, Star, X } from "lucide-react";
 import { getTool } from "@/lib/tools";
@@ -10,6 +10,14 @@ const APP_ID = "developer";
 const MAX_MESSAGE_LENGTH = 500;
 
 type Category = "general" | "feature_request" | "issue" | "thanks";
+
+const OPEN_EVENT = "utilfoundry:open-feedback";
+type FeedbackPreset = { category?: Category; message?: string };
+
+/** Opens the feedback dialog from anywhere on the page, e.g. the sidebar's "Suggest a tool". */
+export function openFeedback(preset: FeedbackPreset = {}) {
+  window.dispatchEvent(new CustomEvent<FeedbackPreset>(OPEN_EVENT, { detail: preset }));
+}
 
 const CATEGORIES: { id: Category; label: string; icon: typeof MessageCircle }[] = [
   { id: "general", label: "General Feedback", icon: MessageCircle },
@@ -48,10 +56,22 @@ export default function FeedbackWidget() {
     setError(null);
   }
 
-  function open() {
+  function open(preset: FeedbackPreset = {}) {
     setSubmitted(false);
+    if (preset.category) setCategory(preset.category);
+    if (preset.message !== undefined) setMessage(preset.message);
     dialogRef.current?.showModal();
   }
+
+  const openRef = useRef(open);
+  useEffect(() => {
+    openRef.current = open;
+  });
+  useEffect(() => {
+    const onOpen = (event: Event) => openRef.current((event as CustomEvent<FeedbackPreset>).detail ?? {});
+    window.addEventListener(OPEN_EVENT, onOpen);
+    return () => window.removeEventListener(OPEN_EVENT, onOpen);
+  }, []);
 
   function close() {
     dialogRef.current?.close();
@@ -87,9 +107,12 @@ export default function FeedbackWidget() {
 
   return (
     <>
-      <button type="button" className="feedback-fab" onClick={open} aria-label="Give feedback">
-        <MessageCircle size={22} />
-      </button>
+      <div className="feedback-fab-wrap">
+        <span className="feedback-fab-label" aria-hidden="true">Feedback</span>
+        <button type="button" className="feedback-fab" onClick={() => open()} aria-label="Give feedback">
+          <MessageCircle size={24} />
+        </button>
+      </div>
 
       <dialog ref={dialogRef} className="feedback-dialog">
         {!submitted ? (

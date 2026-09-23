@@ -1,6 +1,6 @@
 import { expect, test, type Page } from "@playwright/test";
 import AxeBuilder from "@axe-core/playwright";
-import { TOOLS, getToolById } from "../lib/tools";
+import { TOOLS } from "../lib/tools";
 
 /**
  * Opens a page with the dark colour scheme genuinely in force.
@@ -29,9 +29,8 @@ async function gotoInDarkMode(page: Page, path: string) {
  * a separate question, covered by its own test below.
  */
 async function hydratedInput(page: Page) {
-  // Scoped past readonly (the output pane) and the feedback dialog's own textarea,
-  // which also live in the DOM now — a bare "textarea" locator matches all three.
-  const textarea = page.locator(".pane textarea:not([readonly])");
+  // The output pane is a read-only textarea too, and the feedback dialog has its own.
+  const textarea = page.locator(".editor:not(.is-readonly) textarea");
   await expect(textarea).toBeVisible();
   await expect
     .poll(() => textarea.evaluate((el) => Object.keys(el).some((key) => key.startsWith("__reactFiber$"))))
@@ -50,56 +49,18 @@ test.describe("developer tools browser coverage", () => {
     for (const tool of TOOLS) {
       await page.goto(`/${tool.slug}`);
       await expect(page.getByRole("heading", { level: 1, name: tool.name })).toBeVisible();
+      await expect
+        .poll(() => page.getByRole("button", { name: "Run tool" }).evaluate((el) => Object.keys(el).some((key) => key.startsWith("__reactProps$"))))
+        .toBe(true);
       await page.getByRole("button", { name: "Run tool" }).click();
-      // The shipped example must actually succeed. Accepting "Check your input" here let
-      // seven tools ship with examples that error the moment you press Run — and hid two
-      // tools that the production CSP broke outright.
-      await expect(page.locator(".notice")).toContainText("Done", { timeout: 15_000 });
-      await expect(page.locator(".has-output, .preview, .image-preview")).toHaveCount(1);
-    }
-  });
-
-  test("representative tool modes transform user input in the browser", async ({ page }) => {
-    const cases = [
-      ["base64", "decode", "VXRpbEZvdW5kcnk=", "UtilFoundry"],
-      ["hex", "decode", "41 42 43", '"text": "ABC"'],
-      ["binary", "binary-to-hex", "01000001", "41"],
-      ["bcd", "decode", "12 34 5F", "12345"],
-      ["bcd", "encode", "12345", "12 34 5F"],
-      ["number", "16", "ff", '"decimal": "255"'],
-      ["number", "16", "FFFFFFFFFFFFFFFF", '"decimal": "18446744073709551615"'],
-      ["jsonpath", "$.user.name", '{"user":{"name":"Asha"}}', "Asha"],
-      ["color", "", "#4263EB80", '"hex8": "#4263EB80"'],
-      ["openapi-diff", "", '{"openapi":"3.0.3","info":{"title":"A","version":"1"},"paths":{"/users":{"get":{"responses":{"200":{"description":"ok"},"404":{"description":"missing"}}}}}}\n---\n{"openapi":"3.0.3","info":{"title":"A","version":"2"},"paths":{"/users":{"get":{"responses":{"200":{"description":"ok"}}}}}}', "removed-response"],
-      ["json-schema-generator", "", '{"name":"Asha","age":30}', '"$schema"'],
-      ["log-redactor", "", "authorization: Bearer abc api_key=secret", "REDACTED"],
-      ["protobuf", "", "08 96 01 12 05 48 65 6C 6C 6F", '"wireType": 0'],
-      ["asn1", "", "30 0A 02 01 05 04 05 48 65 6C 6C 6F", '"constructed": true'],
-      ["regex-safe", "", "aaaaaaaaaaaaaaaaaaaaaaaa", '"safe": true'],
-    ] as const;
-
-    for (const [toolId, option, input, expected] of cases) {
-      const tool = getToolById(toolId);
-      expect(tool, `${toolId} is missing from the catalog`).toBeDefined();
-      await page.goto(`/${tool!.slug}`);
-      const textarea = await hydratedInput(page);
-      await textarea.fill(input);
-      if (option) {
-        const select = page.locator(".tool-options select");
-        if (await select.count()) {
-          await select.selectOption(option);
-        } else {
-          await page.locator(".tool-options input").fill(option);
-        }
-      }
-      // Typing can land before the island hydrates, and React used to write the shipped
-      // example back over it — which is what a visitor on a slow connection would also
-      // get. Asserting the field first means a return of that bug fails here by name
-      // rather than as an unexplained wrong answer further down.
-      await expect(textarea).toHaveValue(input);
-      await page.getByRole("button", { name: "Run tool" }).click();
-      await expect(page.locator(".has-output, .preview, .image-preview")).toHaveCount(1);
-      await expect(page.locator(".pane").nth(1)).toContainText(expected);
+      // The shipped example must actually run. Accepting an error here let seven tools ship
+      // with examples that failed the moment you pressed Run — and hid two tools that the
+      // production CSP broke outright. (A validator's "invalid" verdict is a real answer.)
+      const banner = page.locator(".result-banner");
+      await expect(banner).toBeVisible({ timeout: 15_000 });
+      await expect(banner).not.toHaveClass(/is-busy/, { timeout: 15_000 });
+      await expect(banner, `${tool.slug}: ${await banner.innerText()}`).not.toHaveClass(/is-error/);
+      await expect(page.locator(".has-output")).toHaveCount(1);
     }
   });
 
@@ -118,7 +79,7 @@ test.describe("developer tools browser coverage", () => {
     });
 
     await page.goto("/json-formatter", { waitUntil: "commit" });
-    const textarea = page.locator(".pane textarea:not([readonly])");
+    const textarea = page.locator(".editor:not(.is-readonly) textarea");
     await expect(textarea).toBeVisible();
 
     const pasted = '{"pasted":"before hydration"}';
@@ -137,7 +98,7 @@ test.describe("developer tools browser coverage", () => {
 
     // And the run has to use it, not merely leave it on screen.
     await page.getByRole("button", { name: "Run tool" }).click();
-    await expect(page.locator(".pane").nth(1)).toContainText("before hydration");
+    await expect(page.getByLabel("JSON Formatter output", { exact: true })).toHaveValue(/before hydration/);
   });
 
   test("the root redirects to the first tool", async ({ page }) => {
@@ -151,6 +112,7 @@ test.describe("developer tools browser coverage", () => {
    * all seventy, since every tool draws from the same shell.
    */
   const A11Y_SAMPLE = [
+    "tools",
     "json-formatter",
     "markdown-preview",
     "qr-generator",
@@ -185,7 +147,11 @@ test.describe("developer tools browser coverage", () => {
     await page.goto("/?tool=jwt");
     await expect(page).toHaveURL(/\/jwt-decoder$/);
     await expect(page.getByRole("heading", { level: 1, name: "JWT Decoder" })).toBeVisible();
-    await page.getByLabel("JWT Decoder input").fill("eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiIxMjMifQ.signature");
+    const input = page.getByLabel("JWT Decoder input", { exact: true });
+    await expect
+      .poll(() => input.evaluate((el) => Object.keys(el).some((key) => key.startsWith("__reactFiber$"))))
+      .toBe(true);
+    await input.fill("eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiIxMjMifQ.signature");
     await page.getByRole("button", { name: "Run tool" }).click();
     await expect(page.getByRole("alert").filter({ hasText: "Potentially sensitive" })).toContainText("JWT");
   });

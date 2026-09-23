@@ -1,6 +1,5 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
-import { PageHeader } from "@/components/ui/PageHeader";
 import { SiteFooter } from "@/components/layout/SiteFooter";
 import { Workbench } from "@/components/Workbench";
 import { TOOLS, getTool } from "@/lib/tools";
@@ -29,7 +28,6 @@ export default async function Page({ params }: PageProps) {
   if (!tool) notFound();
   return (
     <>
-      <PageHeader tool={tool} />
       {/* Keyed so moving between tools starts a fresh bench instead of carrying state over. */}
       <Workbench key={tool.id} tool={tool} />
       <SiteFooter />

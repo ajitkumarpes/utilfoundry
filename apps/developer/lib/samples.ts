@@ -31,7 +31,8 @@ const RS256_TOKEN_AND_JWK = [
 
 /** The example input each tool starts with, keyed by tool id. */
 export const STARTERS: Record<string, string> = {
-  json: '{"project":"UtilFoundry","private":true,"tools":["json","jwt"]}',
+  // Written the way JSON usually arrives by hand: nested but unevenly laid out.
+  json: '[{\n  "id": 7,\n  "name": "George Clark",\n  "email": "george@example.com",\n  "roles": ["user"],\n  "active": true\n},\n{\n  "id": 8,\n  "name": "Hannah Abbott",\n  "email": "hannah@example.com",\n  "roles": ["user"],\n  "active": false\n}]',
   base64: "UtilFoundry developer tools",
   url: "https://utilfoundry.com/tools?q=hello world",
   jwt: "eyJhbGciOiJub25lIiwidHlwIjoiSldUIn0.eyJzdWIiOiJ1c2VyIiwicm9sZSI6ImRldmVsb3BlciJ9.",
@@ -109,6 +110,7 @@ export const STARTERS: Record<string, string> = {
 
 /** What the tool's single option field starts at, where it has one. */
 export function defaultOption(id: string) {
+  if (id === "json") return "pretty";
   if (id === "hash") return "SHA-256";
   if (id === "number") return "10";
   if (id === "jsonpath") return "$.user.name";

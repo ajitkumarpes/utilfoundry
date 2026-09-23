@@ -12,6 +12,7 @@ import {
   buildApiRequest, cleanWhitespace, compareVersions, convertTimezone, decodeAsn1, decodeProtobuf,
   decodePem, dedupeLines, diffJson, diffOpenApi, diffText, explainCron, explainRegex,
   extractJsonPath, formatCode, formatXmlDocument, formatEnv, formatGraphql, formatSql, formatNginx,
+  objectToSearchParams, searchParamsToObject,
   parseUserDate, renderMarkdown, convertNumber, convertColor, generateGitignore, generateJsonSchema,
   generatePassword, generateQr, imageToBase64, lookupMime, parseUrl, redactSecrets, safeRegexTest,
   signJwtHmac, sortLines, summarizeCsv, summarizeOpenApi, validateCompose, validateJson,
@@ -137,9 +138,18 @@ const STATUS_CODES: Record<string, string> = {
 };
 
 export const HANDLERS: Record<string, Handler> = {
-  json: ({ input }) => prettyJson(input),
+  json: ({ input, option }) =>
+    option === "minify" ? JSON.stringify(JSON.parse(input)) : option === "validate" ? validateJson(input) : prettyJson(input),
   base64: ({ input, option }) => (option === "decode" ? decodeBase64Utf8(input) : encodeBase64(input)),
-  url: ({ input, option }) => (option === "decode" ? decodeURIComponent(input) : encodeURIComponent(input)),
+  url: ({ input, option }) => {
+    if (option !== "decode") return encodeURIComponent(input);
+    try {
+      return decodeURIComponent(input);
+    } catch {
+      // Engines word this "URI malformed" or just "URI error"; say what is actually wrong.
+      throw new Error("A % must be followed by two hex digits that form valid UTF-8, such as %20 or %C3%A9. This text has one that is not.");
+    }
+  },
   jwt: ({ input }) => {
     const parts = input.trim().split(".");
     if (parts.length !== 3 || !parts[0] || !parts[1]) throw new Error("A compact JWT must contain header.payload.signature.");
@@ -193,13 +203,18 @@ export const HANDLERS: Record<string, Handler> = {
   sql: ({ input }) => formatSql(input),
   graphql: ({ input }) => formatGraphql(input),
   query: ({ input }) => {
-    if (/^https?:\/\//i.test(input)) {
-      return JSON.stringify(Object.fromEntries(new URL(input).searchParams.entries()), null, 2);
+    const text = input.trim();
+    if (/^https?:\/\//i.test(text)) return JSON.stringify(searchParamsToObject(new URL(text).searchParams), null, 2);
+    if (/^\??[^\s=&{[]+=[\s\S]*/.test(text)) {
+      return JSON.stringify(searchParamsToObject(new URLSearchParams(text.replace(/^\?/, ""))), null, 2);
     }
-    if (/^[^\s=]+=[\s\S]*/.test(input.trim())) {
-      return JSON.stringify(Object.fromEntries(new URLSearchParams(input.trim().replace(/^\?/, "")).entries()), null, 2);
+    let parsed: unknown;
+    try {
+      parsed = JSON.parse(text);
+    } catch {
+      throw new Error("Enter a URL, a query string such as page=2&sort=desc, or a JSON object to build one from.");
     }
-    return new URLSearchParams(JSON.parse(input)).toString();
+    return objectToSearchParams(parsed);
   },
   number: ({ input, option }) => convertNumber(input, option),
   color: ({ input }) => convertColor(input),
@@ -207,7 +222,9 @@ export const HANDLERS: Record<string, Handler> = {
   cron: ({ input }) => explainCron(input),
   "json-validator": ({ input }) => validateJson(input),
   "json-minifier": ({ input }) => JSON.stringify(JSON.parse(input)),
-  jsonpath: ({ input, option }) => JSON.stringify(extractJsonPath(input, option), null, 2),
+  // extractJsonPath already returns formatted JSON; stringifying it again wrapped the
+  // result in quotes and escaped every inner quote.
+  jsonpath: ({ input, option }) => extractJsonPath(input, option),
   "json-diff": ({ input }) => {
     const [left, right] = pair(input, "Separate JSON documents with a line containing ---.");
     return diffJson(left, right);

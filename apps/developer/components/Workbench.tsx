@@ -3,128 +3,254 @@
 /* eslint-disable @next/next/no-img-element */
 
 import { useEffect, useRef, useState } from "react";
-import { Copy, Download, Play, RotateCcw, ShieldCheck } from "lucide-react";
+import {
+  ArrowLeftRight, Copy, Download, FileText, FolderOpen, ImagePlus, Maximize2, Minimize2, Save, ShieldCheck,
+  Trash2, Upload
+} from "lucide-react";
 import { StepCard } from "@/components/ui/StepCard";
-import { StatusBar, type StatusTone } from "@/components/ui/StatusBar";
-import { CodePane, type CodePaneHandle } from "@/components/ui/CodePane";
-import { ResultSummary } from "@/components/ui/ResultSummary";
-import { InfoRail } from "@/components/ui/InfoRail";
-import { detectSensitiveInput, runTool } from "@/lib/run-tool";
+import { CodeEditor, type CodeEditorHandle } from "@/components/ui/CodeEditor";
+import { OptionsBar, type MenuItem } from "@/components/ui/OptionsBar";
+import { ResultBanner } from "@/components/ui/ResultBanner";
+import { ToolRail, type QuickAction } from "@/components/ui/ToolRail";
+import { ToolCrumbs, ToolHero } from "@/components/ui/PageHeader";
+import { Toast, useToast } from "@/components/ui/Toast";
+import { detectSensitiveInput, maxInputLength, runTool } from "@/lib/run-tool";
 import { STARTERS, defaultOption } from "@/lib/samples";
-import { locateJsonError, type JsonErrorLocation } from "@/lib/json-error";
+import { explainJsonError, locateJsonError } from "@/lib/json-error";
+import { byteLength, summarizeResult } from "@/lib/result-summary";
+import type { RunResult } from "@/lib/run-result";
+import {
+  downloadExtension, inputLanguage, inputSubtitle, optionsFor, outputLanguage, outputSubtitle, reverseChoice,
+  type OptionField
+} from "@/lib/tool-options";
 import type { ToolDefinition } from "@/lib/tools";
 
-/** Tools whose single option is a plain encode/decode switch. */
-const MODE_TOOLS = ["base64", "url", "yaml", "csv", "html", "hex"];
-
 /**
- * Tools where a thrown JSON.parse error's "position N" lands directly in the full
- * `input` textarea, so it can drive "jump to error". json-diff and json-schema parse a
- * *half* of the input (split on a --- line), where that same offset would point at the
- * wrong place, so they're deliberately left out rather than jumping somewhere wrong.
+ * Tools whose whole input is one JSON document, so a JSON.parse failure's position lands
+ * in the input box and can drive "jump to error". The two-document tools (json-diff,
+ * json-schema, openapi-diff) parse half of the input each, where the same offset would
+ * point at the wrong place, so they are deliberately left out.
  */
-const JSON_ERROR_LOCATABLE = new Set(["json", "json-validator", "json-minifier", "jsonpath", "json-schema-generator"]);
+const JSON_ERROR_LOCATABLE = new Set([
+  "json", "json-validator", "json-minifier", "jsonpath", "json-schema-generator", "webhook", "curl", "api-request"
+]);
+
+const DEFAULT_PATTERN = "\\b[A-Z][a-z]+\\b";
+const DEFAULT_FLAGS = "g";
+const DEFAULT_SECRET = "change-me-locally";
 
 /**
  * Reads a field's current value so React can start from it instead of from the shipped default.
  *
  * Every tool page is prerendered, so the example text and the default option are on screen and
  * editable well before this island hydrates. React seeds its state on that first client render
- * and then writes the seed back over the DOM, so a paste or a mode change made in the gap is
- * discarded without a trace. Measured in WebKit against a slow server: text typed into the input
- * box before hydration was replaced by the shipped example, and the tool then ran on the example.
+ * and then writes the seed back over the DOM, so a paste or a mode change made in the gap would
+ * be discarded without a trace. Measured in WebKit against a slow server: text typed into the
+ * input before hydration was replaced by the shipped example, and the tool then ran on it.
  *
- * The id is per tool, so a client-side move to a different tool cannot adopt the outgoing page's
- * value — that element carries the previous tool's id and no longer matches.
+ * Ids and radio names are per tool, so a client-side move to another tool cannot adopt the
+ * outgoing page's value.
  */
 function seedFromField(id: string, fallback: string) {
   if (typeof document === "undefined") return fallback;
   const field = document.getElementById(id);
-  const isFormField =
-    field instanceof HTMLTextAreaElement || field instanceof HTMLInputElement || field instanceof HTMLSelectElement;
-  return isFormField ? field.value : fallback;
+  if (field instanceof HTMLTextAreaElement || field instanceof HTMLInputElement || field instanceof HTMLSelectElement) {
+    return field.value;
+  }
+  const checked = document.querySelector<HTMLInputElement>(`input[type="radio"][name="${id}"]:checked`);
+  return checked ? checked.value : fallback;
+}
+
+function errorTitle(toolId: string, error: unknown) {
+  const name = error instanceof Error ? error.name : "";
+  const message = error instanceof Error ? error.message : "";
+  if (toolId === "regex" || toolId === "regex-safe" || toolId === "regex-visualizer") return "Invalid pattern";
+  if (name === "SyntaxError" && /JSON/.test(message)) return "Invalid JSON";
+  if (name === "YAMLException") return "Invalid YAML";
+  if (name === "GraphQLError") return "Invalid GraphQL";
+  return "Couldn't process that";
 }
 
 export function Workbench({ tool }: { tool: ToolDefinition }) {
   const fieldId = (name: string) => `wb-${tool.id}-${name}`;
   const [input, setInput] = useState(() => seedFromField(fieldId("input"), STARTERS[tool.id] ?? ""));
-  const [output, setOutput] = useState("");
-  const [notice, setNotice] = useState("");
-  const [tone, setTone] = useState<StatusTone>("idle");
   const [option, setOption] = useState(() => seedFromField(fieldId("option"), defaultOption(tool.id)));
-  const [pattern, setPattern] = useState(() => seedFromField(fieldId("pattern"), "\\b[A-Z][a-z]+\\b"));
-  const [flags, setFlags] = useState(() => seedFromField(fieldId("flags"), "g"));
-  const [secret, setSecret] = useState(() => seedFromField(fieldId("secret"), "change-me-locally"));
+  const [pattern, setPattern] = useState(() => seedFromField(fieldId("pattern"), DEFAULT_PATTERN));
+  const [flags, setFlags] = useState(() => seedFromField(fieldId("flags"), DEFAULT_FLAGS));
+  const [secret, setSecret] = useState(() => seedFromField(fieldId("secret"), DEFAULT_SECRET));
+  const [output, setOutput] = useState("");
+  const [result, setResult] = useState<RunResult | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [bannerHidden, setBannerHidden] = useState(false);
   const [securityWarning, setSecurityWarning] = useState("");
-  const [errorMessage, setErrorMessage] = useState("");
-  const [errorLocation, setErrorLocation] = useState<JsonErrorLocation | null>(null);
+  const inputRef = useRef<CodeEditorHandle>(null);
   const workspaceFileRef = useRef<HTMLInputElement>(null);
-  const inputPaneRef = useRef<CodePaneHandle>(null);
+  const textFileRef = useRef<HTMLInputElement>(null);
+  const imageFileRef = useRef<HTMLInputElement>(null);
+  const toast = useToast();
 
-  async function run() {
-    const findings = detectSensitiveInput(input);
+  // A generator ignores the input box, and a control that does nothing is worse than none.
+  const needsInput = tool.inputLabel !== "Not needed";
+  const isImageTool = tool.id === "image-base64";
+
+  function clearResult() {
+    setOutput("");
+    setResult(null);
+    setBannerHidden(false);
+  }
+
+  async function run(overrides: { input?: string; option?: string } = {}) {
+    const runInput = overrides.input ?? input;
+    const runOption = overrides.option ?? option;
+    const findings = detectSensitiveInput(runInput);
     setSecurityWarning(
       findings.length
         ? `Potentially sensitive ${findings.join(", ")} detected. Use masked test data only and clear this page when finished.`
         : ""
     );
-    setTone("busy");
+    setBusy(true);
+    setBannerHidden(false);
+    const started = performance.now();
     try {
-      setOutput(await runTool(tool.id, { input, option, pattern, flags, secret }));
-      setNotice("Done");
-      setErrorMessage("");
-      setErrorLocation(null);
-      setTone("ready");
+      const produced = await runTool(tool.id, { input: runInput, option: runOption, pattern, flags, secret });
+      const elapsedMs = performance.now() - started;
+      setOutput(produced);
+      setResult({
+        status: "success",
+        ...summarizeResult(tool.id, runOption, produced, elapsedMs),
+        elapsedMs,
+        inputBytes: byteLength(runInput),
+        option: runOption
+      });
     } catch (error) {
       const message = error instanceof Error ? error.message : "Unable to process input.";
-      setOutput(message);
-      setNotice("Check your input");
-      setErrorMessage(message);
-      setErrorLocation(JSON_ERROR_LOCATABLE.has(tool.id) ? locateJsonError(input) : null);
-      setTone("error");
+      const locatable = error instanceof SyntaxError && /JSON/.test(message) && JSON_ERROR_LOCATABLE.has(tool.id);
+      const explained = locatable ? explainJsonError(runInput) : null;
+      setOutput("");
+      setResult({
+        status: "error",
+        title: errorTitle(tool.id, error),
+        message: explained ?? message,
+        detail: explained ? message : undefined,
+        location: locatable ? locateJsonError(runInput) : null
+      });
+    } finally {
+      setBusy(false);
     }
   }
 
-  // Cmd/Ctrl+Enter runs the tool, matching the hint next to the Run button — the same
-  // dual metaKey/ctrlKey check SiteHeader's own ⌘K shortcut uses. The listener is
-  // attached once; a ref keeps it calling the latest `run` without resubscribing on
-  // every keystroke into the input.
+  // Cmd/Ctrl+Enter runs the tool from anywhere on the page, matching the hint on the button.
+  // A ref keeps the one listener calling the latest `run` without resubscribing per keystroke.
   const runRef = useRef(run);
   useEffect(() => {
     runRef.current = run;
   });
-
   useEffect(() => {
     function onKeyDown(event: KeyboardEvent) {
       if ((event.metaKey || event.ctrlKey) && event.key === "Enter") {
         event.preventDefault();
-        runRef.current();
+        void runRef.current();
       }
     }
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
   }, []);
 
-  async function copyOutput() {
-    if (!output) return;
+  const optionIsChoice = optionsFor(tool.id)?.controls.some(
+    (control) => control.field === "option" && control.kind !== "text"
+  ) ?? false;
+
+  function setField(field: OptionField, value: string) {
+    if (field === "option") {
+      setOption(value);
+      // A choice between modes is a question about the same input, so once there is an
+      // answer on screen, picking another mode answers again rather than leaving it stale.
+      if (result && optionIsChoice) void run({ option: value });
+    }
+    if (field === "pattern") setPattern(value);
+    if (field === "flags") setFlags(value);
+    if (field === "secret") setSecret(value);
+  }
+
+  async function copyText(text: string, what: string) {
+    if (!text) return;
     try {
-      await navigator.clipboard.writeText(output);
-      setNotice("Copied to clipboard");
+      await navigator.clipboard.writeText(text);
+      toast.show(`${what} copied to clipboard`);
     } catch {
-      setNotice("Clipboard unavailable; select the output and copy manually");
+      toast.show("Clipboard unavailable — select the text and copy it manually", "info");
     }
   }
 
   function downloadOutput() {
     if (!output) return;
-    const link = document.createElement("a");
+    const language = outputLanguage(tool.id, result?.status === "success" ? result.option : option, output);
     const isImage = output.startsWith("data:image/");
+    const link = document.createElement("a");
     const objectUrl = isImage ? undefined : URL.createObjectURL(new Blob([output], { type: "text/plain;charset=utf-8" }));
     link.href = isImage ? output : (objectUrl ?? "");
-    link.download = `${tool.slug}-output.${isImage ? "png" : "txt"}`;
+    link.download = `${tool.slug}-output.${downloadExtension(language)}`;
     link.click();
     if (objectUrl) URL.revokeObjectURL(objectUrl);
-    setNotice("Downloaded locally");
+    toast.show("Download started");
+  }
+
+  function loadExample() {
+    setInput(STARTERS[tool.id] ?? "");
+    clearResult();
+    toast.show("Example loaded", "info");
+  }
+
+  function clearInput() {
+    setInput("");
+    clearResult();
+    setSecurityWarning("");
+  }
+
+  function reset() {
+    setOption(defaultOption(tool.id));
+    setPattern(DEFAULT_PATTERN);
+    setFlags(DEFAULT_FLAGS);
+    setSecret(DEFAULT_SECRET);
+    clearResult();
+    toast.show("Options reset", "info");
+  }
+
+  function loadTextFile(file: File | undefined) {
+    if (!file) return;
+    if (isImageTool) return loadImageFile(file);
+    if (file.size > maxInputLength(tool.id)) {
+      toast.show("That file is too large. Keep it under 2 MB so the tab stays responsive.", "info");
+      return;
+    }
+    const reader = new FileReader();
+    reader.onload = () => {
+      setInput(typeof reader.result === "string" ? reader.result : "");
+      clearResult();
+      toast.show(`Loaded ${file.name}`);
+    };
+    reader.onerror = () => toast.show("That file could not be read", "info");
+    reader.readAsText(file);
+  }
+
+  function loadImageFile(file: File | undefined) {
+    if (!file) return;
+    if (!file.type.startsWith("image/")) {
+      toast.show("Choose an image file", "info");
+      return;
+    }
+    if (file.size > 10 * 1024 * 1024) {
+      toast.show("Images are limited to 10 MB", "info");
+      return;
+    }
+    const reader = new FileReader();
+    reader.onload = () => {
+      setInput(typeof reader.result === "string" ? reader.result : "");
+      clearResult();
+      toast.show(`Loaded ${file.name}`);
+    };
+    reader.onerror = () => toast.show("That image could not be read", "info");
+    reader.readAsDataURL(file);
   }
 
   function workspaceSnapshot() {
@@ -134,9 +260,9 @@ export function Workbench({ tool }: { tool: ToolDefinition }) {
   function saveWorkspace() {
     try {
       localStorage.setItem("utilfoundry-dev-workspace", workspaceSnapshot());
-      setNotice("Workspace saved locally");
+      toast.show("Workspace saved in this browser");
     } catch {
-      setNotice("Local workspace storage is unavailable");
+      toast.show("This browser is not letting the page save anything", "info");
     }
   }
 
@@ -146,7 +272,7 @@ export function Workbench({ tool }: { tool: ToolDefinition }) {
     link.download = "utilfoundry-workspace.json";
     link.click();
     URL.revokeObjectURL(link.href);
-    setNotice("Workspace exported locally");
+    toast.show("Workspace exported");
   }
 
   /** Only the fields of the saved bench are restored; the tool itself is the page you are on. */
@@ -160,281 +286,203 @@ export function Workbench({ tool }: { tool: ToolDefinition }) {
         if (typeof saved.option === "string") setOption(saved.option);
         if (typeof saved.pattern === "string") setPattern(saved.pattern);
         if (typeof saved.flags === "string") setFlags(saved.flags);
-        setNotice(saved.tool && saved.tool !== tool.id
+        clearResult();
+        toast.show(saved.tool && saved.tool !== tool.id
           ? `Fields restored from a ${String(saved.tool)} workspace`
-          : "Workspace imported locally");
+          : "Workspace imported");
       } catch {
-        setNotice("Workspace file is not valid JSON");
+        toast.show("That workspace file is not valid JSON", "info");
       }
     };
     reader.readAsText(file);
   }
 
-  function loadImageFile(file: File | undefined) {
-    if (!file) return;
-    if (!file.type.startsWith("image/")) {
-      setNotice("Choose an image file");
-      return;
+  const menu: MenuItem[] = [
+    ...(needsInput && !isImageTool
+      ? [{ label: "Open a file…", icon: <FolderOpen size={16} />, onSelect: () => textFileRef.current?.click() }]
+      : []),
+    { label: "Save workspace", icon: <Save size={16} />, onSelect: saveWorkspace },
+    { label: "Export workspace", icon: <Download size={16} />, onSelect: exportWorkspace },
+    { label: "Import workspace…", icon: <Upload size={16} />, onSelect: () => workspaceFileRef.current?.click() }
+  ];
+
+  const lastOption = result?.status === "success" ? result.option : option;
+  const quickActions: QuickAction[] = [];
+  if (result?.status === "success") {
+    if (tool.id === "json") {
+      const target = lastOption === "minify" ? "pretty" : "minify";
+      quickActions.push({
+        label: target === "minify" ? "Minify this JSON" : "Pretty print this JSON",
+        icon: target === "minify" ? <Minimize2 size={16} /> : <Maximize2 size={16} />,
+        onSelect: () => {
+          setOption(target);
+          void run({ option: target });
+        }
+      });
     }
-    if (file.size > 10 * 1024 * 1024) {
-      setNotice("Images are limited to 10 MB");
-      return;
+    const reverse = reverseChoice(tool.id, lastOption);
+    if (reverse) {
+      quickActions.push({
+        label: `Reverse: ${reverse.label}`,
+        icon: <ArrowLeftRight size={16} />,
+        onSelect: () => {
+          const nextInput = output;
+          setInput(nextInput);
+          setOption(reverse.value);
+          void run({ input: nextInput, option: reverse.value });
+        }
+      });
     }
-    const reader = new FileReader();
-    reader.onload = () => {
-      setInput(typeof reader.result === "string" ? reader.result : "");
-      setOutput("");
-      setNotice("Image loaded locally");
-    };
-    reader.onerror = () => setNotice("Unable to read that image");
-    reader.readAsDataURL(file);
   }
 
-  // A generator ignores the input box, and a control that does nothing is worse than none.
-  const needsInput = tool.inputLabel !== "Not needed";
-
-  const statusTitle = tone === "ready" ? "Completed locally"
-    : tone === "error" ? "Check your input"
-      : tone === "busy" ? "Working…"
-        : `Ready to run ${tool.name}`;
-  const statusNote = tone === "error" ? "The message in the output pane says what went wrong."
-    : tone === "ready" ? "Nothing uploaded"
-      : "Nothing is uploaded. The tool runs in this tab.";
+  const errorLine = result?.status === "error" ? result.location?.line : undefined;
+  const outputIsPreview = tool.id === "markdown" && Boolean(output);
+  const outputIsImage = tool.id === "qr" && output.startsWith("data:image/");
 
   return (
     <>
-      {tool.category === "Payments" && (
-        <div className="security-note">
-          <ShieldCheck size={15} aria-hidden />
-          <span>Use masked test data only. PANs, Track 2, PIN blocks and production keys must never be pasted here.</span>
-        </div>
-      )}
-      {securityWarning && (
-        <div className="security-warning" role="alert">
-          <ShieldCheck size={15} aria-hidden />
-          <span>{securityWarning}</span>
-        </div>
-      )}
+      <ToolCrumbs tool={tool} notify={toast.show} />
 
-      <div className="workspace-split">
-        <div className="workspace-main">
-          <div className="workbench-grid">
-        <StepCard
-          step={1}
-          title="Input"
-          subtitle={needsInput ? "Paste or edit the input, then run the tool" : "This generator takes no input"}
-          actions={needsInput ? (
-            <>
-              <button
-                type="button"
-                className="btn btn-outline btn-sm"
-                onClick={() => {
-                  setInput(STARTERS[tool.id] ?? "");
-                  setOutput("");
-                  setTone("idle");
-                  setNotice("Example restored");
-                  setErrorMessage("");
-                  setErrorLocation(null);
-                }}
-              >
-                <RotateCcw size={14} /> Example
-              </button>
-              <button
-                type="button"
-                className="btn btn-outline btn-sm"
-                onClick={() => {
-                  setInput("");
-                  setOutput("");
-                  setNotice("");
-                  setTone("idle");
-                  setErrorMessage("");
-                  setErrorLocation(null);
-                }}
-              >
-                Clear
-              </button>
-            </>
-          ) : undefined}
-        >
-          <div className="tool-options">
-            {MODE_TOOLS.includes(tool.id) && (
-              <label>
-                Mode
-                <select id={fieldId("option")} value={option} onChange={(event) => setOption(event.target.value)}>
-                  <option value="encode">Encode / convert</option>
-                  <option value="decode">Decode / convert</option>
-                </select>
-              </label>
-            )}
-            {/* Packing is the only one of the three that has a real choice to make, so the
-                filler the payments world actually uses is named in the label rather than hidden. */}
-            {tool.id === "bcd" && (
-              <label>
-                Mode
-                <select id={fieldId("option")} value={option} onChange={(event) => setOption(event.target.value)}>
-                  <option value="encode">Pack digits (odd count filled with F)</option>
-                  <option value="encode-zero">Pack digits (odd count padded with a leading 0)</option>
-                  <option value="decode">Unpack BCD bytes</option>
-                </select>
-              </label>
-            )}
-            {tool.id === "binary" && (
-              <label>
-                Mode
-                <select id={fieldId("option")} value={option} onChange={(event) => setOption(event.target.value)}>
-                  <option value="hex-to-binary">Hex → binary</option>
-                  <option value="binary-to-hex">Binary → hex</option>
-                </select>
-              </label>
-            )}
-            {tool.id === "hash" && (
-              <label>
-                Algorithm
-                <select id={fieldId("option")} value={option} onChange={(event) => setOption(event.target.value)}>
-                  <option>SHA-256</option>
-                  <option>SHA-1</option>
-                </select>
-              </label>
-            )}
-            {(tool.id === "regex" || tool.id === "regex-safe") && (
-              <>
-                <label>Pattern<input id={fieldId("pattern")} value={pattern} onChange={(event) => setPattern(event.target.value)} /></label>
-                <label>Flags<input id={fieldId("flags")} value={flags} onChange={(event) => setFlags(event.target.value)} /></label>
-              </>
-            )}
-            {tool.id === "number" && (
-              <label>
-                Input base
-                <select id={fieldId("option")} value={option} onChange={(event) => setOption(event.target.value)}>
-                  <option value="2">Binary (2)</option>
-                  <option value="8">Octal (8)</option>
-                  <option value="10">Decimal (10)</option>
-                  <option value="16">Hex (16)</option>
-                </select>
-              </label>
-            )}
-            {tool.id === "jsonpath" && <label>Path<input id={fieldId("option")} value={option} onChange={(event) => setOption(event.target.value)} /></label>}
-            {tool.id === "timezone" && <label>Timezone<input id={fieldId("option")} value={option} onChange={(event) => setOption(event.target.value)} /></label>}
-            {tool.id === "code-formatter" && (
-              <label>
-                Language
-                <select id={fieldId("option")} value={option} onChange={(event) => setOption(event.target.value)}>
-                  <option value="javascript">JavaScript</option>
-                  <option value="typescript">TypeScript</option>
-                  <option value="json">JSON</option>
-                  <option value="css">CSS</option>
-                  <option value="html">HTML</option>
-                </select>
-              </label>
-            )}
-            {tool.id === "password" && (
-              <label>Length<input id={fieldId("option")} type="number" min="8" max="128" value={option} onChange={(event) => setOption(event.target.value)} /></label>
-            )}
-            {tool.id === "jwt-sign" && (
-              <>
-                <label>
-                  Mode
-                  <select id={fieldId("option")} value={option} onChange={(event) => setOption(event.target.value)}>
-                    <option value="sign">Sign payload</option>
-                    <option value="verify">Verify token</option>
-                  </select>
-                </label>
-                <label>HMAC secret<input id={fieldId("secret")} type="password" value={secret} onChange={(event) => setSecret(event.target.value)} /></label>
-              </>
-            )}
-            {tool.id === "image-base64" && (
-              <label className="file-picker">
-                Choose image
-                <input type="file" accept="image/*" onChange={(event) => loadImageFile(event.target.files?.[0])} />
-              </label>
-            )}
-          </div>
+      <div className="tool-layout">
+        <div className="tool-main">
+          <ToolHero tool={tool} />
 
-          {needsInput ? (
-            <>
-              {/* Tools with a format convention say so here, rather than in an error afterwards. */}
-              {tool.inputHint && <p className="input-hint">{tool.inputHint}</p>}
-              <div className="pane">
-                <div className="pane-label">Input <span>{tool.inputLabel}</span></div>
-                <CodePane
-                  ref={inputPaneRef}
-                  id={fieldId("input")}
-                  value={input}
-                  onChange={setInput}
-                  ariaLabel={`${tool.name} input`}
-                  errorLine={errorLocation?.line}
-                />
-              </div>
-            </>
-          ) : (
-            <p className="pane-empty">Nothing to paste: press <b>Run tool</b> for a fresh value, as often as you like.</p>
+          {tool.category === "Payments" && (
+            <div className="security-note">
+              <ShieldCheck size={15} aria-hidden />
+              <span>Use masked test data only. PANs, Track 2, PIN blocks and production keys must never be pasted here.</span>
+            </div>
           )}
-        </StepCard>
+          {securityWarning && (
+            <div className="security-warning" role="alert">
+              <ShieldCheck size={15} aria-hidden />
+              <span>{securityWarning}</span>
+            </div>
+          )}
 
-        <StepCard
-          step={2}
-          title="Output"
-          subtitle="The result of the last run"
-          actions={
-            <>
-              <button type="button" className="btn btn-outline btn-sm" onClick={copyOutput} disabled={!output}><Copy size={14} /> Copy</button>
-              <button type="button" className="btn btn-outline btn-sm" onClick={downloadOutput} disabled={!output}><Download size={14} /> Download</button>
-            </>
-          }
-        >
-          <div className="pane">
-            <div className="pane-label">Output {notice && <span className="notice">{notice}</span>}</div>
-            {tool.id === "markdown" && output ? (
-              <div className="preview" dangerouslySetInnerHTML={{ __html: output }} />
-            ) : tool.id === "qr" && output.startsWith("data:image/") ? (
-              <div className="image-preview"><img src={output} alt="Generated QR code" /></div>
-            ) : (
-              <CodePane
-                value={output}
-                readOnly
-                placeholder="Run the tool to see the result here."
-                ariaLabel={`${tool.name} output`}
+          <div className="workspace-main">
+            <div className="workbench-grid">
+              <StepCard
+                step={1}
+                title="Input"
+                subtitle={needsInput ? inputSubtitle(tool.inputLabel) : "This generator takes no input."}
+                actions={needsInput ? (
+                  <>
+                    {isImageTool ? (
+                      <button type="button" className="btn btn-outline btn-sm" onClick={() => imageFileRef.current?.click()}>
+                        <ImagePlus size={16} /> Choose image
+                      </button>
+                    ) : (
+                      <button type="button" className="btn btn-outline btn-sm" onClick={loadExample}>
+                        <FileText size={16} /> Example
+                      </button>
+                    )}
+                    <button type="button" className="btn btn-outline btn-sm btn-danger-icon" onClick={clearInput}>
+                      <Trash2 size={16} /> Clear
+                    </button>
+                  </>
+                ) : undefined}
+              >
+                {needsInput ? (
+                  <>
+                    {tool.inputHint && <p className="input-hint">{tool.inputHint}</p>}
+                    <CodeEditor
+                      ref={inputRef}
+                      id={fieldId("input")}
+                      value={input}
+                      onChange={setInput}
+                      ariaLabel={`${tool.name} input`}
+                      placeholder={isImageTool ? "Choose or drop an image, or paste a data URL." : `Paste your ${tool.inputLabel.toLowerCase()} here, or drop a file.`}
+                      language={inputLanguage(tool.id, option)}
+                      errorLine={errorLine}
+                      onCopy={() => void copyText(input, "Input")}
+                      onDropFile={loadTextFile}
+                    />
+                  </>
+                ) : (
+                  <p className="pane-empty">Nothing to paste: press <b>Run tool</b> for a fresh value, as often as you like.</p>
+                )}
+              </StepCard>
+
+              <StepCard
+                step={2}
+                title="Output"
+                subtitle={outputSubtitle(tool.id, lastOption)}
+                actions={
+                  <>
+                    <button type="button" className="btn btn-outline btn-sm" onClick={() => void copyText(output, "Output")} disabled={!output}>
+                      <Copy size={16} /> Copy
+                    </button>
+                    <button type="button" className="btn btn-outline btn-sm" onClick={downloadOutput} disabled={!output}>
+                      <Download size={16} /> Download
+                    </button>
+                  </>
+                }
+              >
+                {outputIsPreview ? (
+                  <div className="preview has-output" aria-label={`${tool.name} output`} dangerouslySetInnerHTML={{ __html: output }} />
+                ) : outputIsImage ? (
+                  <div className="image-preview has-output"><img src={output} alt="Generated QR code" /></div>
+                ) : (
+                  <CodeEditor
+                    value={output}
+                    readOnly
+                    ariaLabel={`${tool.name} output`}
+                    className={output ? "has-output" : undefined}
+                    placeholder={result?.status === "error" ? "No output — see the message below." : "Run the tool to see the result here."}
+                    language={output ? outputLanguage(tool.id, lastOption, output) : inputLanguage(tool.id, option) === "JSON" ? "JSON" : "Text"}
+                    onCopy={output ? () => void copyText(output, "Output") : undefined}
+                  />
+                )}
+              </StepCard>
+            </div>
+
+            <OptionsBar
+              toolId={tool.id}
+              values={{ option, pattern, flags, secret }}
+              onChange={setField}
+              onRun={() => void run()}
+              onReset={reset}
+              busy={busy}
+              menu={menu}
+            />
+
+            {!bannerHidden && (
+              <ResultBanner
+                toolId={tool.id}
+                toolName={tool.name}
+                result={result}
+                output={output}
+                busy={busy}
+                onDismiss={() => setBannerHidden(true)}
+                onJumpToError={() => result?.status === "error" && result.location && inputRef.current?.jumpTo(result.location.offset)}
               />
             )}
           </div>
-        </StepCard>
-          </div>
-
-          <StatusBar tone={tone} title={statusTitle} note={statusNote}>
-            <span className="status-actions-secondary">
-              <button type="button" className="btn btn-outline btn-sm" onClick={saveWorkspace}>Save local</button>
-              <button type="button" className="btn btn-outline btn-sm" onClick={exportWorkspace}>Export</button>
-              <button type="button" className="btn btn-outline btn-sm" onClick={() => workspaceFileRef.current?.click()}>Import</button>
-              <input
-                ref={workspaceFileRef}
-                type="file"
-                accept="application/json,.json"
-                hidden
-                onChange={(event) => importWorkspace(event.target.files?.[0])}
-              />
-            </span>
-            <span className="status-actions-primary">
-              <button type="button" className="btn btn-primary btn-run" onClick={run}>
-                <Play size={16} /> Run tool <kbd>⌘ ⏎</kbd>
-              </button>
-            </span>
-          </StatusBar>
         </div>
 
-        <aside className="rail" aria-label={`About ${tool.name}`}>
-          <ResultSummary
-            tool={tool}
-            tone={tone}
-            output={output}
-            errorMessage={errorMessage}
-            errorLocation={errorLocation}
-            onCopy={copyOutput}
-            onDownload={downloadOutput}
-            onJumpToError={() => errorLocation && inputPaneRef.current?.jumpTo(errorLocation.offset)}
-          />
-          <InfoRail tool={tool} showRelated={tone !== "ready"} />
-        </aside>
+        <ToolRail
+          tool={tool}
+          option={lastOption}
+          result={result}
+          output={output}
+          onCopy={() => void copyText(output, "Output")}
+          onDownload={downloadOutput}
+          onJumpToError={() => result?.status === "error" && result.location && inputRef.current?.jumpTo(result.location.offset)}
+          quickActions={quickActions}
+        />
       </div>
+
+      <input ref={textFileRef} type="file" hidden onChange={(event) => { loadTextFile(event.target.files?.[0]); event.target.value = ""; }} />
+      <input ref={imageFileRef} type="file" accept="image/*" hidden onChange={(event) => { loadImageFile(event.target.files?.[0]); event.target.value = ""; }} />
+      <input
+        ref={workspaceFileRef}
+        type="file"
+        accept="application/json,.json"
+        hidden
+        onChange={(event) => { importWorkspace(event.target.files?.[0]); event.target.value = ""; }}
+      />
+      <Toast message={toast.message} />
     </>
   );
 }
