@@ -18,9 +18,23 @@ if (!databaseUrl) {
   process.exit(1);
 }
 
-const sql = postgres(databaseUrl, { max: 1 });
+const sql = postgres(databaseUrl, { max: 1, onnotice: () => {} });
+
+// Any fixed number: it only has to be the same for every copy of this script.
+const MIGRATION_LOCK = 72_019_001;
 
 async function main() {
+  // Two containers starting together would otherwise both see a migration as pending and
+  // both apply it. The advisory lock makes the second wait, then find nothing left to do.
+  await sql`SELECT pg_advisory_lock(${MIGRATION_LOCK})`;
+  try {
+    await migrate();
+  } finally {
+    await sql`SELECT pg_advisory_unlock(${MIGRATION_LOCK})`;
+  }
+}
+
+async function migrate() {
   await sql`
     CREATE TABLE IF NOT EXISTS schema_migrations (
       filename   text PRIMARY KEY,
@@ -35,8 +49,9 @@ async function main() {
     .filter((name) => name.endsWith(".sql"))
     .sort();
 
-  for (const file of files) {
-    if (applied.has(file)) continue;
+  const pending = files.filter((file) => !applied.has(file));
+  if (!pending.length) console.log(`Database schema is up to date (${files.length} migrations).`);
+  for (const file of pending) {
     const contents = readFileSync(path.join(migrationsDir, file), "utf8");
     console.log(`Applying migration ${file}`);
     await sql.begin(async (tx) => {

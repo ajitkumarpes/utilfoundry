@@ -1,124 +1,102 @@
 import type { Metadata } from "next";
-import { getVisitorStats } from "@/lib/queries";
+import { CalendarDays, Eye, Globe2, Users } from "lucide-react";
+import { BarList, Panel } from "@/components/BarList";
+import { DailyChart } from "@/components/DailyChart";
+import { PageHeader, PeriodTabs } from "@/components/PageHeader";
+import { StatCard } from "@/components/StatCard";
 import { APP_LABELS } from "@/lib/apps";
-import VisitsChart from "./VisitsChart";
+import { countryFlag, countryName, number, share } from "@/lib/format";
+import { parsePeriod, percentChange } from "@/lib/period";
+import { getVisitorStats } from "@/lib/queries";
 
-export const metadata: Metadata = { title: "Visitors — UtilFoundry Admin" };
+export const metadata: Metadata = { title: "Visitors" };
 export const dynamic = "force-dynamic";
 
-export default async function VisitorsPage() {
-  const stats = await getVisitorStats();
-  const maxCountryCount = Math.max(1, ...stats.byCountry.map((row) => row.count));
+type Props = { searchParams: Promise<Record<string, string | string[] | undefined>> };
+
+export default async function VisitorsPage({ searchParams }: Props) {
+  const period = parsePeriod((await searchParams).period);
+  const stats = await getVisitorStats(period);
+  const { totals } = stats;
+  const topCountry = stats.countries[0];
+  const chartTotal = stats.daily.reduce((sum, day) => sum + day.count, 0);
 
   return (
     <>
-      <h1>Visitors</h1>
+      <PageHeader title="Visitors" subtitle={`Anonymous page views over the last ${period} days. No IP address is stored.`}>
+        <PeriodTabs period={period} basePath="/admin/visitors" />
+      </PageHeader>
 
-      <div className="overview-grid">
-        <div className="card stat-card">
-          <h3>Visits (30d)</h3>
-          <p>{stats.totalVisits}</p>
-        </div>
-        <div className="card stat-card">
-          <h3>Unique visitors (30d)</h3>
-          <p>{stats.uniqueVisitors}</p>
-        </div>
+      <div className="stat-grid">
+        <StatCard label="Visits" value={number(totals.visits)} icon={Eye} tone="blue" change={percentChange(totals.visits, totals.prev_visits)} />
+        <StatCard label="Unique visitors" value={number(totals.visitors)} icon={Users} tone="cyan" change={percentChange(totals.visitors, totals.prev_visitors)} />
+        <StatCard label="Visits per day" value={number(Math.round((totals.visits / period) * 10) / 10)} icon={CalendarDays} tone="purple" hint={`Average over ${period} days`} />
+        <StatCard
+          label="Top country"
+          value={topCountry ? `${countryFlag(topCountry.country)} ${countryName(topCountry.country)}` : "—"}
+          icon={Globe2}
+          tone="green"
+          hint={topCountry ? `${share(topCountry.count, totals.visits)} of visits` : "No located visits yet"}
+        />
       </div>
 
-      <section className="admin-section">
-        <h2>Visits per day</h2>
-        <div className="card">
-          {stats.dailyVisits.length === 0 ? (
-            <p className="empty-state">No visits recorded yet.</p>
-          ) : (
-            <VisitsChart data={stats.dailyVisits} />
-          )}
-        </div>
-      </section>
+      <Panel title="Visits per day" action={<span className="panel-note">UTC · {number(chartTotal)} in total</span>}>
+        {chartTotal ? <DailyChart data={stats.daily} title="Visits per day" /> : <p className="empty">No visits recorded in this period yet.</p>}
+      </Panel>
 
-      <div className="two-col">
-        <section className="admin-section">
-          <h2>By country</h2>
-          {stats.byCountry.length === 0 ? (
-            <p className="empty-state">No visits recorded yet.</p>
-          ) : (
-            <table>
-              <thead>
-                <tr>
-                  <th>Country</th>
-                  <th>Visits</th>
-                  <th>Unique</th>
-                  <th style={{ width: "40%" }}></th>
-                </tr>
-              </thead>
-              <tbody>
-                {stats.byCountry.map((row) => (
-                  <tr key={row.country}>
-                    <td>{row.country}</td>
-                    <td>{row.count}</td>
-                    <td>{row.unique_count}</td>
-                    <td>
-                      <div className="country-bar">
-                        <span style={{ width: `${(row.count / maxCountryCount) * 100}%` }} />
-                      </div>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          )}
-        </section>
-
-        <section className="admin-section">
-          <h2>By app</h2>
-          {stats.byApp.length === 0 ? (
-            <p className="empty-state">No visits recorded yet.</p>
-          ) : (
-            <table>
-              <thead>
-                <tr>
-                  <th>App</th>
-                  <th>Visits</th>
-                </tr>
-              </thead>
-              <tbody>
-                {stats.byApp.map((row) => (
-                  <tr key={row.app}>
-                    <td>{APP_LABELS[row.app]}</td>
-                    <td>{row.count}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          )}
-        </section>
+      <div className="panel-grid">
+        <Panel title="Countries">
+          <BarList
+            valueLabel="Visits"
+            empty="No located visits in this period."
+            rows={stats.countries.map((row) => ({
+              key: row.country,
+              label: <><span className="flag" aria-hidden>{countryFlag(row.country)}</span>{countryName(row.country)}</>,
+              value: row.count,
+              secondary: `${number(row.visitors)} unique`
+            }))}
+          />
+        </Panel>
+        <Panel title="Sites">
+          <BarList
+            valueLabel="Visits"
+            empty="No visits in this period."
+            rows={stats.apps.map((row) => ({ key: row.app, label: APP_LABELS[row.app], value: row.count, secondary: share(row.count, totals.visits) }))}
+          />
+        </Panel>
+        <Panel title="Top pages">
+          <BarList
+            valueLabel="Visits"
+            empty="No visits in this period."
+            rows={stats.pages.map((row) => ({
+              key: `${row.app}${row.path}`,
+              label: <><code className="path">{row.path}</code><small className="muted-inline">{APP_LABELS[row.app]}</small></>,
+              value: row.count
+            }))}
+          />
+        </Panel>
+        <Panel title="Referrers">
+          <BarList
+            valueLabel="Visits"
+            empty="No visits arrived from another site in this period."
+            rows={stats.referrers.map((row) => ({ key: row.host, label: row.host, value: row.count }))}
+          />
+        </Panel>
+        <Panel title="Devices">
+          <BarList
+            valueLabel="Visits"
+            empty="No visits in this period."
+            rows={stats.devices.map((row) => ({ key: row.device, label: row.device, value: row.count, secondary: share(row.count, totals.visits) }))}
+          />
+        </Panel>
+        <Panel title="Browsers">
+          <BarList
+            valueLabel="Visits"
+            empty="No visits in this period."
+            rows={stats.browsers.map((row) => ({ key: row.browser, label: row.browser, value: row.count, secondary: share(row.count, totals.visits) }))}
+          />
+        </Panel>
       </div>
-
-      <section className="admin-section">
-        <h2>Top pages</h2>
-        {stats.topPages.length === 0 ? (
-          <p className="empty-state">No visits recorded yet.</p>
-        ) : (
-          <table>
-            <thead>
-              <tr>
-                <th>App</th>
-                <th>Path</th>
-                <th>Visits</th>
-              </tr>
-            </thead>
-            <tbody>
-              {stats.topPages.map((row) => (
-                <tr key={`${row.app}-${row.path}`}>
-                  <td>{APP_LABELS[row.app]}</td>
-                  <td>{row.path}</td>
-                  <td>{row.count}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        )}
-      </section>
     </>
   );
 }

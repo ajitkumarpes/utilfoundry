@@ -20,7 +20,12 @@ host ports; Caddy is the only public ingress.
 3. Point the apex and the `pdf`, `dev`, `images`, `storage` and `admin` subdomains at the server with DNS A/AAAA
    records.
 4. From `deploy/`, run `docker compose build` followed by `docker compose up -d`.
-5. Verify `https://utilfoundry.com` and each subdomain before opening traffic.
+5. Verify `https://utilfoundry.com` and each subdomain before opening traffic. `https://admin.utilfoundry.com/api/health`
+   should answer `{"status":"ok","database":"ok"}`.
+
+The admin service checks its configuration when it starts and exits with a clear log line if `ADMIN_PASSWORD` is
+shorter than 12 characters, `ADMIN_SESSION_SECRET` is shorter than 32, either is still a placeholder, or they are
+equal. `docker compose logs admin` shows which one.
 
 Caddy obtains and renews certificates automatically. Keep ports 80/443 open, restrict SSH to trusted addresses,
 and back up `caddy_data`, `postgres_data`, `admin_postgres_data`, and `minio_data`. Redis is a cache and does not
@@ -60,11 +65,12 @@ images.
 
 ## Sizing
 
-The image app and its worker are each capped at 768 MB. Together with the Spring Boot backend, PostgreSQL, MinIO
-and four Next.js apps, plan on at least 4 GB of RAM; 8 GB is comfortable. Only the image services set memory limits
-today; add limits for the others once you have measured them under load.
+The image app and its worker are each capped at 768 MB and the admin service at 512 MB. Together with the Spring Boot
+backend, PostgreSQL, MinIO and the other Next.js apps, plan on at least 4 GB of RAM; 8 GB is comfortable. Add limits
+for the remaining services once you have measured them under load.
 
 ## Secrets
 
 Do not commit `.env`; it contains database, object-storage, and processor credentials. Rotate all values if they are
-ever exposed. MinIO should remain private at the network layer even though signed object URLs use its public hostname.
+ever exposed. Changing `ADMIN_PASSWORD` or `ADMIN_SESSION_SECRET` and running `docker compose up -d admin` signs
+every admin out. MinIO should remain private at the network layer even though signed object URLs use its public hostname.

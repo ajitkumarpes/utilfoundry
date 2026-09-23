@@ -53,3 +53,24 @@ describe("preflightResponse", () => {
     expect(preflightResponse(request).status).toBe(403);
   });
 });
+
+describe("refuseForeignRequest", () => {
+  const post = (headers: Record<string, string>) => new Request("http://localhost/api/feedback", { method: "POST", headers });
+
+  it("lets an allowed site and a server-side caller through", async () => {
+    const { refuseForeignRequest } = await import("../lib/cors");
+    expect(refuseForeignRequest(post({ origin: "https://dev.utilfoundry.com", "content-type": "application/json" }))).toBeNull();
+    expect(refuseForeignRequest(post({ "content-type": "application/json; charset=utf-8" }))).toBeNull();
+  });
+
+  it("refuses another site's page even when it skips the preflight", async () => {
+    const { refuseForeignRequest } = await import("../lib/cors");
+    expect(refuseForeignRequest(post({ origin: "https://evil.example.com", "content-type": "text/plain" }))?.status).toBe(403);
+  });
+
+  it("refuses a body not declared as JSON", async () => {
+    const { refuseForeignRequest } = await import("../lib/cors");
+    expect(refuseForeignRequest(post({ origin: "https://dev.utilfoundry.com", "content-type": "text/plain" }))?.status).toBe(415);
+    expect(refuseForeignRequest(post({}))?.status).toBe(415);
+  });
+});

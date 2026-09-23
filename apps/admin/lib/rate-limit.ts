@@ -21,6 +21,8 @@ const positiveInt = (value: string | undefined, fallback: number) => {
 export const FEEDBACK_LIMIT = positiveInt(process.env.RATE_LIMIT_FEEDBACK_PER_MINUTE, 10);
 export const VISIT_LIMIT = positiveInt(process.env.RATE_LIMIT_VISIT_PER_MINUTE, 60);
 export const LOGIN_LIMIT = positiveInt(process.env.RATE_LIMIT_LOGIN_PER_MINUTE, 10);
+/** Across all clients: with one shared password, a distributed guesser is the realistic attack. */
+export const LOGIN_GLOBAL_LIMIT = positiveInt(process.env.RATE_LIMIT_LOGIN_GLOBAL_PER_MINUTE, 60);
 
 export type Decision = { allowed: boolean; retryAfterSeconds: number };
 

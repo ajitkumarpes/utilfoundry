@@ -262,17 +262,23 @@ services:
     expose:
       - "3000"
     environment:
+      NEXT_TELEMETRY_DISABLED: "1"
       DATABASE_URL: postgres://${ADMIN_POSTGRES_USER}:${ADMIN_POSTGRES_PASSWORD}@admin-postgres:5432/${ADMIN_POSTGRES_DB:-admin_platform}
+      # The service refuses to start if these are short or still the example placeholders.
       ADMIN_PASSWORD: ${ADMIN_PASSWORD:?ADMIN_PASSWORD is required}
       ADMIN_SESSION_SECRET: ${ADMIN_SESSION_SECRET:?ADMIN_SESSION_SECRET is required}
       CORS_ALLOWED_ORIGINS: https://${ROOT_DOMAIN},https://dev.${ROOT_DOMAIN},https://images.${ROOT_DOMAIN},https://pdf.${ROOT_DOMAIN}
+      # Page views older than this are deleted once a day; feedback is kept until deleted by hand.
+      VISIT_RETENTION_DAYS: ${VISIT_RETENTION_DAYS:-395}
     depends_on:
       admin-postgres:
         condition: service_healthy
+    mem_limit: 512m
     security_opt:
       - no-new-privileges:true
     healthcheck:
-      test: ["CMD", "wget", "--spider", "-q", "http://127.0.0.1:3000/admin/login"]
+      # Healthy only when the database answers too, not just the web server.
+      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://127.0.0.1:3000/api/health"]
       interval: 30s
       timeout: 5s
       retries: 3

@@ -1,17 +1,11 @@
-import Nav from "./Nav";
-import LogoutButton from "./LogoutButton";
+import { AdminShell } from "@/components/AdminShell";
+import { requireSession } from "@/lib/auth";
+import { countUnreviewed } from "@/lib/queries";
 
-export default function ProtectedLayout({ children }: { children: React.ReactNode }) {
-  return (
-    <div className="admin-shell">
-      <nav className="admin-nav" aria-label="Admin sections">
-        <p className="brand">UtilFoundry Admin</p>
-        <Nav />
-        <div className="logout">
-          <LogoutButton />
-        </div>
-      </nav>
-      <main className="admin-main">{children}</main>
-    </div>
-  );
+export const dynamic = "force-dynamic";
+
+export default async function ProtectedLayout({ children }: { children: React.ReactNode }) {
+  await requireSession();
+  const unreviewed = await countUnreviewed();
+  return <AdminShell unreviewed={unreviewed}>{children}</AdminShell>;
 }

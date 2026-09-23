@@ -17,9 +17,28 @@ permissions:
 jobs:
   verify:
     runs-on: ubuntu-latest
+    timeout-minutes: 25
     defaults:
       run:
         working-directory: apps/admin
+    services:
+      # Disposable: the integration and browser suites both wipe it.
+      postgres:
+        image: postgres:17-alpine
+        env:
+          POSTGRES_DB: admin_ci
+          POSTGRES_USER: admin_user
+          POSTGRES_PASSWORD: admin_password
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U admin_user -d admin_ci"
+          --health-interval 5s
+          --health-timeout 3s
+          --health-retries 20
+    env:
+      TEST_DATABASE_URL: postgres://admin_user:admin_password@127.0.0.1:5432/admin_ci
+      E2E_DATABASE_URL: postgres://admin_user:admin_password@127.0.0.1:5432/admin_ci
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -30,12 +49,16 @@ jobs:
       - run: npm ci
       - run: npm run lint
       - run: npm run typecheck
+      # Unit tests, plus the database suite against the Postgres service above.
       - run: npm test
+      # Deliberately no DATABASE_URL or secrets: the build must not need them (the Docker
+      # image is built the same way).
       - run: npm run build
-        env:
-          # Build-time placeholders only: every page here is force-dynamic, so nothing
-          # queries Postgres during the build, but the lib/db.ts and lib/session.ts
-          # modules still read these at import time and throw if they're unset.
-          DATABASE_URL: postgres://placeholder:placeholder@localhost:5432/placeholder
-          ADMIN_PASSWORD: placeholder
-          ADMIN_SESSION_SECRET: placeholder
+      - run: npx playwright install --with-deps chromium firefox webkit
+      - run: npm run test:e2e
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: admin-e2e-traces
+          path: apps/admin/test-results
+          retention-days: 7

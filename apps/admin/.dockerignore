@@ -3,3 +3,13 @@ node_modules
 .git
 *.tsbuildinfo
 .DS_Store
+# Local secrets never belong in an image layer, even a build stage's.
+.env*
+!.env.example
+# Test-only material.
+e2e
+tests
+test-results
+playwright-report
+playwright.config.ts
+vitest.config.mjs

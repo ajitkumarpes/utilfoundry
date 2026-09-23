@@ -10,7 +10,10 @@
     "lint": "eslint .",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
-    "db:migrate": "node --env-file=.env.local scripts/migrate.mjs"
+    "test:integration": "vitest run tests/database.integration.test.ts",
+    "test:e2e": "playwright test",
+    "db:migrate": "node --env-file=.env.local scripts/migrate.mjs",
+    "db:seed": "node --env-file=.env.local scripts/seed-demo.mjs"
   },
   "dependencies": {
     "geoip-lite": "^2.0.3",
@@ -21,6 +24,8 @@
     "react-dom": "^19.2.0"
   },
   "devDependencies": {
+    "@axe-core/playwright": "^4.13.0",
+    "@playwright/test": "^1.63.0",
     "@types/geoip-lite": "^1.4.4",
     "@types/node": "^22.10.2",
     "@types/react": "^19.0.2",

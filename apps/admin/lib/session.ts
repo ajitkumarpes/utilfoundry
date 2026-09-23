@@ -1,76 +1,67 @@
 /**
- * Hand-rolled admin session, in place of pulling in an auth library for one shared
- * password. Built on Web Crypto (`crypto.subtle`, `TextEncoder`, `btoa`) rather than
- * `node:crypto`, so the same module verifies a session both in API routes (Node
- * runtime) and in middleware.ts (Edge runtime) without a separate implementation.
+ * The admin session: one shared password, and a signed cookie that proves it was entered.
+ *
+ * The token is `expiry.nonce.signature`, signed with HMAC-SHA256 under a key derived from
+ * both ADMIN_SESSION_SECRET and ADMIN_PASSWORD — so rotating either one signs every
+ * existing session out, which is what an operator changing a leaked password expects.
+ * Proxy runs on the Node.js runtime in Next 16, so node:crypto is available everywhere.
  */
 
-const SESSION_COOKIE_NAME = "admin_session";
-const SESSION_TTL_SECONDS = 12 * 60 * 60; // 12 hours
-const isProd = process.env.NODE_ENV === "production";
+import { createHash, createHmac, randomBytes, timingSafeEqual } from "node:crypto";
 
-function secret(): string {
-  const value = process.env.ADMIN_SESSION_SECRET;
-  if (!value) throw new Error("ADMIN_SESSION_SECRET is required");
+const SESSION_TTL_SECONDS = 12 * 60 * 60;
+
+/** `__Host-` binds the cookie to this exact host over HTTPS, so no subdomain can set or read it. */
+export function sessionCookieName(production = process.env.NODE_ENV === "production") {
+  return production ? "__Host-uf_admin" : "uf_admin";
+}
+
+function required(name: "ADMIN_SESSION_SECRET" | "ADMIN_PASSWORD"): string {
+  const value = process.env[name];
+  if (!value) throw new Error(`${name} is required`);
   return value;
 }
 
-function base64UrlEncode(bytes: Uint8Array): string {
-  let binary = "";
-  for (const byte of bytes) binary += String.fromCharCode(byte);
-  return btoa(binary).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
+function signingKey(): Buffer {
+  return createHash("sha256").update(`${required("ADMIN_SESSION_SECRET")}\0${required("ADMIN_PASSWORD")}`).digest();
 }
 
-async function hmac(payload: string): Promise<string> {
-  const key = await crypto.subtle.importKey(
-    "raw",
-    new TextEncoder().encode(secret()),
-    { name: "HMAC", hash: "SHA-256" },
-    false,
-    ["sign"]
-  );
-  const signature = await crypto.subtle.sign("HMAC", key, new TextEncoder().encode(payload));
-  return base64UrlEncode(new Uint8Array(signature));
+function sign(payload: string): string {
+  return createHmac("sha256", signingKey()).update(payload).digest("base64url");
 }
 
-/** Equal-length comparison in constant time; a length mismatch returns immediately. */
-function constantTimeEqual(a: string, b: string): boolean {
-  const aBytes = new TextEncoder().encode(a);
-  const bBytes = new TextEncoder().encode(b);
-  if (aBytes.length !== bBytes.length) return false;
-  let diff = 0;
-  for (let i = 0; i < aBytes.length; i += 1) diff |= aBytes[i] ^ bBytes[i];
-  return diff === 0;
+/** Compares digests of both sides, so neither the content nor the length of the secret leaks. */
+function safeEqual(a: string, b: string): boolean {
+  const digestA = createHash("sha256").update(a).digest();
+  const digestB = createHash("sha256").update(b).digest();
+  return timingSafeEqual(digestA, digestB);
 }
 
-export async function createSessionToken(now = Date.now()): Promise<string> {
-  const payload = String(now + SESSION_TTL_SECONDS * 1000);
-  return `${payload}.${await hmac(payload)}`;
+export function createSessionToken(now = Date.now()): string {
+  const payload = `${now + SESSION_TTL_SECONDS * 1000}.${randomBytes(12).toString("base64url")}`;
+  return `${payload}.${sign(payload)}`;
 }
 
-export async function verifySessionToken(token: string | undefined | null, now = Date.now()): Promise<boolean> {
+export function verifySessionToken(token: string | undefined | null, now = Date.now()): boolean {
   if (!token) return false;
-  const [payload, signature] = token.split(".");
-  if (!payload || !signature) return false;
-  const expected = await hmac(payload);
-  if (!constantTimeEqual(signature, expected)) return false;
-  const expiresAt = Number(payload);
+  const parts = token.split(".");
+  if (parts.length !== 3) return false;
+  const [expiry, nonce, signature] = parts;
+  if (!safeEqual(signature, sign(`${expiry}.${nonce}`))) return false;
+  const expiresAt = Number(expiry);
   return Number.isFinite(expiresAt) && expiresAt > now;
 }
 
 export function verifyPassword(candidate: string): boolean {
-  const expected = process.env.ADMIN_PASSWORD;
-  if (!expected) throw new Error("ADMIN_PASSWORD is required");
-  return constantTimeEqual(candidate, expected);
+  return safeEqual(candidate, required("ADMIN_PASSWORD"));
 }
 
-export function sessionCookie(token: string): string {
-  const secureFlag = isProd ? " Secure;" : "";
-  return `${SESSION_COOKIE_NAME}=${token}; Max-Age=${SESSION_TTL_SECONDS}; Path=/; HttpOnly;${secureFlag} SameSite=Lax`;
+export function sessionCookie(token: string, production = process.env.NODE_ENV === "production"): string {
+  const secure = production ? " Secure;" : "";
+  return `${sessionCookieName(production)}=${token}; Max-Age=${SESSION_TTL_SECONDS}; Path=/; HttpOnly;${secure} SameSite=Lax`;
 }
 
-export function clearSessionCookie(): string {
-  return `${SESSION_COOKIE_NAME}=; Max-Age=0; Path=/; HttpOnly; SameSite=Lax`;
+export function clearSessionCookie(production = process.env.NODE_ENV === "production"): string {
+  const secure = production ? " Secure;" : "";
+  return `${sessionCookieName(production)}=; Max-Age=0; Path=/; HttpOnly;${secure} SameSite=Lax`;
 }
-
-export { SESSION_COOKIE_NAME };

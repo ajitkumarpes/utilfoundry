@@ -44,3 +44,22 @@ export function preflightResponse(request: Request): Response {
     }
   });
 }
+
+/**
+ * CORS only stops a browser from reading a response; a page on another site can still *send*
+ * a "simple" POST (text/plain, no preflight) and have it stored. So a request that names an
+ * Origin must name an allowed one, and the body must be declared as JSON — which a browser
+ * can only send cross-origin after a preflight this service answers. Server-side callers
+ * send no Origin and are left to the rate limiter.
+ */
+export function refuseForeignRequest(request: Request): Response | null {
+  const origin = request.headers.get("origin");
+  if (origin && !isAllowedOrigin(origin)) {
+    return Response.json({ error: "Origin not allowed" }, { status: 403, headers: { "Cache-Control": "no-store", Vary: "Origin" } });
+  }
+  const type = request.headers.get("content-type") ?? "";
+  if (!/^application\/json\b/i.test(type)) {
+    return Response.json({ error: "Send the body as application/json" }, { status: 415, headers: { "Cache-Control": "no-store", ...corsHeaders(request) } });
+  }
+  return null;
+}
