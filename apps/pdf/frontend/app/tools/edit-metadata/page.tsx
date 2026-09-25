@@ -197,8 +197,9 @@ export default function EditMetadataPage() {
             </div>
 
             <div className="field">
-              <label>Title</label>
+              <label htmlFor="meta-title">Title</label>
               <input
+                id="meta-title"
                 className="text-input"
                 type="text"
                 value={title}
@@ -208,8 +209,9 @@ export default function EditMetadataPage() {
               />
             </div>
             <div className="field">
-              <label>Author</label>
+              <label htmlFor="meta-author">Author</label>
               <input
+                id="meta-author"
                 className="text-input"
                 type="text"
                 value={author}
@@ -219,8 +221,9 @@ export default function EditMetadataPage() {
               />
             </div>
             <div className="field">
-              <label>Subject</label>
+              <label htmlFor="meta-subject">Subject</label>
               <input
+                id="meta-subject"
                 className="text-input"
                 type="text"
                 value={subject}
@@ -230,8 +233,9 @@ export default function EditMetadataPage() {
               />
             </div>
             <div className="field">
-              <label>Keywords</label>
+              <label htmlFor="meta-keywords">Keywords</label>
               <input
+                id="meta-keywords"
                 className="text-input"
                 type="text"
                 value={keywords}

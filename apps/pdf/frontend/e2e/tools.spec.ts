@@ -18,7 +18,7 @@ const SLUGS = readdirSync(TOOLS_DIR, { withFileTypes: true })
 const FIXTURE = join(process.cwd(), "e2e", "fixtures", "sample.pdf");
 
 /** One page per input shape, rather than all thirty-six: they share a shell and an uploader. */
-const A11Y_SAMPLE = ["compress-pdf", "merge-pdf", "split-pdf", "protect-pdf"] as const;
+const A11Y_SAMPLE = ["compress-pdf", "merge-pdf", "split-pdf", "lock-pdf"] as const;
 
 test.describe("pdf tools", () => {
   test("every tool in the directory has a page that renders", async ({ page }) => {
@@ -49,6 +49,41 @@ test.describe("pdf tools", () => {
         expect(results.violations).toEqual([]);
       });
     }
+  }
+
+  /**
+   * Most of a tool's controls only exist once a file is loaded (passwords, zones, page grids,
+   * drag handles), so the empty-page scans above never see them. This loads each tool's input
+   * and scans what a visitor then works with, in every theme.
+   */
+  const INPUTS: Record<string, string[]> = {
+    "merge-pdf": ["three-pages.pdf", "two-pages.pdf"], "image-to-pdf": ["receipt.png", "mark.png"],
+    "word-to-pdf": ["letter.docx"], "ppt-to-pdf": ["deck.pptx"], "excel-to-pdf": ["sales.xlsx"],
+    "html-to-pdf": ["letter.html"], "markdown-to-pdf": ["notes.md"], "text-to-pdf": ["notes.txt"],
+    "unlock-pdf": ["locked.pdf"], "flatten-pdf": ["with-form.pdf"]
+  };
+  for (const { id: theme } of APP_THEMES) {
+    test(`every tool with a file loaded has no accessibility violations in the ${theme} theme`, async ({ page, baseURL }) => {
+      test.slow();
+      await page.context().addCookies([
+        { name: THEME_COOKIE, value: theme, url: baseURL ?? "http://127.0.0.1:3061" },
+      ]);
+      for (const slug of SLUGS) {
+        await page.goto(`/tools/${slug}`);
+        const main = page.locator("main");
+        const empty = await main.innerText();
+        await page
+          .locator("main input[type=file]")
+          .first()
+          .setInputFiles((INPUTS[slug] ?? ["three-pages.pdf"]).map((name) => join(process.cwd(), "e2e", "fixtures", name)));
+        // Every tool swaps its drop zone for the loaded file's controls.
+        await expect.poll(() => main.innerText(), { message: `${slug} did not take the file` }).not.toBe(empty);
+        await page.waitForLoadState("networkidle");
+        if (slug === "header-footer-pdf") await page.getByLabel("Top left content").selectOption("TEXT");
+        const results = await new AxeBuilder({ page }).analyze();
+        expect(results.violations, slug).toEqual([]);
+      }
+    });
   }
 
   test("the uploader accepts a file and offers to clear it", async ({ page }) => {

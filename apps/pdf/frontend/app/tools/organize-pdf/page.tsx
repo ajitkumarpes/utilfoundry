@@ -436,40 +436,49 @@ function SortablePageThumb({
   const style = { transform: CSS.Transform.toString(transform), transition };
   const rotClass = page.rotation ? ` rot-${page.rotation}` : "";
 
+  const name = `Page ${position}${page.kind === "SOURCE2" ? " (2nd file)" : ""}`;
+
   return (
     <div
       ref={setNodeRef}
       style={style}
       className={`page-thumb ${isDragging ? "dragging" : ""} ${page.excluded ? "excluded" : ""}`}
-      {...attributes}
-      {...listeners}
     >
-      <div className={`thumb-canvas-wrap${rotClass}`}>
-        {page.thumbnail ? (
-          <img src={page.thumbnail} alt={`Page ${position}`} draggable={false} />
-        ) : (
-          <div
-            style={{
-              width: "100%",
-              height: "100%",
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              background: "#fff",
-              border: "1.5px dashed #ccc",
-              color: "#aaa",
-              fontSize: 12,
-              fontWeight: 700
-            }}
-          >
-            Blank
-          </div>
-        )}
+      {/* The thumbnail is the drag handle, and the page's buttons sit beside it rather than
+          inside it: a control nested in another control is unreachable for screen readers. */}
+      <div
+        className="thumb-handle"
+        {...attributes}
+        {...listeners}
+        aria-label={`${name}${page.excluded ? ", removed" : ""}. Drag to reorder.`}
+      >
+        <div className={`thumb-canvas-wrap${rotClass}`}>
+          {page.thumbnail ? (
+            <img src={page.thumbnail} alt="" draggable={false} />
+          ) : (
+            <div
+              style={{
+                width: "100%",
+                height: "100%",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                background: "#fff",
+                border: "1.5px dashed #ccc",
+                color: "#aaa",
+                fontSize: 12,
+                fontWeight: 700
+              }}
+            >
+              Blank
+            </div>
+          )}
+        </div>
+        <span className="page-num">
+          Page {position}
+          {page.kind === "SOURCE2" ? " · 2nd file" : ""}
+        </span>
       </div>
-      <span className="page-num">
-        Page {position}
-        {page.kind === "SOURCE2" ? " · 2nd file" : ""}
-      </span>
       <div className="thumb-actions">
         <button
           type="button"
@@ -477,7 +486,7 @@ function SortablePageThumb({
             e.stopPropagation();
             onRotate();
           }}
-          aria-label="Rotate page"
+          aria-label={`Rotate ${name}`}
         >
           <RotateCw size={14} />
         </button>
@@ -487,7 +496,7 @@ function SortablePageThumb({
             e.stopPropagation();
             onDuplicate();
           }}
-          aria-label="Duplicate page"
+          aria-label={`Duplicate ${name}`}
         >
           <Copy size={14} />
         </button>
@@ -497,7 +506,7 @@ function SortablePageThumb({
             e.stopPropagation();
             onToggleExclude();
           }}
-          aria-label={page.excluded ? "Keep page" : "Remove page"}
+          aria-label={page.excluded ? `Keep ${name}` : `Remove ${name}`}
         >
           <Trash2 size={14} />
         </button>

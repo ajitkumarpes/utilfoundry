@@ -211,6 +211,7 @@ export default function HeaderFooterPdfPage() {
                     <strong>{label}</strong>
                     <select
                       className="text-input"
+                      aria-label={`${label} content`}
                       value={zone.type}
                       onChange={e => updateZone(key, { type: e.target.value as ZoneType })}
                       disabled={processing}
@@ -228,6 +229,7 @@ export default function HeaderFooterPdfPage() {
                         className="text-input"
                         type="text"
                         placeholder="Zone text"
+                        aria-label={`${label} text`}
                         value={zone.text}
                         maxLength={200}
                         onChange={e => updateZone(key, { text: e.target.value })}
@@ -242,6 +244,7 @@ export default function HeaderFooterPdfPage() {
                           className="text-input"
                           type="text"
                           placeholder="Prefix, e.g. DOC-"
+                          aria-label={`${label} Bates prefix`}
                           value={zone.batesPrefix}
                           maxLength={50}
                           onChange={e => updateZone(key, { batesPrefix: e.target.value })}
@@ -257,7 +260,7 @@ export default function HeaderFooterPdfPage() {
                             value={zone.batesDigits}
                             onChange={e => updateZone(key, { batesDigits: e.target.value })}
                             disabled={processing}
-                            aria-label="Bates digits"
+                            aria-label={`${label} Bates digits`}
                           />
                           <input
                             className="text-input"
@@ -267,7 +270,7 @@ export default function HeaderFooterPdfPage() {
                             value={zone.batesStart}
                             onChange={e => updateZone(key, { batesStart: e.target.value })}
                             disabled={processing}
-                            aria-label="Bates start"
+                            aria-label={`${label} Bates start number`}
                           />
                         </div>
                       </div>

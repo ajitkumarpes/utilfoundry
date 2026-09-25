@@ -173,11 +173,12 @@ export default function TextToPdfPage() {
             />
 
             <div className="field" style={{ marginBottom: 0 }}>
-              <label>Page size</label>
-              <div className="segmented">
+              <span id="page-size-label" className="field-label">Page size</span>
+              <div className="segmented" role="group" aria-labelledby="page-size-label">
                 <button
                   type="button"
                   className={pageSize === "A4" ? "active" : ""}
+                  aria-pressed={pageSize === "A4"}
                   onClick={() => setPageSize("A4")}
                   disabled={processing}
                 >
@@ -186,6 +187,7 @@ export default function TextToPdfPage() {
                 <button
                   type="button"
                   className={pageSize === "LETTER" ? "active" : ""}
+                  aria-pressed={pageSize === "LETTER"}
                   onClick={() => setPageSize("LETTER")}
                   disabled={processing}
                 >

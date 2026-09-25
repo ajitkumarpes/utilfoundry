@@ -354,8 +354,9 @@ export default function SignPdfPage() {
                 </div>
 
                 <div className="field" style={{ maxWidth: 320, marginTop: 18 }}>
-                  <label>Signature size</label>
+                  <label htmlFor="signature-size">Signature size</label>
                   <input
+                id="signature-size"
                     type="range"
                     min={0.1}
                     max={0.6}

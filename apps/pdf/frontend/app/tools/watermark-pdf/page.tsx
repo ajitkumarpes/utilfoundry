@@ -130,8 +130,9 @@ export default function WatermarkPdfPage() {
             </div>
 
             <div className="field">
-              <label>Text</label>
+              <label htmlFor="watermark-text">Text</label>
               <input
+                id="watermark-text"
                 className="text-input"
                 value={text}
                 maxLength={80}

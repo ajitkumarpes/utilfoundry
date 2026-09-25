@@ -1,7 +1,12 @@
-fastapi>=0.115,<1
-uvicorn[standard]>=0.34,<1
-python-multipart>=0.0.9,<1
-# OCRmyPDF 16+ requires Python 3.10+. Keep the lower bound compatible with
-# the Python 3.9 developer environment; the production image uses 3.12 and
-# resolves the current 16.x release.
-ocrmypdf>=15.4.4,<18
+# Exact versions where it matters - the production image (Python 3.12, Ubuntu 24.04) and CI -
+# so a rebuild cannot pick up a release nobody has tested. These are what the image resolved
+# and ran; bump them deliberately, together, and rerun the processor tests.
+fastapi==0.141.1; python_version >= "3.10"
+uvicorn[standard]==0.53.0; python_version >= "3.10"
+python-multipart==0.0.32; python_version >= "3.10"
+ocrmypdf==17.11.0; python_version >= "3.10"
+# `make processor-test` on a Python 3.9 developer machine: the newest lines that still support it.
+fastapi>=0.115,<0.129; python_version < "3.10"
+uvicorn[standard]>=0.34,<1; python_version < "3.10"
+python-multipart>=0.0.9,<1; python_version < "3.10"
+ocrmypdf>=15.4.4,<16; python_version < "3.10"

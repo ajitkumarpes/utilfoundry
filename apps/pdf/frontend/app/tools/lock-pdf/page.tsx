@@ -131,8 +131,9 @@ export default function LockPdfPage() {
             </div>
 
             <div className="field">
-              <label>Open password (optional)</label>
+              <label htmlFor="lock-password">Open password (optional)</label>
               <input
+                id="lock-password"
                 className="text-input"
                 type="password"
                 value={password}

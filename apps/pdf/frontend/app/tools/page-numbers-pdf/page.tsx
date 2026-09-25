@@ -146,8 +146,9 @@ export default function PageNumbersPdfPage() {
             </div>
 
             <div className="field">
-              <label>Start numbering at</label>
+              <label htmlFor="page-numbers-start">Start numbering at</label>
               <input
+                id="page-numbers-start"
                 className="text-input"
                 type="number"
                 min={0}

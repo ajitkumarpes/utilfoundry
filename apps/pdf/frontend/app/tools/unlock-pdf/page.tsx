@@ -127,8 +127,9 @@ export default function UnlockPdfPage() {
             </div>
 
             <div className="field">
-              <label>Password</label>
+              <label htmlFor="unlock-password">Password</label>
               <input
+                id="unlock-password"
                 className="text-input"
                 type="password"
                 value={password}

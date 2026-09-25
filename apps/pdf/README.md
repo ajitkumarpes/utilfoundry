@@ -170,15 +170,38 @@ require a Server Component); a generated favicon, OG image, `robots.txt`,
 `sitemap.xml`, and a branded 404 page are all in place. Privacy Policy
 (`/privacy`) and Terms of Service (`/terms`) exist and are linked from the
 footer — their content accurately describes how this app actually handles
-files, but **both have `[CONTACT_EMAIL]` / `[JURISDICTION]` placeholders
-that need real values filled in before this goes live**; nothing here
-fabricates a company identity that doesn't exist yet.
+files, and the contact address, operator and governing law come from
+`frontend/lib/legal.ts` (a test fails if a placeholder is left in either page).
 
 ## Production deployment
 
 For the production topology (landing page, developer tools, PDF backend, processor, PostgreSQL, Redis,
-MinIO, and Caddy), see [docs/PRODUCTION.md](docs/PRODUCTION.md) and the sibling `utilnexa-web/deployment`
-Compose project. The local `docker-compose.yml` is intended for development only.
+MinIO, and Caddy), see [docs/PRODUCTION.md](docs/PRODUCTION.md) and the repository's
+[`deploy/`](../../deploy/README.md) Compose project. The local `docker-compose.yml` is intended for
+development only.
+
+## Tests
+
+- Backend: `mvn verify` in `backend/` (unit and integration tests, including the SSRF guard).
+- Processor: `make processor-test` (validation, and that `/health` keeps answering during a
+  long OCR or conversion job).
+- Frontend: `npm run lint`, `npm run typecheck`, `npm run test:coverage` (100% of `lib/`),
+  then `npm run build` and `npm run test:e2e` in `frontend/`.
+- **Every tool, end to end** (`frontend/e2e/round-trip.spec.ts`): each of the 36 tools is used
+  in a real browser against a real backend, and the file that comes back is opened and
+  checked (pages, text, rotation, metadata, encryption, attachments, OCR text). Against the
+  local stack:
+
+  ```bash
+  CORS_ALLOWED_ORIGINS=http://127.0.0.1:3061 RATE_LIMIT_PER_MINUTE=600 \
+    docker compose up -d --build postgres redis minio createbucket processor backend
+  cd frontend
+  NEXT_PUBLIC_API_BASE_URL=http://127.0.0.1:8091 npm run build
+  E2E_PRODUCTION=1 E2E_API_URL=http://127.0.0.1:8091 npx playwright test e2e/round-trip.spec.ts
+  ```
+
+  CI runs exactly this on every change to `apps/pdf`. The fixtures it uses are described in
+  `frontend/e2e/fixtures/README.md`.
 
 ## Production readiness
 The synchronous tools process within the request (Merge uses immediately deleted

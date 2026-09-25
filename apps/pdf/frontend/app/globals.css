@@ -89,3 +89,5 @@
 .feedback-thanks h2{margin:0;font-size:19px}
 .feedback-thanks p{margin:0 0 14px;color:var(--text-muted);font-size:13.5px}
 @media(max-width:640px){.feedback-fab{right:16px;bottom:16px}.feedback-categories{grid-template-columns:1fr}}
+.field-label{font-size:13px;font-weight:700;color:var(--text-secondary)}
+.thumb-handle{display:flex;flex-direction:column;align-items:center;gap:6px;width:100%;cursor:grab;touch-action:none}

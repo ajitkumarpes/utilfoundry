@@ -19,6 +19,7 @@ from pathlib import Path
 from typing import Optional
 
 from fastapi import FastAPI, File, Form, Header, HTTPException, UploadFile
+from fastapi.concurrency import run_in_threadpool
 from fastapi.responses import Response
 
 app = FastAPI()
@@ -33,6 +34,7 @@ ALLOWED_TARGET_FORMATS = {"pdf", "docx", "pptx"}
 OCR_TIMEOUT_SECONDS = 600
 OFFICE_TIMEOUT_SECONDS = 90
 MAX_UPLOAD_BYTES = 50 * 1024 * 1024
+WORKSPACE = os.environ.get("PROCESSOR_WORKSPACE", "/workspace")
 PROCESSOR_TOKEN = os.environ.get("PROCESSOR_TOKEN", "local-dev-processor-token")
 
 CONTENT_TYPES = {
@@ -64,6 +66,11 @@ PDF_SOURCE_INFILTER = {
 # soffice --headless is well documented as unreliable under concurrent invocation against a
 # shared profile. Serialize conversions through this lock; OCR never touches it and runs with
 # real concurrency (bounded only by the caller).
+#
+# Both kinds of work block for seconds to minutes, so each runs on a worker thread
+# (run_in_threadpool) and the event loop stays free: called directly from these async
+# endpoints, subprocess.run would stall every other request - health checks included - for
+# as long as one OCR job took. The lock is taken on that worker thread too, never on the loop.
 _soffice_lock = threading.Lock()
 
 
@@ -85,8 +92,31 @@ async def process_ocr(
         )
 
     content = await _read_limited_upload(file)
+    output = await run_in_threadpool(_ocr, content, language)
+    return Response(content=output, media_type="application/pdf")
 
-    with tempfile.TemporaryDirectory(dir="/workspace") as workdir:
+
+@app.post("/process/office-convert")
+async def process_office_convert(
+    file: UploadFile = File(...),
+    target_format: str = Form(...),
+    x_processor_token: Optional[str] = Header(default=None),
+):
+    _require_processor_token(x_processor_token)
+    if target_format not in ALLOWED_TARGET_FORMATS:
+        raise HTTPException(
+            status_code=400,
+            detail=f"target_format must be one of {sorted(ALLOWED_TARGET_FORMATS)}.",
+        )
+
+    content = await _read_limited_upload(file)
+    source_suffix = Path(file.filename or "input").suffix or ".bin"
+    output = await run_in_threadpool(_office_convert, content, source_suffix, target_format)
+    return Response(content=output, media_type=CONTENT_TYPES[target_format])
+
+
+def _ocr(content: bytes, language: str) -> bytes:
+    with tempfile.TemporaryDirectory(dir=WORKSPACE) as workdir:
         input_path = Path(workdir) / "input.pdf"
         output_path = Path(workdir) / "output.pdf"
         input_path.write_bytes(content)
@@ -112,28 +142,11 @@ async def process_ocr(
 
         if result.returncode != 0 or not output_path.exists():
             raise HTTPException(status_code=422, detail=_tail_stderr(result))
+        return output_path.read_bytes()
 
-        return Response(content=output_path.read_bytes(), media_type="application/pdf")
 
-
-@app.post("/process/office-convert")
-async def process_office_convert(
-    file: UploadFile = File(...),
-    target_format: str = Form(...),
-    x_processor_token: Optional[str] = Header(default=None),
-):
-    _require_processor_token(x_processor_token)
-    if target_format not in ALLOWED_TARGET_FORMATS:
-        raise HTTPException(
-            status_code=400,
-            detail=f"target_format must be one of {sorted(ALLOWED_TARGET_FORMATS)}.",
-        )
-
-    content = await _read_limited_upload(file)
-
-    source_suffix = Path(file.filename or "input").suffix or ".bin"
-
-    with tempfile.TemporaryDirectory(dir="/workspace") as workdir:
+def _office_convert(content: bytes, source_suffix: str, target_format: str) -> bytes:
+    with tempfile.TemporaryDirectory(dir=WORKSPACE) as workdir:
         input_path = Path(workdir) / f"input{source_suffix}"
         outdir = Path(workdir) / "out"
         outdir.mkdir()
@@ -176,10 +189,7 @@ async def process_office_convert(
         output_path = outdir / f"{input_path.stem}.{target_format}"
         if result.returncode != 0 or not output_path.exists():
             raise HTTPException(status_code=422, detail=_tail_stderr(result))
-
-        return Response(
-            content=output_path.read_bytes(), media_type=CONTENT_TYPES[target_format]
-        )
+        return output_path.read_bytes()
 
 
 def _tail_stderr(result: subprocess.CompletedProcess, limit: int = 800) -> str:

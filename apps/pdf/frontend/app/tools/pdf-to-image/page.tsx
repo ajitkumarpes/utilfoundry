@@ -170,13 +170,14 @@ export default function PdfToImagePage() {
             </div>
 
             <div className="field">
-              <label>Quality</label>
-              <div className="segmented">
+              <span id="dpi-label" className="field-label">Quality</span>
+              <div className="segmented" role="group" aria-labelledby="dpi-label">
                 {DPI_OPTIONS.map(opt => (
                   <button
                     key={opt.value}
                     type="button"
                     className={dpi === opt.value ? "active" : ""}
+                  aria-pressed={dpi === opt.value}
                     onClick={() => setDpi(opt.value)}
                     disabled={processing}
                   >

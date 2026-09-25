@@ -9,7 +9,7 @@ logs:
 
 processor-test:
 	python3 -m venv .processor-venv
-	.processor-venv/bin/pip install --disable-pip-version-check -r processor/requirements.txt
+	.processor-venv/bin/pip install --disable-pip-version-check -r processor/requirements-dev.txt
 	PYTHONPATH=processor .processor-venv/bin/python -m unittest -v processor/test_app.py
 
 clean:

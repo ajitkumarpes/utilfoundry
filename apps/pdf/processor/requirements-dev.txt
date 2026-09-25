@@ -1,0 +1,3 @@
+-r requirements.txt
+# Drives the app in-process in test_app.py.
+httpx==0.28.1

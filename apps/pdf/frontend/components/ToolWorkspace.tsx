@@ -384,7 +384,7 @@ function SortableFileRow({
 
   return (
     <div ref={setNodeRef} style={style} className={`file-row ${isDragging ? "dragging" : ""}`}>
-      <span className="grip" {...attributes} {...listeners}>
+      <span className="grip" {...attributes} {...listeners} aria-label={`Drag to reorder ${item.file.name}`}>
         <GripVertical size={18} />
       </span>
       <div className="file-icon">
