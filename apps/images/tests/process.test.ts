@@ -2,6 +2,7 @@ import { describe, expect, it, vi } from "vitest";
 import sharp from "sharp";
 import { PDFDocument } from "pdf-lib";
 import { POST } from "@/app/api/process/route";
+import { GENERAL_LIMIT } from "@/lib/rate-limit";
 
 async function samplePng(width = 320, height = 200) {
   return sharp({ create: { width, height, channels: 4, background: { r: 235, g: 120, b: 40, alpha: 1 } } }).png().toBuffer();
@@ -191,5 +192,66 @@ describe("image converter", () => {
 
   it("writes GIF, which the browser cannot encode", async () => {
     expect((await metadataOf(await convert({ format: "gif" }))).format).toBe("gif");
+  });
+});
+
+describe("request limits", () => {
+  const MB = 1024 * 1024;
+
+  /** A multipart body of `bytes` zeros that counts how much of it the route actually read. */
+  function streamingUpload(bytes: number, forwardedFor: string) {
+    const boundary = "----limit-test";
+    const head = new TextEncoder().encode(
+      `--${boundary}\r\nContent-Disposition: form-data; name="tool"\r\n\r\nimage-compressor\r\n` +
+      `--${boundary}\r\nContent-Disposition: form-data; name="file"; filename="big.png"\r\nContent-Type: image/png\r\n\r\n`
+    );
+    const chunk = new Uint8Array(MB);
+    let sent = 0;
+    let pulled = 0;
+    const body = new ReadableStream<Uint8Array>({
+      pull(controller) {
+        if (pulled === 0) {
+          pulled += head.byteLength;
+          controller.enqueue(head);
+        } else if (sent < bytes) {
+          sent += chunk.byteLength;
+          pulled += chunk.byteLength;
+          controller.enqueue(chunk);
+        } else {
+          controller.enqueue(new TextEncoder().encode(`\r\n--${boundary}--\r\n`));
+          controller.close();
+        }
+      }
+    }, { highWaterMark: 0 }); // produce only when read, so `pulled` measures the route
+    const request = new Request("http://localhost/api/process", {
+      method: "POST",
+      body,
+      headers: { "Content-Type": `multipart/form-data; boundary=${boundary}`, "X-Forwarded-For": forwardedFor },
+      duplex: "half"
+    } as RequestInit);
+    return { request, pulled: () => pulled };
+  }
+
+  it("refuses a body over 64 MB while it streams in, without reading the rest", async () => {
+    const upload = streamingUpload(200 * MB, "203.0.113.10");
+    const response = await POST(upload.request);
+    expect(response.status).toBe(413);
+    expect((await response.json()).error).toBe("Uploads are limited to 64 MB per request.");
+    // Stopped at the limit (plus what was already buffered), not after all 200 MB.
+    expect(upload.pulled()).toBeLessThan(70 * MB);
+  });
+
+  it("throttles a client before reading anything it sends", async () => {
+    const caller = "203.0.113.11";
+    for (let index = 0; index < GENERAL_LIMIT; index += 1) {
+      const form = new FormData();
+      form.append("tool", "does-not-exist");
+      await POST(new Request("http://localhost/api/process", { method: "POST", body: form, headers: { "X-Forwarded-For": caller } }));
+    }
+    const upload = streamingUpload(10 * MB, caller);
+    const response = await POST(upload.request);
+    expect(response.status).toBe(429);
+    expect(Number(response.headers.get("retry-after"))).toBeGreaterThan(0);
+    expect(upload.pulled()).toBe(0);
   });
 });

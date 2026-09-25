@@ -9,6 +9,12 @@ export const runtime = "nodejs";
 export const maxDuration = 60;
 
 const MAX_INPUT_BYTES = 32 * 1024 * 1024;
+/**
+ * The whole request. The page sends one image per request, so this only bounds the
+ * multi-image PDF fallback - and anything else a client cares to send, since nothing in
+ * front of this route caps a request body and all of it is held in memory to parse.
+ */
+const MAX_BODY_BYTES = 64 * 1024 * 1024;
 const MAX_PIXELS = 40_000_000;
 const WORKER_URL = process.env.IMAGE_WORKER_URL ?? "http://127.0.0.1:8094";
 
@@ -57,6 +63,36 @@ function binaryResponse(body: Uint8Array, mime: string, name: string, extra: Rec
       ...extra
     }
   });
+}
+
+const TOO_LARGE = "Uploads are limited to 64 MB per request.";
+
+/** Parses the form, refusing a body over MAX_BODY_BYTES before it is all in memory. */
+async function readForm(request: Request): Promise<FormData> {
+  const declared = Number(request.headers.get("content-length"));
+  if (declared > MAX_BODY_BYTES) throw new ProcessingError(TOO_LARGE, 413);
+  if (!request.body) return request.formData();
+
+  // Counted as it arrives: a chunked body declares no length, and a declared one can lie.
+  let received = 0;
+  let overflowed = false;
+  const counted = request.body.pipeThrough(new TransformStream<Uint8Array, Uint8Array>({
+    transform(chunk, controller) {
+      received += chunk.byteLength;
+      if (received > MAX_BODY_BYTES) {
+        overflowed = true;
+        controller.error(new ProcessingError(TOO_LARGE, 413));
+      } else {
+        controller.enqueue(chunk);
+      }
+    }
+  }));
+  try {
+    return await new Response(counted, { headers: { "Content-Type": request.headers.get("content-type") ?? "" } }).formData();
+  } catch (error) {
+    if (overflowed) throw new ProcessingError(TOO_LARGE, 413);
+    throw error;
+  }
 }
 
 function readFiles(formData: FormData) {
@@ -249,12 +285,9 @@ async function convert(input: Buffer, formData: FormData, originalName: string) 
 }
 
 export async function POST(request: Request) {
+  let tool = "";
   try {
-    const formData = await request.formData();
-    const rawTool = formData.get("tool");
-    const tool = typeof rawTool === "string" ? rawTool : "";
-    if (!isToolId(tool)) return errorResponse("Unknown image operation.");
-
+    // Before the body is read: a throttled client must not get to make the server buffer it.
     const caller = clientKey(request);
     const general = generalWindow.take(caller);
     if (!general.allowed) {
@@ -264,6 +297,12 @@ export async function POST(request: Request) {
         { "Retry-After": String(general.retryAfterSeconds) }
       );
     }
+
+    const formData = await readForm(request);
+    const rawTool = formData.get("tool");
+    tool = typeof rawTool === "string" ? rawTool : "";
+    if (!isToolId(tool)) return errorResponse("Unknown image operation.");
+
     if (WORKER_TOOLS[tool]) {
       const worker = workerWindow.take(caller);
       if (!worker.allowed) {
@@ -396,6 +435,9 @@ export async function POST(request: Request) {
   } catch (error) {
     if (error instanceof ProcessingError) return errorResponse(error.message, error.status);
     const message = error instanceof Error ? error.message : "Image processing failed.";
+    // Mostly files libvips cannot read, which is the caller's problem, but the only record
+    // there is if something on this side starts failing.
+    console.warn(JSON.stringify({ level: "warn", route: "POST /api/process", tool, message: message.slice(0, 300) }));
     const safeMessage = message.length > 180 ? "The image could not be processed. Check its format and size." : message;
     return errorResponse(safeMessage, 400);
   }

@@ -23,7 +23,7 @@ re-renders at full resolution.
 
 **On the server.** Only the four model-backed tools — OCR Image, Screenshot to Text,
 Image Upscaler and Background Removal — plus AVIF and TIFF encoding, which no browser
-can do. Those run in the separate `image-worker` service (Tesseract, U²-Net, FSRCNN).
+can do. Those run in the separate `image-worker` service (Tesseract, U²-Net on onnxruntime, FSRCNN).
 No paid OCR API and no LLM is involved.
 
 `/api/process` also implements the canvas tools server-side. That path is not used by the
@@ -117,10 +117,24 @@ npm run build
 npm run test:e2e
 ```
 
-`npm run test:e2e` runs an Axe accessibility scan over one page per workbench shape, in
-both themes, on its own server at port 3041 (`E2E_PRODUCTION=1` scans the built output
-instead of the dev server). It is what the palette is held to: every token pair that
-carries text clears WCAG AA, tinted backgrounds and filled buttons included.
+`npm run test:e2e` runs on its own server at port 3041 (`E2E_PRODUCTION=1` tests the built
+output instead of the dev server):
+
+- `e2e/tools.spec.ts` uses every tool the way a visitor does, with a real file and the real
+  button, and checks what comes out: format and dimensions, mirrored or transparent pixels,
+  PDF page counts, ZIP contents, OCR text. A test fails if a live tool has no test. The four
+  worker tools run when `E2E_IMAGE_WORKER=1` and a worker is reachable (CI starts one):
+
+  ```bash
+  docker build -t image-worker image-worker && docker run -d -p 127.0.0.1:8094:8094 image-worker
+  E2E_IMAGE_WORKER=1 npm run test:e2e
+  ```
+
+- `e2e/a11y.spec.ts` runs an Axe scan over one page per workbench shape, in both themes. It is
+  what the palette is held to: every token pair that carries text clears WCAG AA.
+
+The worker's own tests (`image-worker/test_app.py`) run inside its image, which has the OCR
+engine and models: `docker run --rm --user root -v "$PWD/image-worker/test_app.py:/app/test_app.py:ro" image-worker sh -c "pip install -q httpx==0.28.1 && cd /app && python -m unittest test_app.py"`.
 
 Regenerate the sample assets after editing the generator:
 
@@ -141,16 +155,21 @@ never-larger fallback, EXIF orientation, animated GIF to WebP, JPEG transparency
 
 ## Security and operations
 
-- Input is bounded to 32 MB and 40 megapixels; upscaling additionally caps input at
-  12 megapixels and output at 48.
+- Input is bounded to 32 MB and 40 megapixels per image and 64 MB per request, counted as
+  the body arrives; upscaling additionally caps input at 12 megapixels and output at 48.
+- `/api/process` limits each client address (120 requests a minute, 12 for the worker tools),
+  checked before the request body is read. Behind Caddy the address is the real client's.
 - Browser-side tools transmit nothing at all.
 - Server responses use `Cache-Control: no-store`; nothing is written to disk.
 - Remove Metadata edits JPEG, PNG and WebP containers in the browser: metadata segments are
   dropped or rewritten and the compressed image data is copied byte for byte. Other formats
   are redrawn as PNG. The output is re-read to report what is actually left.
-- Add rate limiting at the reverse proxy before public exposure.
-- On a 2 GB host keep the included service limits and run one worker replica. OCR and ML
-  jobs are deliberately serialised in the worker's single process.
+- The worker fits its 768 MB limit with room to spare: measured peaks are about 350 MB for
+  background removal on a 12 MP photo, 450 MB for a 12 MP 2x upscale (FSRCNN runs over
+  tiles) and 530 MB for OCR on 40 MP, returning to about 100 MB between jobs. It works on
+  one image at a time (`WORKER_CONCURRENCY`) on a thread, so `/health` keeps answering.
+- In `deploy/` the worker sits on an internal network: only this app can reach it, and it
+  cannot reach the internet. Its model files are pinned by commit and checksum at build.
 
 ## Known limits
 

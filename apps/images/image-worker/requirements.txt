@@ -5,4 +5,5 @@ Pillow==11.1.0
 pytesseract==0.3.13
 numpy==1.26.4
 opencv-contrib-python-headless==4.10.0.84
-rembg[cpu]==2.0.67
+# Runs the u2netp background model (app.py explains why not through rembg).
+onnxruntime==1.30.0
