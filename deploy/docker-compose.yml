@@ -16,7 +16,7 @@ services:
       pdf-frontend:
         condition: service_healthy
       pdf-backend:
-        condition: service_started
+        condition: service_healthy
       developer:
         condition: service_healthy
       images:
@@ -82,6 +82,9 @@ services:
     environment:
       NEXT_TELEMETRY_DISABLED: "1"
       IMAGE_WORKER_URL: http://image-worker:8094
+    networks:
+      - default
+      - image-processing
     depends_on:
       image-worker:
         condition: service_healthy
@@ -100,6 +103,10 @@ services:
     build:
       context: ../apps/images/image-worker
     restart: unless-stopped
+    # Only the images app can reach it, and it cannot reach anything: it needs no network to
+    # read a picture, so an image crafted to make a library fetch a URL gets nowhere.
+    networks:
+      - image-processing
     expose:
       - "8094"
     environment:
@@ -145,7 +152,11 @@ services:
       retries: 20
 
   minio:
-    image: quay.io/minio/minio:latest
+    # MinIO no longer publishes images (quay.io/minio and Docker Hub now refuse pulls), so a
+    # fresh server could not start the stack. Chainguard builds the same MinIO from source and
+    # rebuilds it for security fixes; same command, variables and on-disk format. It runs as
+    # uid 65532, so a volume created by the old root-run image needs recreating (deploy/README).
+    image: cgr.dev/chainguard/minio:latest
     restart: unless-stopped
     command: server /data --console-address ":9001"
     environment:
@@ -155,7 +166,8 @@ services:
       - minio_data:/data
 
   createbucket:
-    image: quay.io/minio/mc:latest
+    # The -dev variant has the shell the loop below needs; the plain image has none.
+    image: cgr.dev/chainguard/minio-client:latest-dev
     restart: "no"
     depends_on:
       minio:
@@ -174,6 +186,10 @@ services:
       context: ../apps/pdf
       dockerfile: processor.Dockerfile
     restart: unless-stopped
+    # LibreOffice and Ghostscript open untrusted documents, which can reference remote content.
+    # On an internal network only the backend reaches the processor, and it reaches nothing.
+    networks:
+      - pdf-processing
     environment:
       PROCESSOR_TOKEN: ${PROCESSOR_TOKEN:?PROCESSOR_TOKEN is required}
     tmpfs:
@@ -204,6 +220,9 @@ services:
       OPENAPI_ENABLED: "false"
       CORS_ALLOWED_ORIGINS: https://pdf.${ROOT_DOMAIN}
       RATE_LIMIT_PER_MINUTE: ${RATE_LIMIT_PER_MINUTE:-20}
+    networks:
+      - default
+      - pdf-processing
     depends_on:
       postgres:
         condition: service_healthy
@@ -215,6 +234,13 @@ services:
         condition: service_healthy
     security_opt:
       - no-new-privileges:true
+    healthcheck:
+      # Readiness covers what a request needs: database, Redis, object storage and the processor.
+      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://127.0.0.1:8080/actuator/health/readiness"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 60s
 
   pdf-frontend:
     build:
@@ -283,6 +309,14 @@ services:
       timeout: 5s
       retries: 3
       start_period: 20s
+
+networks:
+  default: {}
+  # internal: no route out of the host. Each connects one app to its processing service.
+  pdf-processing:
+    internal: true
+  image-processing:
+    internal: true
 
 volumes:
   caddy_data:

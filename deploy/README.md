@@ -55,6 +55,27 @@ Before DNS points at a server, you can run the whole stack locally under the rea
 Remove the `/etc/hosts` line when you are done, or the public site will be unreachable from this machine. Never set
 `CADDY_LOCAL_CERTS` on the server.
 
+## Upgrading an existing deployment
+
+- **Object storage image.** MinIO no longer publishes container images, so the stack now runs
+  `cgr.dev/chainguard/minio` (the same MinIO, built from source by Chainguard). That image runs as
+  uid 65532, while the old one ran as root, so a `minio_data` volume created before this change is
+  not writable by it. The bucket only holds job results, which expire after an hour, so recreate it:
+
+  ```bash
+  docker compose stop minio && docker compose rm -f minio
+  docker volume rm "$(docker compose config --format json | jq -r '.name')_minio_data"
+  docker compose up -d minio createbucket
+  ```
+
+- **Isolated processing services.** `pdf-processor` (LibreOffice, Ghostscript, OCR) and
+  `image-worker` (OCR and the image models) sit on internal-only networks: they reach, and are
+  reached by, only their own app, and cannot open connections to the internet. Nothing to do,
+  but anything that expects to call them from elsewhere now cannot.
+
+- **Health checks.** `pdf-backend` reports healthy once its database, Redis, object storage and
+  processor are all reachable (`/actuator/health/readiness`), and Caddy starts only after that.
+
 ## Updating one app
 
 `docker compose up -d --build images` rebuilds and restarts only that service. The other service names are
