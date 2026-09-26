@@ -13,7 +13,7 @@ export default function Error({ error, reset }: { error: Error & { digest?: stri
     <main className="main-area">
       <div className="page-inner">
         <section className="card soon-panel" style={{ marginTop: 48 }} role="alert">
-          <h2>Something went wrong on this page</h2>
+          <h1>Something went wrong on this page</h1>
           <p>
             The tool stopped before it finished. Your images never left this browser unless the tool
             says it uses the server, and nothing was kept. Try again, or pick another tool.

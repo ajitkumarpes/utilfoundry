@@ -6,7 +6,7 @@ export default function NotFound() {
     <main className="main-area">
       <div className="page-inner">
         <section className="card soon-panel" style={{ marginTop: 48 }}>
-          <h2>That tool does not exist</h2>
+          <h1>That tool does not exist</h1>
           <p>
             The address you opened does not match any of the {TOOLS.length} image tools in this
             service. Pick one from the list instead.

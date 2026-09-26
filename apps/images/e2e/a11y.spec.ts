@@ -50,6 +50,15 @@ test.describe("image tools accessibility", () => {
     });
   }
 
+  // Shares none of the tool page's structure, so it once shipped without a main heading.
+  test("the missing-page screen has no automated accessibility violations", async ({ page }) => {
+    const response = await page.goto("/no-such-tool");
+    expect(response?.status()).toBe(404);
+    await expect(page.getByRole("heading", { level: 1 })).toHaveText("That tool does not exist");
+    const results = await new AxeBuilder({ page }).analyze();
+    expect(results.violations).toEqual([]);
+  });
+
   test.describe("dark theme", () => {
     test.use({ colorScheme: "dark" });
 

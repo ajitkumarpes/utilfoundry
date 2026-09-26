@@ -57,9 +57,9 @@ export default function PrivacyPage() {
             <li>
               Both go only to our own <code>admin.utilfoundry.com</code>, never a third party. That subdomain sets
               one cookie — a random id, not your identity, used only to tell a repeat visit from a new one. This site
-              itself sets no cookie of its own except <code>utilfoundry-theme</code>, holding the word{" "}
-              <code>light</code> or <code>dark</code> so the page does not flash the wrong palette on reload; it
-              never leaves your device.
+              itself sets no cookie of its own; the only thing it keeps in your browser is{" "}
+              <code>utilfoundry-theme</code>, in local storage, holding the word <code>light</code> or{" "}
+              <code>dark</code> so the page does not flash the wrong palette on reload. It never leaves your device.
             </li>
             <li>
               The page is served with a Content Security Policy whose <code>connect-src</code> permits only this

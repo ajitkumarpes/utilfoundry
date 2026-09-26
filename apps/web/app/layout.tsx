@@ -14,7 +14,8 @@ const inter = Inter({
 
 export const metadata: Metadata = {
   metadataBase: new URL("https://utilfoundry.com"),
-  title: "UtilFoundry — practical tools, crafted well",
+  // Other pages name themselves and get the site name after it, as the tool workspaces do.
+  title: { default: "UtilFoundry — practical tools, crafted well", template: "%s — UtilFoundry" },
   description: "Privacy-first PDF, image and developer tools for everyday work. Most of them run in your browser, so your files stay with you.",
   openGraph: {
     title: "UtilFoundry — practical tools, crafted well",
@@ -37,8 +38,8 @@ export const viewport: Viewport = {
 
 /**
  * Applied before paint so a reload in dark mode never flashes the light palette.
- * The same storage key as the tool apps, so a visitor's theme carries across
- * utilfoundry.com and its subdomains in the same browser.
+ * The tool apps use the same storage key, but local storage is per origin, so each
+ * subdomain still remembers its own choice.
  */
 const THEME_SCRIPT = `try{var t=localStorage.getItem("utilfoundry-theme");if(!t){t=window.matchMedia("(prefers-color-scheme: dark)").matches?"dark":"light"}document.documentElement.dataset.theme=t}catch(e){document.documentElement.dataset.theme="light"}`;
 

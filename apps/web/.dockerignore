@@ -1,5 +1,15 @@
 node_modules
 .next
-*.log
 .git
+*.tsbuildinfo
+*.log
 .DS_Store
+# Local secrets never belong in an image layer, even a build stage's.
+.env*
+!.env.example
+# Test-only material.
+e2e
+test-results
+playwright-report
+blob-report
+coverage

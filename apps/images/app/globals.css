@@ -1016,7 +1016,8 @@ input[type="range"]::-moz-range-thumb {
 
 /* Coming soon */
 .soon-panel { display: grid; justify-items: center; gap: 12px; padding: 60px 24px; text-align: center; }
-.soon-panel h2 { margin: 0; font-size: 18px; }
+/* h1 on the 404 and error pages, where the panel is the whole page; h2 inside a tool page. */
+.soon-panel h1, .soon-panel h2 { margin: 0; font-size: 18px; }
 .soon-panel p { margin: 0; max-width: 460px; color: var(--muted); font-size: 13.5px; line-height: 1.6; }
 
 /* ==========================================================================

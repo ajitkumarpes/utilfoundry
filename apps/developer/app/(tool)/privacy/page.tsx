@@ -74,11 +74,16 @@ export default function PrivacyPage() {
         </ul>
 
         <h2>What is stored on your device</h2>
-        <p>Two items, both in your browser&apos;s local storage, both invisible to us:</p>
+        <p>Three items, all in your browser&apos;s local storage, all invisible to us:</p>
         <ul>
           <li>
             <code>utilfoundry-theme</code> holds the word <code>light</code> or <code>dark</code>, so the page does
             not flash the wrong palette when it reloads.
+          </li>
+          <li>
+            <code>utilfoundry-dev-sidebar-prefs</code> holds the sidebar&apos;s lists: the tools you starred as
+            favorites, the last eight tools you opened (recorded as you open them) and the categories you collapsed.
+            It names tools and categories only, never anything you typed into a tool.
           </li>
           <li>
             <code>utilfoundry-dev-workspace</code> is written <strong>only when you press Save workspace</strong>. It
