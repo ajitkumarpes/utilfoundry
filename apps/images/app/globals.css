@@ -555,7 +555,10 @@ img { max-width: 100%; }
   border-radius: 8px;
   background: var(--panel-sunken);
 }
-.compare-pane .preview-stage { min-height: 220px; padding: 0; background: transparent; }
+/* background-color, not the shorthand: the shorthand also cleared a transparent result's
+   checkerboard, so a cut-out showed on plain white with nothing to say it was transparent. */
+.compare-pane .preview-stage { min-height: 220px; padding: 0; }
+.compare-pane .preview-stage:not(.checkerboard) { background-color: transparent; }
 .compare-pane .preview-stage img, .compare-pane .preview-stage canvas { max-height: 320px; }
 .checkerboard {
   background-color: #fff;
@@ -1174,7 +1177,7 @@ input[type="range"]::-moz-range-thumb {
 .code-row + .code-row { border-top: 1px solid var(--line-soft); }
 .code-row:nth-child(odd) { background: var(--panel-sunken); }
 .code-row dt { color: var(--muted); font-weight: 600; }
-.code-row dd { margin: 0; font-family: var(--mono); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.code-row dd { margin: 0; font-family: var(--mono); overflow-wrap: anywhere; }
 .code-row button { width: 28px; height: 28px; display: grid; place-items: center; border-radius: 6px; color: var(--faint); }
 .code-row button:hover { background: var(--accent-tint); color: var(--accent); }
 
@@ -1238,7 +1241,8 @@ input[type="range"]::-moz-range-thumb {
 .file-pick { display: grid; grid-template-columns: minmax(0, 1fr) 34px; align-items: center; gap: 6px; padding-right: 8px; }
 .file-pick + .file-pick { border-top: 1px solid var(--line-soft); }
 .file-pick:nth-child(odd) { background: var(--panel-sunken); }
-.file-check { display: grid; grid-template-columns: 22px minmax(0, 1fr) auto; gap: 11px; align-items: center; width: 100%; padding: 11px 12px; text-align: left; }
+.file-check { display: grid; grid-template-columns: 22px minmax(0, 1fr); gap: 1px 11px; align-items: center; width: 100%; padding: 10px 12px; text-align: left; }
+.file-check i { grid-row: span 2; }
 .file-check[aria-disabled="true"] { cursor: default; }
 .file-download { width: 30px; height: 30px; display: grid; place-items: center; border-radius: 7px; color: var(--faint); }
 .file-download:hover { background: var(--accent-tint); color: var(--accent); }
@@ -1250,8 +1254,8 @@ input[type="range"]::-moz-range-thumb {
   color: #fff;
 }
 .file-check[aria-checked="true"] i { border-color: var(--blue); background: var(--blue); }
-.file-check b { font-size: 12.5px; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.file-check small { color: var(--faint); font-size: 11.5px; white-space: nowrap; }
+.file-check b { display: block; font-size: 12.5px; font-weight: 600; overflow-wrap: anywhere; }
+.file-check small { grid-column: 2; color: var(--faint); font-size: 11.5px; }
 
 .icon-preview { display: flex; align-items: flex-end; justify-content: center; gap: 16px; flex-wrap: wrap; padding: 4px 0; }
 .icon-preview figure { margin: 0; display: flex; flex-direction: column; align-items: center; gap: 7px; }
@@ -1990,6 +1994,9 @@ button.row-icon:hover:not(:disabled) { background: var(--panel-sunken); color: v
 [data-theme="dark"] .job-pill.is-done { color: #08240f; }
 [data-theme="dark"] .tab-row button[aria-selected="true"],
 [data-theme="dark"] .map-link { color: #0c1730; }
+/* The segmented variant is not filled: its selected tab sits on the dark tint, where ink
+   would vanish (1.2:1), so it keeps the light blue label instead (about 6.6:1). */
+[data-theme="dark"] .tab-row.is-segmented button[aria-selected="true"] { color: var(--blue); }
 /* Its light hover keeps the ink label readable. */
 [data-theme="dark"] .map-link:hover { background: #a6c2ff; }
 
@@ -2133,9 +2140,11 @@ button.row-icon:hover:not(:disabled) { background: var(--panel-sunken); color: v
 }
 
 /* A loaded image leaves only a slim bar for replacing it, so the preview stays in view. */
-.upload-zone.is-compact { min-height: 0; flex-direction: row; justify-content: flex-start; gap: 12px; padding: 12px 14px; text-align: left; }
+/* Wraps rather than squeezes: in a narrow column (a three-step layout, or beside a large
+   result) the button drops under the text instead of the heading going one word a line. */
+.upload-zone.is-compact { min-height: 0; flex-direction: row; flex-wrap: wrap; justify-content: flex-start; gap: 10px 12px; padding: 12px 14px; text-align: left; }
 .upload-zone.is-compact > svg { margin: 0; flex: 0 0 auto; }
-.upload-compact-text { display: flex; flex-direction: column; gap: 2px; flex: 1 1 auto; min-width: 0; }
+.upload-compact-text { display: flex; flex-direction: column; gap: 2px; flex: 1 1 170px; min-width: 0; }
 .upload-zone.is-compact strong { font-size: 14px; }
 .upload-zone.is-compact small { font-size: 12px; }
 .upload-zone.is-compact .upload-cta { margin: 0; padding: 7px 14px; font-size: 13px; box-shadow: none; flex: 0 0 auto; }

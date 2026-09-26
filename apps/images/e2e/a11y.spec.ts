@@ -29,7 +29,9 @@ const SAMPLE = [
   "image-compare",
   "color-picker",
   "image-to-pdf",
-  "ocr-image"
+  "ocr-image",
+  // The only segmented tab row, whose selected label once vanished in dark mode.
+  "watermark-image"
 ] as const;
 
 test.describe("image tools accessibility", () => {

@@ -207,6 +207,15 @@ test.describe("convert", () => {
 
   tool("favicon-generator", async (page) => {
     await upload(page, `${SAMPLES}/mark.png`);
+    // Each file's name and its sizes share a narrow column; they once ran over each other.
+    const rows = page.locator(".file-check");
+    await expect(rows).toHaveCount(7);
+    const overlapping = await rows.evaluateAll((elements) => elements.filter((row) => {
+      const name = row.querySelector("b")!.getBoundingClientRect();
+      const detail = row.querySelector("small")!.getBoundingClientRect();
+      return !(name.bottom <= detail.top || detail.bottom <= name.top || name.right <= detail.left || detail.right <= name.left);
+    }).map((row) => row.querySelector("b")!.textContent));
+    expect(overlapping).toEqual([]);
     const names = zipNames((await download(page, /Download All Files/)).bytes);
     for (const name of ["favicon.ico", "favicon-16x16.png", "favicon-32x32.png", "apple-touch-icon.png", "site.webmanifest"]) {
       expect(names).toContain(name);
@@ -225,6 +234,10 @@ test.describe("AI & OCR", () => {
   tool("background-removal", async (page) => {
     await upload(page, `${SAMPLES}/portrait.jpg`);
     await page.getByRole("button", { name: /^Run Background Removal/ }).click();
+    // A cut-out on plain white looks like it still has a background; the checkerboard says it does not.
+    const result = page.getByRole("img", { name: "Result" });
+    await expect(result).toBeVisible();
+    expect(await result.evaluate((img) => getComputedStyle(img.parentElement!).backgroundImage)).toContain("gradient");
     const { bytes } = await download(page, "Download PNG");
     const { data, info } = await sharp(bytes).ensureAlpha().raw().toBuffer({ resolveWithObject: true });
     const alpha = (x: number, y: number) => data[(Math.round(y) * info.width + Math.round(x)) * 4 + 3];
