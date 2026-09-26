@@ -3,6 +3,7 @@ package com.utilnexa.pdf.api;
 import tools.jackson.databind.ObjectMapper;
 import com.utilnexa.pdf.api.dto.BookmarkEntry;
 import com.utilnexa.pdf.api.dto.BookmarksReadResult;
+import com.utilnexa.pdf.api.dto.EditElement;
 import com.utilnexa.pdf.api.dto.FlattenScanResult;
 import com.utilnexa.pdf.api.dto.HeaderFooterRequest;
 import com.utilnexa.pdf.api.dto.NamedFile;
@@ -14,6 +15,7 @@ import com.utilnexa.pdf.service.ImageToPdfService;
 import com.utilnexa.pdf.service.PdfBookmarkService;
 import com.utilnexa.pdf.service.PdfCompressService;
 import com.utilnexa.pdf.service.PdfCropService;
+import com.utilnexa.pdf.service.PdfEditService;
 import com.utilnexa.pdf.service.PdfExtractAttachmentsService;
 import com.utilnexa.pdf.service.PdfExtractImagesService;
 import com.utilnexa.pdf.service.PdfExtractFontsService;
@@ -83,6 +85,7 @@ public class PdfController {
   private final PdfExtractAttachmentsService extractAttachmentsService;
   private final PdfExtractFontsService extractFontsService;
   private final PdfCropService cropService;
+  private final PdfEditService editService;
   private final PdfSignService signService;
   private final PdfRedactService redactService;
   private final PdfRepairService repairService;
@@ -290,6 +293,24 @@ public class PdfController {
       throw new IllegalArgumentException("The signature placement could not be read.");
     }
     return pdfResponse(signService.sign(file, signatureImage, placement), "signed.pdf");
+  }
+
+  @PostMapping(
+      value = "/edit",
+      consumes = MediaType.MULTIPART_FORM_DATA_VALUE,
+      produces = MediaType.APPLICATION_PDF_VALUE)
+  public ResponseEntity<byte[]> edit(
+      @RequestPart("file") MultipartFile file,
+      @RequestPart(value = "images", required = false) List<MultipartFile> images,
+      @RequestPart("elements") String elementsJson)
+      throws IOException {
+    List<EditElement> elements;
+    try {
+      elements = objectMapper.readValue(elementsJson, new TypeReference<List<EditElement>>() {});
+    } catch (JacksonException e) {
+      throw new IllegalArgumentException("The edit elements could not be read.");
+    }
+    return pdfResponse(editService.edit(file, images, elements), "edited.pdf");
   }
 
   @PostMapping(

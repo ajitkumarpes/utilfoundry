@@ -3,6 +3,10 @@ export type RenderedPage = {
   dataUrl: string;
   renderWidth: number;
   renderHeight: number;
+  /** The page's own size in PDF points (pdf.js viewport at scale 1) — renderWidth / pageWidthPt
+   *  converts a screen pixel to the points the backend places elements in. */
+  pageWidthPt: number;
+  pageHeightPt: number;
 };
 
 type PageViewportLike = { width: number; height: number };
@@ -45,9 +49,17 @@ export async function renderAllPageThumbnails(file: File, scale = 0.45): Promise
 
   for (let i = 1; i <= pdf.numPages; i++) {
     const page = await pdf.getPage(i);
+    const baseViewport = page.getViewport({ scale: 1 });
     const viewport = page.getViewport({ scale });
     const dataUrl = await renderPageToDataUrl(page, viewport);
-    pages.push({ pageIndex: i - 1, dataUrl, renderWidth: viewport.width, renderHeight: viewport.height });
+    pages.push({
+      pageIndex: i - 1,
+      dataUrl,
+      renderWidth: viewport.width,
+      renderHeight: viewport.height,
+      pageWidthPt: baseViewport.width,
+      pageHeightPt: baseViewport.height
+    });
   }
 
   return pages;
@@ -60,5 +72,12 @@ export async function renderSinglePage(file: File, pageIndex: number, targetWidt
   const scale = targetWidth / baseViewport.width;
   const viewport = page.getViewport({ scale });
   const dataUrl = await renderPageToDataUrl(page, viewport);
-  return { pageIndex, dataUrl, renderWidth: viewport.width, renderHeight: viewport.height };
+  return {
+    pageIndex,
+    dataUrl,
+    renderWidth: viewport.width,
+    renderHeight: viewport.height,
+    pageWidthPt: baseViewport.width,
+    pageHeightPt: baseViewport.height
+  };
 }

@@ -86,8 +86,8 @@ export default function FeedbackWidget() {
 
   return (
     <>
-      <button type="button" className="feedback-fab" onClick={open} aria-label="Give feedback">
-        <MessageCircle size={22} />
+      <button type="button" className="feedback-fab" onClick={open}>
+        Feedback
       </button>
 
       <dialog ref={dialogRef} className="feedback-dialog">
