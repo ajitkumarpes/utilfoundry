@@ -33,6 +33,7 @@ export const TOOL_GROUPS: ToolGroup[] = [
       { name: "Rotate PDF", href: "/tools/rotate-pdf" },
       { name: "Crop PDF", href: "/tools/crop-pdf" },
       { name: "Repair PDF", href: "/tools/repair-pdf" },
+      { name: "Edit PDF", href: "/tools/edit-pdf" },
       { name: "Edit PDF Metadata", href: "/tools/edit-metadata" },
       { name: "Pages per Sheet", href: "/tools/pages-per-sheet" },
       { name: "Edit Bookmarks", href: "/tools/bookmarks-pdf" }

@@ -9,7 +9,7 @@ const products = [
   {
     href: PDF_URL,
     label: "PDF platform",
-    count: "36 tools",
+    count: "37 tools",
     title: "Every PDF job, one workspace.",
     description: "Merge, split, convert, compress, sign, redact and organise documents, with OCR and repair when a file fights back.",
     icon: FileText,
@@ -65,7 +65,7 @@ export default function Home() {
       <main id="main">
         <section className="shell hero">
           <div>
-            <p className="eyebrow"><Sparkles size={14} aria-hidden /> 136 tools across three workspaces</p>
+            <p className="eyebrow"><Sparkles size={14} aria-hidden /> 137 tools across three workspaces</p>
             <h1 className="hero-title">Useful tools.<br /><em>Quietly excellent.</em></h1>
             <p className="hero-sub">
               UtilFoundry is where the small jobs get done: a PDF that needs splitting, a token that needs
@@ -77,7 +77,7 @@ export default function Home() {
             </div>
             <div className="stat-row">
               <div>
-                <p className="stat-value">136</p>
+                <p className="stat-value">137</p>
                 <p className="stat-label">Tools available today</p>
               </div>
               <div>

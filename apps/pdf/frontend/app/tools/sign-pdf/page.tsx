@@ -1,18 +1,18 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import type { PointerEvent as ReactPointerEvent, ChangeEvent } from "react";
+import type { PointerEvent as ReactPointerEvent } from "react";
 import Link from "next/link";
 import { AlertCircle, ArrowLeft, CheckCircle2, Download, Loader2, XCircle } from "lucide-react";
 import SiteHeader from "@/components/SiteHeader";
 import SiteFooter from "@/components/SiteFooter";
 import SinglePdfInput from "@/components/SinglePdfInput";
+import SignaturePad from "@/components/SignaturePad";
 import { renderAllPageThumbnails, renderSinglePage, RenderedPage } from "@/lib/pdfPageRenderer";
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:8091";
 const MAIN_RENDER_WIDTH = 640;
 
-type SignatureSource = "draw" | "upload";
 type Placement = { xPct: number; yPct: number; widthPct: number };
 
 export default function SignPdfPage() {
@@ -22,7 +22,6 @@ export default function SignPdfPage() {
   const [activePageIndex, setActivePageIndex] = useState(0);
   const [mainPage, setMainPage] = useState<RenderedPage | null>(null);
 
-  const [signatureSource, setSignatureSource] = useState<SignatureSource>("draw");
   const [signatureBlob, setSignatureBlob] = useState<Blob | null>(null);
   const [signatureUrl, setSignatureUrl] = useState<string | null>(null);
 
@@ -33,9 +32,6 @@ export default function SignPdfPage() {
   const [error, setError] = useState<string | null>(null);
   const [done, setDone] = useState(false);
   const [downloadUrl, setDownloadUrl] = useState<string | null>(null);
-
-  const canvasRef = useRef<HTMLCanvasElement | null>(null);
-  const drawing = useRef(false);
 
   const selectFile = async (picked: File) => {
     setError(null);
@@ -76,68 +72,9 @@ export default function SignPdfPage() {
     setDone(false);
   };
 
-  const padPointerDown = (e: ReactPointerEvent<HTMLCanvasElement>) => {
-    drawing.current = true;
-    const canvas = canvasRef.current;
-    const ctx = canvas?.getContext("2d");
-    const rect = canvas?.getBoundingClientRect();
-    if (ctx && rect) {
-      ctx.beginPath();
-      ctx.moveTo(e.clientX - rect.left, e.clientY - rect.top);
-    }
-  };
-  const padPointerMove = (e: ReactPointerEvent<HTMLCanvasElement>) => {
-    if (!drawing.current) return;
-    const canvas = canvasRef.current;
-    const ctx = canvas?.getContext("2d");
-    const rect = canvas?.getBoundingClientRect();
-    if (ctx && rect) {
-      ctx.lineWidth = 2.5;
-      ctx.lineCap = "round";
-      ctx.strokeStyle = "#171717";
-      ctx.lineTo(e.clientX - rect.left, e.clientY - rect.top);
-      ctx.stroke();
-    }
-  };
-  const padPointerUp = () => {
-    drawing.current = false;
-  };
-  const clearPad = () => {
-    const canvas = canvasRef.current;
-    const ctx = canvas?.getContext("2d");
-    if (canvas && ctx) ctx.clearRect(0, 0, canvas.width, canvas.height);
-    setSignatureBlob(null);
-    if (signatureUrl) URL.revokeObjectURL(signatureUrl);
-    setSignatureUrl(null);
-  };
-  const useDrawnSignature = () => {
-    const canvas = canvasRef.current;
-    if (!canvas) return;
-    canvas.toBlob(blob => {
-      if (!blob) return;
-      setSignatureBlob(blob);
-      if (signatureUrl) URL.revokeObjectURL(signatureUrl);
-      setSignatureUrl(URL.createObjectURL(blob));
-    }, "image/png");
-  };
-
-  const onUploadSignature = (e: ChangeEvent<HTMLInputElement>) => {
-    const picked = e.target.files?.[0];
-    if (!picked) return;
-    if (!picked.type.startsWith("image/")) {
-      setError("Select a PNG or JPEG image for your signature.");
-      return;
-    }
-    setSignatureBlob(picked);
-    if (signatureUrl) URL.revokeObjectURL(signatureUrl);
-    setSignatureUrl(URL.createObjectURL(picked));
-  };
-
-  const switchSource = (source: SignatureSource) => {
-    setSignatureSource(source);
-    setSignatureBlob(null);
-    if (signatureUrl) URL.revokeObjectURL(signatureUrl);
-    setSignatureUrl(null);
+  const onSignatureReady = (blob: Blob | null, url: string | null) => {
+    setSignatureBlob(blob);
+    setSignatureUrl(url);
   };
 
   const onSigPointerDown = (e: ReactPointerEvent<HTMLDivElement>) => {
@@ -291,46 +228,9 @@ export default function SignPdfPage() {
             </div>
 
             <h2 style={{ marginBottom: 14 }}>2. Create your signature</h2>
-            <div className="segmented" style={{ marginBottom: 14 }}>
-              <button type="button" className={signatureSource === "draw" ? "active" : ""} onClick={() => switchSource("draw")}>
-                Draw
-              </button>
-              <button type="button" className={signatureSource === "upload" ? "active" : ""} onClick={() => switchSource("upload")}>
-                Upload image
-              </button>
+            <div style={{ marginBottom: 26 }}>
+              <SignaturePad onChange={onSignatureReady} onError={setError} />
             </div>
-
-            {signatureSource === "draw" && (
-              <div style={{ marginBottom: 26 }}>
-                <canvas
-                  ref={canvasRef}
-                  width={400}
-                  height={140}
-                  className="sig-pad"
-                  onPointerDown={padPointerDown}
-                  onPointerMove={padPointerMove}
-                  onPointerUp={padPointerUp}
-                  onPointerLeave={padPointerUp}
-                />
-                <div style={{ display: "flex", gap: 8, marginTop: 10 }}>
-                  <button type="button" className="secondary-btn" onClick={clearPad}>
-                    Clear
-                  </button>
-                  <button type="button" className="secondary-btn" onClick={useDrawnSignature}>
-                    Use this signature
-                  </button>
-                </div>
-              </div>
-            )}
-
-            {signatureSource === "upload" && (
-              <div style={{ marginBottom: 26 }}>
-                <label className="secondary-btn" style={{ display: "inline-flex", cursor: "pointer" }}>
-                  Choose signature image
-                  <input type="file" accept="image/png,image/jpeg" onChange={onUploadSignature} style={{ display: "none" }} />
-                </label>
-              </div>
-            )}
 
             {signatureUrl && mainPage && (
               <>
