@@ -99,7 +99,7 @@ const CASES: Case[] = [
     input: '{"name":"Asha","age":30}\n---\n{"type":"object","required":["name","age"],"properties":{"name":{"type":"string"},"age":{"type":"integer"}}}',
     contains: ['"valid": true'], tone: "ready", title: "Data matches the schema"
   },
-  { name: "needs the separator", slug: "json-schema-validator", input: '{"a":1}', tone: "error", note: /line containing ---/ },
+  { name: "needs both documents", slug: "json-schema-validator", input: '{"a":1}', tone: "error", title: "Two documents needed", note: /JSON Schema editor is empty/ },
 
   // ---------------------------------------------------------------- JSON
   {
@@ -180,7 +180,7 @@ const CASES: Case[] = [
   },
   { name: "marks both lines of a removed block", slug: "text-diff", input: "a\nb\nc\nd\n---\na\nd", exact: " a\n-b\n-c\n d", tone: "ready" },
   { name: "keeps one-line snippets apart", slug: "text-diff", exact: "-before\n+after", tone: "ready" },
-  { name: "needs the separator", slug: "text-diff", input: "only one snippet", tone: "error", note: /line containing ---/ },
+  { name: "needs both documents", slug: "text-diff", input: "only one snippet", tone: "error", title: "Two documents needed", note: /Changed editor is empty/ },
   { name: "cleans whitespace", slug: "whitespace-cleaner", input: "hello    world   \n\n\n\nnext\t\tline  ", exact: "hello world\n\nnext line", tone: "ready" },
   { name: "sorts naturally", slug: "line-sorter", input: "item10\nitem2\nItem1\nitem1", exact: "Item1\nitem1\nitem2\nitem10", tone: "ready" },
   { name: "keeps first occurrences in order", slug: "line-deduplicator", input: "b\na\nb\nc\na", exact: "b\na\nc", tone: "ready" },
@@ -369,8 +369,9 @@ test("every tool has at least one real-world case here", () => {
 
 test("uuid-generator: a fresh RFC 4122 v4 UUID on every run", async ({ page }) => {
   const tool = await openTool(page, "uuid-generator");
-  await expect(page.getByText("Nothing to paste")).toBeVisible();
   const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/;
+  // A generator has nothing to wait for, so the page opens with a value already made.
+  await expect(page.getByLabel(`${tool.name} output`, { exact: true })).toHaveValue(uuid);
   await run(page);
   const first = await readOutput(page, tool);
   expect(first).toMatch(uuid);
@@ -389,6 +390,11 @@ test("password-generator: two runs never repeat and avoid look-alike characters"
   expect(first).toHaveLength(24);
   expect(second).not.toBe(first);
   expect(first + second).not.toMatch(/[IOl01]/);
+  await expect(page.locator(".strength")).toContainText("Very strong");
+
+  // Changing the length is the whole question for a generator, so it answers straight away.
+  await setField(page, "Length", "40");
+  await expect(page.getByLabel(`${tool.name} output`, { exact: true })).toHaveValue(/^.{40}$/);
 });
 
 test("markdown-preview: renders Markdown and strips scripts and handlers", async ({ page }) => {
@@ -458,8 +464,8 @@ test("jwt-hmac-signer: a token it signs verifies with the same secret", async ({
 
 test("jwt-rs256-verifier: a payload swapped under a valid signature does not verify", async ({ page }) => {
   const tool = await openTool(page, "jwt-rs256-verifier");
-  const example = await page.getByLabel(`${tool.name} input`, { exact: true }).inputValue();
-  const [token, jwk] = example.split("\n---\n");
+  const token = await page.getByLabel(`${tool.name} Token`, { exact: true }).inputValue();
+  const jwk = await page.getByLabel(`${tool.name} JWK public key`, { exact: true }).inputValue();
   const [header, , signature] = token.split(".");
   const forged = `${header}.eyJzdWIiOiJ1c2VyLTEyMyIsInJvbGUiOiJhZG1pbiIsImlhdCI6MTc4OTAwMDAwMH0.${signature}`;
   await setInput(page, tool, `${forged}\n---\n${jwk}`);

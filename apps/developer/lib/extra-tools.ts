@@ -1301,10 +1301,13 @@ export function formatEnv(value: string) {
   return duplicates.length ? `${body}\n\n# Duplicate keys: ${duplicates.join(", ")}` : body;
 }
 
+/** Look-alike characters (I, O, l, 0, 1) are left out so a password can be read back. */
+export const PASSWORD_ALPHABET =
+  "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz23456789!@#$%^&*_-";
+
 export function generatePassword(lengthValue: string) {
   const length = Math.min(128, Math.max(8, Number(lengthValue) || 24));
-  const alphabet =
-    "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz23456789!@#$%^&*_-";
+  const alphabet = PASSWORD_ALPHABET;
   const limit = Math.floor(0x1_0000_0000 / alphabet.length) * alphabet.length;
   const output: string[] = [];
   while (output.length < length) {

@@ -15,8 +15,8 @@ const canReadClipboard = (browserName: string) => browserName === "chromium";
 const toast = (page: Page) => page.locator(".toast");
 
 test.describe("result panel", () => {
-  test("Info shows what the tool is for, Result waits for a run", async ({ page }) => {
-    await openTool(page, "json-formatter");
+  test("Info shows what the tool is for, and a run brings its Result forward", async ({ page }) => {
+    const tool = await openTool(page, "json-formatter");
     const info = page.getByRole("tabpanel");
     await expect(info.getByRole("heading", { name: "Why use this tool?" })).toBeVisible();
     await expect(info.getByText("Pretty print (human readable)")).toBeVisible();
@@ -24,13 +24,73 @@ test.describe("result panel", () => {
 
     await page.getByRole("tab", { name: "Result" }).click();
     await expect(page.getByRole("tabpanel")).toContainText("No result yet");
+    await page.getByRole("tab", { name: "Info" }).click();
 
+    // No click on Result: the answer comes to the visitor.
     await run(page);
+    await expect(page.getByRole("tab", { name: "Result" })).toHaveAttribute("aria-selected", "true");
     await expect(page.getByRole("tabpanel")).toContainText("Valid JSON");
     await expect(page.getByRole("tabpanel")).toContainText("Array items");
     await expect(page.getByRole("button", { name: "Copy to clipboard" })).toBeVisible();
     await expect(page.getByRole("button", { name: "Download as JSON" })).toBeVisible();
+    await expect(page.getByRole("button", { name: "Share result" })).toBeVisible();
     await expect(page.getByRole("link", { name: "Validate against a schema" })).toHaveAttribute("href", "/json-schema-validator");
+
+    // Clearing the bench is a fresh start: back to Info, and the bar back to ready.
+    await page.getByRole("button", { name: "Clear" }).click();
+    await expect(page.getByRole("tab", { name: "Info" })).toHaveAttribute("aria-selected", "true");
+    await expect(banner(page)).toHaveCount(0);
+    await expect(inputBox(page, tool)).toHaveValue("");
+  });
+
+  test("a tool's own details come with its result", async ({ page }) => {
+    const tool = await openTool(page, "jwt-decoder");
+    const exp = Math.floor(Date.now() / 1000) + 3 * 86400;
+    const part = (value: object) => Buffer.from(JSON.stringify(value)).toString("base64url");
+    await setInput(page, tool, `${part({ alg: "HS256", typ: "JWT" })}.${part({ sub: "user-9", exp })}.c2ln`);
+    await run(page);
+    const details = page.getByRole("tabpanel").locator(".result-details");
+    await expect(details).toContainText("HS256");
+    await expect(details).toContainText("user-9");
+    await expect(details).toContainText("in 3 days");
+  });
+
+  test("JSON output can be browsed as a tree", async ({ page }) => {
+    const tool = await openTool(page, "json-formatter");
+    await setInput(page, tool, '{"user":{"name":"Asha","roles":["admin"]}}');
+    await run(page);
+    const views = page.getByRole("group", { name: "Show the output as" });
+    await views.getByRole("button", { name: "Tree" }).click();
+    const tree = page.getByRole("region", { name: "JSON Formatter output as a tree" });
+    await expect(tree).toContainText('"name"');
+    await expect(tree).toContainText('"Asha"');
+    await tree.getByRole("button", { name: "Collapse user" }).click();
+    await expect(tree).not.toContainText('"Asha"');
+    await views.getByRole("button", { name: "Code" }).click();
+    await expect(outputBox(page, tool)).toHaveValue(/"Asha"/);
+  });
+
+  test("a pane opens full screen and Escape brings it back", async ({ page }) => {
+    await openTool(page, "json-formatter");
+    await page.getByRole("button", { name: "Open json formatter input full screen" }).click();
+    await expect(page.locator(".step-card.is-expanded")).toHaveCount(1);
+    await page.keyboard.press("Escape");
+    await expect(page.locator(".step-card.is-expanded")).toHaveCount(0);
+  });
+
+  test("the two-document tools give each document its own editor", async ({ page }) => {
+    const tool = await openTool(page, "json-diff");
+    const original = page.getByLabel("JSON Diff Original JSON", { exact: true });
+    const changed = page.getByLabel("JSON Diff Changed JSON", { exact: true });
+    await original.fill('{"a":1,"b":2}');
+    await changed.fill('{"b":2,"a":3}');
+    await run(page);
+    expect(JSON.parse(await readOutput(page, tool))).toEqual([{ path: "$.a", left: 1, right: 3 }]);
+
+    await changed.fill("");
+    await run(page);
+    await expect(banner(page)).toHaveClass(/is-error/);
+    await expect(banner(page)).toContainText("Changed JSON editor is empty");
   });
 
   test("tabs follow the arrow keys", async ({ page }) => {
@@ -117,12 +177,13 @@ test.describe("running and editing", () => {
     await setInput(page, tool, '{\n  "a": 1\n}');
     await inputBox(page, tool).evaluate((el: HTMLTextAreaElement) => el.setSelectionRange(7, 7));
     await inputBox(page, tool).press("ArrowLeft");
-    const status = page.locator(".editor").first().locator(".editor-status");
+    const editor = page.locator(".editor").first();
+    const status = editor.locator(".editor-status");
     await expect(status).toContainText("Ln 2, Col 5");
     await expect(status).toContainText("Spaces: 2");
     await expect(status).toContainText("UTF-8");
-    await expect(status).toContainText("JSON");
     await expect(status).toContainText("12 bytes");
+    await expect(editor.locator(".editor-lang")).toHaveText("JSON");
   });
 
   test("Jump to error puts the caret on the fault", async ({ page }) => {
@@ -137,13 +198,13 @@ test.describe("running and editing", () => {
     expect(await inputBox(page, tool).evaluate((el: HTMLTextAreaElement) => el.selectionStart)).toBe(broken.indexOf("]"));
   });
 
-  test("the banner can be dismissed and returns on the next run", async ({ page }) => {
+  test("the bar says the bench is ready before the first run", async ({ page }) => {
     await openTool(page, "json-formatter");
-    await run(page);
-    await banner(page).getByRole("button", { name: "Dismiss" }).click();
+    await expect(page.locator(".action-bar")).toContainText("Ready when you are");
     await expect(banner(page)).toHaveCount(0);
     await run(page);
-    await expect(banner(page)).toBeVisible();
+    await expect(page.locator(".action-bar")).toHaveClass(/is-ready/);
+    await expect(banner(page)).toContainText("Processed locally");
   });
 
   test("a file dropped on the input editor is loaded", async ({ page }) => {
@@ -253,7 +314,7 @@ test.describe("copy, download and share", () => {
   test("Share copies the page link", async ({ page, browserName }) => {
     test.skip(!canReadClipboard(browserName), "Only Chromium lets the test read the clipboard back.");
     await openTool(page, "json-formatter");
-    await page.getByRole("button", { name: "Share" }).click();
+    await page.getByRole("button", { name: "Share", exact: true }).click();
     await expect(toast(page)).toContainText("Link copied");
     expect(await clipboard(page)).toMatch(/\/json-formatter$/);
   });
@@ -279,11 +340,13 @@ test.describe("documentation", () => {
 test.describe("navigation and preferences", () => {
   test("favorites show in the sidebar and on the All tools page", async ({ page }) => {
     await openTool(page, "sql-formatter");
+    const sidebar = page.getByRole("complementary", { name: "Developer tools" });
+    await expect(sidebar.getByText("to pin it here")).toBeVisible();
     await page.getByRole("button", { name: "Add to favorites" }).click();
     await expect(page.getByRole("button", { name: "Favorited" })).toHaveAttribute("aria-pressed", "true");
-    const favorites = page.getByRole("link", { name: /^Favorites/ });
-    await expect(favorites).toContainText("1");
-    await favorites.click();
+    const pinned = sidebar.locator(".nav-pinned").first();
+    await expect(pinned.getByRole("link", { name: "SQL Formatter" })).toBeVisible();
+    await pinned.getByRole("link", { name: "Manage" }).click();
     await expect(page).toHaveURL(/\/tools\?view=favorites$/);
     await expect(page.locator(".catalog-card").getByRole("link", { name: /SQL Formatter/ })).toBeVisible();
     await page.getByRole("button", { name: "Remove SQL Formatter from favorites" }).click();
@@ -294,7 +357,8 @@ test.describe("navigation and preferences", () => {
     await openTool(page, "json-formatter");
     await openTool(page, "base64-encoder");
     await openTool(page, "url-encoder");
-    await expect(page.getByRole("link", { name: /^Recently used/ })).toContainText("3");
+    const recent = page.getByRole("complementary", { name: "Developer tools" }).locator(".nav-pinned").nth(1);
+    await expect(recent.locator(".nav-tool-label")).toHaveText(["URL Encoder", "Base64 Encoder", "JSON Formatter"]);
     await page.goto("/tools?view=recent");
     // Retried: the page shows every tool until it has read this browser's history.
     await expect(page.locator(".catalog-card b")).toHaveText(["URL Encoder", "Base64 Encoder", "JSON Formatter"]);
@@ -440,6 +504,12 @@ test.describe("accessibility of states that only appear after interaction", () =
       await run(page);
       expect((await new AxeBuilder({ page }).analyze()).violations).toEqual([]);
 
+      await page.getByRole("group", { name: "Show the output as" }).getByRole("button", { name: "Tree" }).click();
+      await page.getByRole("button", { name: "Open the output full screen" }).click();
+      expect((await new AxeBuilder({ page }).analyze()).violations).toEqual([]);
+      await page.keyboard.press("Escape");
+
+      await page.getByRole("tab", { name: "Info" }).click();
       await page.getByRole("button", { name: /View full documentation/ }).click();
       expect((await new AxeBuilder({ page }).analyze()).violations).toEqual([]);
     });

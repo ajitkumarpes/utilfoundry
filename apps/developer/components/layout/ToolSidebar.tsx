@@ -3,7 +3,7 @@
 import { Suspense, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { usePathname, useSearchParams } from "next/navigation";
-import { ChevronDown, ChevronUp, History, House, LayoutGrid, Search, SquarePlus, Star, X } from "lucide-react";
+import { ChevronDown, ChevronUp, Crown, History, House, LayoutGrid, Search, SquarePlus, Star, X } from "lucide-react";
 import { PARENT_URL } from "@/lib/links";
 import { CATEGORY_ORDER, TOOLS, getTool, getToolById, type ToolDefinition } from "@/lib/tools";
 import { useCollapsedCategories, useFavorites, useRecents } from "@/lib/tool-prefs";
@@ -30,33 +30,22 @@ function ToolRow({ tool, isActive, onClose }: { tool: ToolDefinition; isActive: 
   );
 }
 
-function PrimaryNav({ view, favoriteCount, recentCount, onClose }: {
-  view: View; favoriteCount: number; recentCount: number; onClose: () => void;
-}) {
-  const current = (name: View) => (view === name ? "page" : undefined);
+function PrimaryNav({ view, onClose }: { view: View; onClose: () => void }) {
   return (
     <nav className="nav-primary" aria-label="Browse tools">
       <a href={PARENT_URL} className="nav-link" onClick={onClose}>
         <House size={19} className="nav-link-icon tone-blue" aria-hidden /> Home
       </a>
-      <Link href="/tools" className="nav-link" aria-current={current("all")} onClick={onClose}>
+      <Link href="/tools" className="nav-link" aria-current={view === "all" ? "page" : undefined} onClick={onClose}>
         <LayoutGrid size={19} className="nav-link-icon tone-blue" aria-hidden /> All tools
         <span className="nav-badge">{TOOLS.length}</span>
-      </Link>
-      <Link href="/tools?view=favorites" className="nav-link" aria-current={current("favorites")} onClick={onClose}>
-        <Star size={19} className="nav-link-icon tone-amber" fill="currentColor" aria-hidden /> Favorites
-        <span className="nav-badge">{favoriteCount}</span>
-      </Link>
-      <Link href="/tools?view=recent" className="nav-link" aria-current={current("recent")} onClick={onClose}>
-        <History size={19} className="nav-link-icon tone-amber" aria-hidden /> Recently used
-        <span className="nav-badge">{recentCount}</span>
       </Link>
     </nav>
   );
 }
 
 /** Reads ?view= only inside its own Suspense boundary, so every tool page stays static. */
-function PrimaryNavFromUrl(props: { favoriteCount: number; recentCount: number; onClose: () => void }) {
+function PrimaryNavFromUrl(props: { onClose: () => void }) {
   const pathname = usePathname();
   const params = useSearchParams();
   const requested = params.get("view");
@@ -105,9 +94,11 @@ export function ToolSidebar({ open, onClose }: ToolSidebarProps) {
       `${tool.name} ${tool.tagline} ${tool.category}`.toLowerCase().includes(normalizedQuery));
   }, [normalizedQuery]);
 
-  const favoriteCount = favorites.filter((id) => getToolById(id)).length;
-  const recentCount = recents.filter((id) => getToolById(id)).length;
-  const navProps = { favoriteCount, recentCount, onClose };
+  const favoriteTools = favorites.map(getToolById).filter((tool): tool is ToolDefinition => tool !== undefined);
+  const recentTools = recents.map(getToolById).filter((tool): tool is ToolDefinition => tool !== undefined).slice(0, 5);
+  const navProps = { onClose };
+  const pinnedOpen = !collapsed.includes("__favorites");
+  const recentOpen = !collapsed.includes("__recent");
 
   return (
     <aside className={`tool-sidebar ${open ? "is-open" : ""}`} aria-label="Developer tools">
@@ -145,7 +136,36 @@ export function ToolSidebar({ open, onClose }: ToolSidebarProps) {
             )}
           </div>
         ) : (
-          CATEGORY_ORDER.map((category) => {
+          <>
+          <div className="nav-group nav-pinned">
+            <div className="nav-group-head">
+              <button type="button" className="nav-group-toggle" onClick={() => toggleCategory("__favorites")} aria-expanded={pinnedOpen}>
+                <span><Star size={14} className="tone-amber" fill="currentColor" aria-hidden /> Favorites</span>
+                {pinnedOpen ? <ChevronUp size={16} aria-hidden /> : <ChevronDown size={16} aria-hidden />}
+              </button>
+              <Link href="/tools?view=favorites" className="nav-group-link" onClick={onClose}>Manage</Link>
+            </div>
+            {pinnedOpen && (favoriteTools.length ? (
+              favoriteTools.map((tool) => <ToolRow key={tool.id} tool={tool} isActive={tool.slug === activeSlug} onClose={onClose} />)
+            ) : (
+              <p className="nav-empty">Star a tool with <b>Add to favorites</b> to pin it here.</p>
+            ))}
+          </div>
+          {recentTools.length > 0 && (
+            <div className="nav-group nav-pinned">
+              <div className="nav-group-head">
+                <button type="button" className="nav-group-toggle" onClick={() => toggleCategory("__recent")} aria-expanded={recentOpen}>
+                  <span><History size={14} className="tone-blue" aria-hidden /> Recently used</span>
+                  {recentOpen ? <ChevronUp size={16} aria-hidden /> : <ChevronDown size={16} aria-hidden />}
+                </button>
+                <Link href="/tools?view=recent" className="nav-group-link" onClick={onClose}>All</Link>
+              </div>
+              {recentOpen && recentTools.map((tool) => (
+                <ToolRow key={tool.id} tool={tool} isActive={tool.slug === activeSlug} onClose={onClose} />
+              ))}
+            </div>
+          )}
+          {CATEGORY_ORDER.map((category) => {
             const tools = TOOLS.filter((tool) => tool.category === category);
             const isCollapsed = collapsed.includes(category);
             return (
@@ -164,11 +184,19 @@ export function ToolSidebar({ open, onClose }: ToolSidebarProps) {
                 ))}
               </div>
             );
-          })
+          })}
+          </>
         )}
       </div>
 
       <div className="sidebar-footer">
+        <Link href="/tools" className="sidebar-promo" onClick={onClose}>
+          <Crown size={22} className="tone-amber" aria-hidden />
+          <span>
+            <b>{TOOLS.length} Developer Tools</b>
+            <small>Everything runs in your browser.</small>
+          </span>
+        </Link>
         <button
           type="button"
           className="nav-link suggest-link"

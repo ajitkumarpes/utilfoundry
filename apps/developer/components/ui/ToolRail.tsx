@@ -4,12 +4,13 @@ import { useId, useRef, useState, type KeyboardEvent, type ReactNode } from "rea
 import Link from "next/link";
 import {
   AlertCircle, AlertTriangle, AlignJustify, ArrowRight, Braces, Brackets, Check, ChevronDown, ChevronRight,
-  ChevronUp, Copy, Download, HardDrive, Lightbulb, SearchCheck
+  ChevronUp, Copy, Download, HardDrive, Lightbulb, SearchCheck, Share2
 } from "lucide-react";
 import { DocsDialog } from "@/components/ui/DocsDialog";
 import { UseCaseIcon } from "@/components/ui/UseCaseIcon";
 import { tokenizeJson } from "@/lib/highlight";
 import { byteLength, formatBytes, jsonShape, lineCount } from "@/lib/result-summary";
+import type { Insight } from "@/lib/result-insights";
 import type { RunResult } from "@/lib/run-result";
 import { STARTERS } from "@/lib/samples";
 import { guideFor } from "@/lib/tool-guide";
@@ -24,8 +25,11 @@ type ToolRailProps = {
   option: string;
   result: RunResult | null;
   output: string;
+  /** Facts particular to this tool's output, from lib/result-insights. */
+  insights: Insight[];
   onCopy: () => void;
   onDownload: () => void;
+  onShare: () => void;
   onJumpToError: () => void;
   quickActions: QuickAction[];
 };
@@ -117,7 +121,7 @@ function InfoPanel({ tool, onOpenDocs }: { tool: ToolDefinition; onOpenDocs: () 
   );
 }
 
-function ResultPanel({ tool, option, result, output, onCopy, onDownload, onJumpToError, quickActions }: ToolRailProps) {
+function ResultPanel({ tool, option, result, output, insights, onCopy, onDownload, onShare, onJumpToError, quickActions }: ToolRailProps) {
   const guide = guideFor(tool.id);
   const [actionsOpen, setActionsOpen] = useState(true);
   const needsInput = tool.inputLabel !== "Not needed";
@@ -204,6 +208,23 @@ function ResultPanel({ tool, option, result, output, onCopy, onDownload, onJumpT
         </dl>
       )}
 
+      {insights.length > 0 && (
+        <section className="result-section">
+          <h3 className="result-section-title">Details</h3>
+          <dl className="result-details">
+            {insights.map((item) => (
+              <div key={item.label}>
+                <dt>{item.label}</dt>
+                <dd className={[item.mono ? "is-mono" : "", item.tone ? `is-${item.tone}` : ""].filter(Boolean).join(" ") || undefined}>
+                  {item.swatch && <span className="swatch" style={{ background: item.swatch }} aria-hidden />}
+                  {item.value}
+                </dd>
+              </div>
+            ))}
+          </dl>
+        </section>
+      )}
+
       <section className="result-section">
         <button type="button" className="result-section-toggle" aria-expanded={actionsOpen} onClick={() => setActionsOpen((open) => !open)}>
           Actions {actionsOpen ? <ChevronUp size={17} aria-hidden /> : <ChevronDown size={17} aria-hidden />}
@@ -219,6 +240,11 @@ function ResultPanel({ tool, option, result, output, onCopy, onDownload, onJumpT
                 {action.icon} {action.label}
               </button>
             ))}
+            {!isImage && (
+              <button type="button" className="btn btn-outline" onClick={onShare}>
+                <Share2 size={16} /> Share result
+              </button>
+            )}
           </div>
         )}
       </section>
@@ -244,6 +270,14 @@ function ResultPanel({ tool, option, result, output, onCopy, onDownload, onJumpT
 /** The right-hand panel: what the tool is for (Info) and what the last run produced (Result). */
 export function ToolRail(props: ToolRailProps) {
   const [tab, setTab] = useState<Tab>("info");
+  // Each finished run brings its result forward, and clearing the bench goes back to Info:
+  // the answer should not wait behind a tab nobody knows to open. Adjusted during render,
+  // as React recommends for state that follows a prop, rather than in an effect.
+  const [shownResult, setShownResult] = useState(props.result);
+  if (props.result !== shownResult) {
+    setShownResult(props.result);
+    setTab(props.result ? "result" : "info");
+  }
   const docsRef = useRef<HTMLDialogElement>(null);
   const baseId = useId();
   const tabs: Tab[] = ["info", "result"];
@@ -283,6 +317,7 @@ export function ToolRail(props: ToolRailProps) {
           ))}
         </div>
         <div
+          key={tab}
           id={`${baseId}-${tab}-panel`}
           role="tabpanel"
           aria-labelledby={`${baseId}-${tab}-tab`}

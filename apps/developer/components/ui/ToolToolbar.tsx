@@ -1,46 +1,52 @@
 "use client";
 
 import { useEffect, useRef, useState, type ReactNode } from "react";
-import { Loader2, MoreHorizontal, Play, RotateCcw, Settings } from "lucide-react";
+import { ArrowRight, MoreHorizontal, SlidersHorizontal } from "lucide-react";
 import { optionsFor, type OptionControl, type OptionField } from "@/lib/tool-options";
-import { useIsMac } from "@/lib/use-platform";
 
 export type MenuItem = { label: string; icon: ReactNode; onSelect: () => void };
 
-type OptionsBarProps = {
+type ToolToolbarProps = {
   toolId: string;
   values: Record<OptionField, string>;
   onChange: (field: OptionField, value: string) => void;
-  onRun: () => void;
-  onReset: () => void;
-  busy: boolean;
+  /** What goes in and what comes out, e.g. "SQL" → "Formatted SQL". */
+  flow: { from: string | null; to: string };
   menu: MenuItem[];
+  /** Buttons that act on the whole bench, such as loading the example. */
+  extra?: ReactNode;
 };
 
 const fieldId = (toolId: string, field: OptionField) => `wb-${toolId}-${field}`;
 
-function Control({ toolId, control, value, onChange }: {
-  toolId: string; control: OptionControl; value: string; onChange: (value: string) => void;
+/**
+ * A choice between modes, drawn as tabs. Underneath it is still a group of native radio
+ * buttons, so arrow keys move between modes and assistive technology announces a choice.
+ */
+function Segmented({ toolId, control, value, onChange }: {
+  toolId: string; control: Extract<OptionControl, { kind: "radio" }>; value: string; onChange: (value: string) => void;
 }) {
-  if (control.kind === "radio") {
-    return (
-      <div className="radio-group" role="radiogroup" aria-label={control.label}>
-        {control.choices.map((choice) => (
-          <label key={choice.value} className="radio">
-            <input
-              type="radio"
-              name={fieldId(toolId, control.field)}
-              value={choice.value}
-              checked={value === choice.value}
-              onChange={() => onChange(choice.value)}
-            />
-            <span className="radio-dot" aria-hidden />
-            {choice.label}
-          </label>
-        ))}
-      </div>
-    );
-  }
+  return (
+    <div className="segmented" role="radiogroup" aria-label={control.label}>
+      {control.choices.map((choice) => (
+        <label key={choice.value} className="segment">
+          <input
+            type="radio"
+            name={fieldId(toolId, control.field)}
+            value={choice.value}
+            checked={value === choice.value}
+            onChange={() => onChange(choice.value)}
+          />
+          <span>{choice.label}</span>
+        </label>
+      ))}
+    </div>
+  );
+}
+
+function Field({ toolId, control, value, onChange }: {
+  toolId: string; control: Exclude<OptionControl, { kind: "radio" }>; value: string; onChange: (value: string) => void;
+}) {
   // A <label for> rather than a wrapping label: wrapped, a select's accessible name took in
   // its current value too ("Language JavaScript").
   const id = fieldId(toolId, control.field);
@@ -103,7 +109,7 @@ function MoreMenu({ items }: { items: MenuItem[] }) {
     <div className="more-menu" ref={boxRef}>
       <button
         type="button"
-        className="btn btn-outline btn-icon"
+        className="btn btn-outline btn-icon btn-sm"
         aria-label="More actions"
         aria-haspopup="menu"
         aria-expanded={open}
@@ -133,46 +139,55 @@ function MoreMenu({ items }: { items: MenuItem[] }) {
   );
 }
 
-/** The bar under the editors: this tool's settings on the left, Reset and Run on the right. */
-export function OptionsBar({ toolId, values, onChange, onRun, onReset, busy, menu }: OptionsBarProps) {
+/**
+ * The strip above the editors: how this tool should run (its modes as tabs, and any
+ * fields it takes), what it turns into what, and the workspace menu.
+ */
+export function ToolToolbar({ toolId, values, onChange, flow, menu, extra }: ToolToolbarProps) {
   const options = optionsFor(toolId);
-  const isMac = useIsMac();
 
   return (
-    <section className="card options-bar" aria-label="Tool options">
-      {options ? (
-        <div className="options-group">
-          <span className="options-title"><Settings size={18} aria-hidden /> {options.title}</span>
-          {options.controls.map((control) => (
-            <Control
-              key={control.field}
-              toolId={toolId}
-              control={control}
-              value={values[control.field]}
-              onChange={(value) => onChange(control.field, value)}
-            />
-          ))}
-        </div>
-      ) : (
-        <p className="options-empty">No settings needed — just run it.</p>
-      )}
-      <div className="options-actions">
+    <section className="card tool-toolbar" aria-label="Tool options">
+      <div className="toolbar-controls">
+        {options ? (
+          options.controls.map((control) =>
+            control.kind === "radio" ? (
+              <Segmented
+                key={control.field}
+                toolId={toolId}
+                control={control}
+                value={values[control.field]}
+                onChange={(value) => onChange(control.field, value)}
+              />
+            ) : (
+              <Field
+                key={control.field}
+                toolId={toolId}
+                control={control}
+                value={values[control.field]}
+                onChange={(value) => onChange(control.field, value)}
+              />
+            )
+          )
+        ) : (
+          <span className="toolbar-empty"><SlidersHorizontal size={16} aria-hidden /> No settings needed</span>
+        )}
+      </div>
+      <div className="toolbar-meta">
+        <span className="flow-chip">
+          {flow.from ? (
+            <>
+              <b>{flow.from}</b>
+              <ArrowRight size={14} aria-hidden />
+              <span className="sr-only"> to </span>
+            </>
+          ) : (
+            <span>Generates</span>
+          )}
+          <b>{flow.to}</b>
+        </span>
+        {extra}
         {menu.length > 0 && <MoreMenu items={menu} />}
-        <button type="button" className="btn btn-outline btn-reset" onClick={onReset} title="Reset the options and clear the result">
-          <RotateCcw size={16} /> Reset
-        </button>
-        <button
-          type="button"
-          className="btn btn-primary btn-run"
-          onClick={onRun}
-          disabled={busy}
-          aria-busy={busy}
-          aria-keyshortcuts={isMac ? "Meta+Enter" : "Control+Enter"}
-        >
-          {busy ? <Loader2 size={17} className="spin" /> : <Play size={17} />}
-          Run tool
-          <kbd aria-hidden="true">{isMac ? "⌘" : "Ctrl"} ↵</kbd>
-        </button>
       </div>
     </section>
   );

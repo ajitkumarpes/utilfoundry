@@ -1,4 +1,5 @@
 import { expect, type Locator, type Page } from "@playwright/test";
+import { splitDocuments, splitInputFor } from "../lib/split-input";
 import { getTool, type ToolDefinition } from "../lib/tools";
 
 /** True once React has attached to the element, i.e. the island is live and clicks will land. */
@@ -27,7 +28,21 @@ export const inputBox = (page: Page, tool: ToolDefinition) => page.getByLabel(`$
 export const outputBox = (page: Page, tool: ToolDefinition) => page.getByLabel(`${tool.name} output`, { exact: true });
 export const banner = (page: Page) => page.locator(".result-banner");
 
+/**
+ * Types into the input the way a visitor would. The two-document tools have one editor per
+ * document, so a value written with the tools' own `---` separator is split across the two.
+ */
 export async function setInput(page: Page, tool: ToolDefinition, value: string) {
+  const split = splitInputFor(tool.id);
+  if (split) {
+    const [first, second] = splitDocuments(value);
+    for (const [label, text] of [[split.first, first], [split.second, second]] as const) {
+      const box = page.getByLabel(`${tool.name} ${label}`, { exact: true });
+      await box.fill(text);
+      await expect(box).toHaveValue(text);
+    }
+    return;
+  }
   const box = inputBox(page, tool);
   await box.fill(value);
   await expect(box).toHaveValue(value);

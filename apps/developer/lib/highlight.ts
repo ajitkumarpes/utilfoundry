@@ -7,7 +7,7 @@
  * as plain text rather than dropped, which is what keeps a half-typed document aligned.
  */
 
-export type TokenType = "key" | "string" | "number" | "boolean" | "null" | "punct" | "plain";
+export type TokenType = "key" | "string" | "number" | "boolean" | "null" | "punct" | "plain" | "added" | "removed";
 export type Token = { type: TokenType; text: string };
 
 /** Past this the colour layer costs more than it is worth on every keystroke. */
@@ -40,4 +40,15 @@ export function tokenizeJson(source: string): Token[] {
   }
   push("plain", source.slice(cursor));
   return tokens;
+}
+
+/**
+ * Colours a line diff: lines the diff marks with + are added, - removed. Newlines stay in the
+ * token before them, so the layer keeps the same characters, in the same order, as the text.
+ */
+export function tokenizeDiff(source: string): Token[] {
+  return source.split(/(?<=\n)/).map((line) => ({
+    type: line.startsWith("+") ? "added" : line.startsWith("-") ? "removed" : "plain",
+    text: line
+  }));
 }

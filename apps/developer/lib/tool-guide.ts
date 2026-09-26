@@ -198,7 +198,7 @@ export const GUIDES: Record<string, ToolGuide> = {
     features: ["8 to 128 characters", "Letters, digits and symbols", "Look-alike characters left out", "Cryptographically secure source"],
     uses: [["key", "Create account passwords"], ["shield", "Generate API secrets"], ["config", "Fill environment secrets"], ["lock", "Set test credentials"]],
     next: [["hash", "Hash a value"], ["uuid", "Generate a UUID"], ["jwt-sign", "Sign a token with a secret"]],
-    tip: "Run again for another password. Change the length in the options bar."
+    tip: "Change the length above the password and a new one is made straight away. Nothing is stored."
   },
   whitespace: {
     why: "Clean text pasted from documents, emails or terminals before it goes into code or a ticket.",

@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { Lock, Monitor, Share2, Star, Zap } from "lucide-react";
+import { ChevronRight, House, Lock, Monitor, Share2, Star, Zap } from "lucide-react";
 import { ACCENTS, ToolIcon } from "@/components/ui/ToolIcon";
 import { PARENT_URL } from "@/lib/links";
 import { useFavorites } from "@/lib/tool-prefs";
@@ -35,16 +35,13 @@ export function ToolCrumbs({ tool, notify }: { tool: ToolDefinition; notify: Not
   return (
     <div className="crumb-row">
       <nav className="breadcrumbs" aria-label="Breadcrumb">
-        <a href={PARENT_URL}>UtilFoundry</a>
-        <span aria-hidden>/</span>
+        <a href={PARENT_URL} className="crumb-home" aria-label="UtilFoundry home"><House size={16} aria-hidden /></a>
+        <ChevronRight size={15} aria-hidden className="crumb-sep" />
         <Link href="/tools">Developer tools</Link>
-        <span aria-hidden>/</span>
+        <ChevronRight size={15} aria-hidden className="crumb-sep" />
         <span aria-current="page">{tool.name}</span>
       </nav>
       <div className="crumb-actions">
-        <button type="button" className="btn btn-outline btn-chip" onClick={share}>
-          <Share2 size={16} /> Share
-        </button>
         <button
           type="button"
           className={`btn btn-outline btn-chip favorite-toggle${isFavorite ? " is-active" : ""}`}
@@ -57,9 +54,9 @@ export function ToolCrumbs({ tool, notify }: { tool: ToolDefinition; notify: Not
           <Star size={16} fill={isFavorite ? "currentColor" : "none"} />
           {isFavorite ? "Favorited" : "Add to favorites"}
         </button>
-        <span className="processing-pill" title="Processed in your browser. Nothing is uploaded and nothing is stored.">
-          <i aria-hidden /> Runs locally
-        </span>
+        <button type="button" className="btn btn-outline btn-chip" onClick={share}>
+          <Share2 size={16} /> Share
+        </button>
       </div>
     </div>
   );

@@ -230,7 +230,7 @@ export function outputLanguage(toolId: string, option: string, output: string): 
   if (looksLikeJsonDocument(output)) return "JSON";
   const fixed: Record<string, string> = {
     "yaml-formatter": "YAML", xml: "XML", sql: "SQL", graphql: "GraphQL", nginx: "Nginx", env: "ENV",
-    gitignore: "gitignore", curl: "Shell", jwt: "JSON"
+    gitignore: "gitignore", curl: "Shell", jwt: "JSON", diff: "Diff"
   };
   return fixed[toolId] ?? "Text";
 }
@@ -238,8 +238,28 @@ export function outputLanguage(toolId: string, option: string, output: string): 
 const EXTENSIONS: Record<string, string> = {
   JSON: "json", YAML: "yaml", XML: "xml", SQL: "sql", GraphQL: "graphql", HTML: "html",
   CSV: "csv", ENV: "env", Nginx: "conf", JavaScript: "js", TypeScript: "ts", CSS: "css",
-  Shell: "sh", gitignore: "gitignore", PNG: "png", Markdown: "md"
+  Shell: "sh", gitignore: "gitignore", PNG: "png", Markdown: "md", Diff: "diff"
 };
+
+/**
+ * The ways an output can be looked at, first one shown by default. A JSON document can also be
+ * browsed as a tree; Markdown is read rendered, with its HTML a click away. Everything else is
+ * text, and gets no switcher at all.
+ */
+export type OutputView = "code" | "tree" | "preview";
+
+/** Past this, building a tree of every node would stall the tab. */
+const TREE_LIMIT = 1_000_000;
+
+export function outputViews(toolId: string, output: string): OutputView[] {
+  if (!output) return [];
+  if (toolId === "markdown") return ["preview", "code"];
+  // The QR code is the picture itself; a data URL made from an image is text to copy, with
+  // the picture it encodes one click away.
+  if (output.startsWith("data:image/")) return toolId === "qr" ? [] : ["code", "preview"];
+  if (output.length <= TREE_LIMIT && looksLikeJsonDocument(output)) return ["code", "tree"];
+  return [];
+}
 
 /**
  * Tools whose JSON output is the visitor's own data rather than a report about it. Object and

@@ -15,7 +15,7 @@ const TIPS: Record<ToolCategory, string[]> = {
   ],
   JSON: [
     "JSONPath starts at $, so $.user.name reads the name inside user.",
-    "The diff tools take two documents separated by a line containing ---.",
+    "JSON Diff compares by path, so reordered keys are not reported as changes.",
     "A generated schema is a starting point to edit, not a finished contract."
   ],
   "Encode & decode": [
@@ -35,7 +35,7 @@ const TIPS: Record<ToolCategory, string[]> = {
   ],
   Text: [
     "Add the g flag to list every match instead of only the first.",
-    "The diff tools take two snippets separated by a line containing ---.",
+    "Text Diff compares line by line: + marks an added line, - a removed one.",
     "Use the safe regex tester for patterns that might backtrack badly."
   ],
   Code: [

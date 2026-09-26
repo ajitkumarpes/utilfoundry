@@ -1,27 +1,30 @@
 "use client";
-/* QR data URLs are generated locally and intentionally rendered as a native image. */
+/* QR and image data URLs are generated or read locally and intentionally rendered as native images. */
 /* eslint-disable @next/next/no-img-element */
 
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import {
-  ArrowLeftRight, Copy, Download, FileText, FolderOpen, ImagePlus, Maximize2, Minimize2, Save, ShieldCheck,
+  ArrowLeftRight, Copy, Download, FileText, FolderOpen, ImagePlus, Maximize2, Minimize2, RefreshCw, Save, ShieldCheck,
   Trash2, Upload
 } from "lucide-react";
 import { StepCard } from "@/components/ui/StepCard";
 import { CodeEditor, type CodeEditorHandle } from "@/components/ui/CodeEditor";
-import { OptionsBar, type MenuItem } from "@/components/ui/OptionsBar";
-import { ResultBanner } from "@/components/ui/ResultBanner";
+import { JsonTree } from "@/components/ui/JsonTree";
+import { ToolToolbar, type MenuItem } from "@/components/ui/ToolToolbar";
+import { ActionBar } from "@/components/ui/ActionBar";
 import { ToolRail, type QuickAction } from "@/components/ui/ToolRail";
 import { ToolCrumbs, ToolHero } from "@/components/ui/PageHeader";
 import { Toast, useToast } from "@/components/ui/Toast";
 import { detectSensitiveInput, maxInputLength, runTool } from "@/lib/run-tool";
 import { STARTERS, defaultOption } from "@/lib/samples";
 import { explainJsonError, locateJsonError } from "@/lib/json-error";
-import { byteLength, summarizeResult } from "@/lib/result-summary";
+import { byteLength, formatBytes, summarizeResult } from "@/lib/result-summary";
+import { insightsFor } from "@/lib/result-insights";
 import type { RunResult } from "@/lib/run-result";
+import { joinDocuments, splitDocuments, splitInputFor } from "@/lib/split-input";
 import {
-  downloadExtension, inputLanguage, inputSubtitle, optionsFor, outputLanguage, outputSubtitle, reverseChoice,
-  type OptionField
+  downloadExtension, inputLanguage, inputSubtitle, optionsFor, outputLanguage, outputNoun, outputSubtitle, outputViews,
+  reverseChoice, type OptionField, type OutputView
 } from "@/lib/tool-options";
 import type { ToolDefinition } from "@/lib/tools";
 
@@ -38,6 +41,8 @@ const JSON_ERROR_LOCATABLE = new Set([
 const DEFAULT_PATTERN = "\\b[A-Z][a-z]+\\b";
 const DEFAULT_FLAGS = "g";
 const DEFAULT_SECRET = "change-me-locally";
+
+const VIEW_LABELS: Record<OutputView, string> = { code: "Code", tree: "Tree", preview: "Preview" };
 
 /**
  * Reads a field's current value so React can start from it instead of from the shipped default.
@@ -61,6 +66,17 @@ function seedFromField(id: string, fallback: string) {
   return checked ? checked.value : fallback;
 }
 
+/** The two-document tools have one field per half; both are read back and joined. */
+function seedSplitInput(id: string, fallback: string) {
+  if (typeof document === "undefined") return fallback;
+  const first = document.getElementById(id);
+  const second = document.getElementById(`${id}-2`);
+  if (first instanceof HTMLTextAreaElement && second instanceof HTMLTextAreaElement) {
+    return joinDocuments(first.value, second.value);
+  }
+  return fallback;
+}
+
 function errorTitle(toolId: string, error: unknown) {
   const name = error instanceof Error ? error.name : "";
   const message = error instanceof Error ? error.message : "";
@@ -71,9 +87,60 @@ function errorTitle(toolId: string, error: unknown) {
   return "Couldn't process that";
 }
 
+function ViewSwitch({ views, value, onChange }: { views: OutputView[]; value: OutputView; onChange: (view: OutputView) => void }) {
+  return (
+    <div className="view-switch" role="group" aria-label="Show the output as">
+      {views.map((view) => (
+        <button key={view} type="button" aria-pressed={value === view} onClick={() => onChange(view)}>
+          {VIEW_LABELS[view]}
+        </button>
+      ))}
+    </div>
+  );
+}
+
+function ExpandButton({ expanded, label, onToggle }: { expanded: boolean; label: string; onToggle: () => void }) {
+  return (
+    <button
+      type="button"
+      className="pane-tool"
+      onClick={onToggle}
+      aria-label={expanded ? "Exit full screen" : `Open ${label} full screen`}
+      title={expanded ? "Exit full screen (Esc)" : "Full screen"}
+    >
+      {expanded ? <Minimize2 size={14} /> : <Maximize2 size={14} />}
+    </button>
+  );
+}
+
+/** The strip along the top of a view that is not an editor, matching the editor's own. */
+function PaneTop({ left, right }: { left?: ReactNode; right: string }) {
+  return (
+    <div className="editor-top">
+      <div className="editor-top-left">{left}</div>
+      <span className="editor-lang">{right}</span>
+    </div>
+  );
+}
+
+/** A pane footer for views that are not an editor, so every pane ends the same way. */
+function PaneFooter({ label, bytes, action }: { label: string; bytes: number; action?: ReactNode }) {
+  return (
+    <div className="editor-status pane-footer">
+      <span>{label}</span>
+      <span className="editor-status-size">{formatBytes(bytes)}</span>
+      {action}
+    </div>
+  );
+}
+
 export function Workbench({ tool }: { tool: ToolDefinition }) {
   const fieldId = (name: string) => `wb-${tool.id}-${name}`;
-  const [input, setInput] = useState(() => seedFromField(fieldId("input"), STARTERS[tool.id] ?? ""));
+  const split = splitInputFor(tool.id);
+  const [input, setInput] = useState(() =>
+    split
+      ? seedSplitInput(fieldId("input"), STARTERS[tool.id] ?? "")
+      : seedFromField(fieldId("input"), STARTERS[tool.id] ?? ""));
   const [option, setOption] = useState(() => seedFromField(fieldId("option"), defaultOption(tool.id)));
   const [pattern, setPattern] = useState(() => seedFromField(fieldId("pattern"), DEFAULT_PATTERN));
   const [flags, setFlags] = useState(() => seedFromField(fieldId("flags"), DEFAULT_FLAGS));
@@ -81,8 +148,9 @@ export function Workbench({ tool }: { tool: ToolDefinition }) {
   const [output, setOutput] = useState("");
   const [result, setResult] = useState<RunResult | null>(null);
   const [busy, setBusy] = useState(false);
-  const [bannerHidden, setBannerHidden] = useState(false);
   const [securityWarning, setSecurityWarning] = useState("");
+  const [preferredView, setPreferredView] = useState<OutputView | null>(null);
+  const [expanded, setExpanded] = useState<"input" | "output" | null>(null);
   const inputRef = useRef<CodeEditorHandle>(null);
   const workspaceFileRef = useRef<HTMLInputElement>(null);
   const textFileRef = useRef<HTMLInputElement>(null);
@@ -92,11 +160,11 @@ export function Workbench({ tool }: { tool: ToolDefinition }) {
   // A generator ignores the input box, and a control that does nothing is worse than none.
   const needsInput = tool.inputLabel !== "Not needed";
   const isImageTool = tool.id === "image-base64";
+  const collapse = useCallback(() => setExpanded(null), []);
 
   function clearResult() {
     setOutput("");
     setResult(null);
-    setBannerHidden(false);
   }
 
   async function run(overrides: { input?: string; option?: string } = {}) {
@@ -108,8 +176,21 @@ export function Workbench({ tool }: { tool: ToolDefinition }) {
         ? `Potentially sensitive ${findings.join(", ")} detected. Use masked test data only and clear this page when finished.`
         : ""
     );
+    if (split) {
+      const [first, second] = splitDocuments(runInput);
+      const missing = !first.trim() ? split.first : !second.trim() ? split.second : null;
+      if (missing) {
+        setOutput("");
+        setResult({
+          status: "error",
+          title: "Two documents needed",
+          message: `The ${missing} editor is empty. This tool compares the two, so both need something in them.`,
+          location: null
+        });
+        return;
+      }
+    }
     setBusy(true);
-    setBannerHidden(false);
     const started = performance.now();
     try {
       const produced = await runTool(tool.id, { input: runInput, option: runOption, pattern, flags, secret });
@@ -156,6 +237,11 @@ export function Workbench({ tool }: { tool: ToolDefinition }) {
     return () => window.removeEventListener("keydown", onKeyDown);
   }, []);
 
+  // A generator has nothing to wait for, so it opens with a value already made.
+  useEffect(() => {
+    if (!needsInput) void runRef.current();
+  }, [needsInput]);
+
   const optionIsChoice = optionsFor(tool.id)?.controls.some(
     (control) => control.field === "option" && control.kind !== "text"
   ) ?? false;
@@ -165,7 +251,8 @@ export function Workbench({ tool }: { tool: ToolDefinition }) {
       setOption(value);
       // A choice between modes is a question about the same input, so once there is an
       // answer on screen, picking another mode answers again rather than leaving it stale.
-      if (result && optionIsChoice) void run({ option: value });
+      // A generator's setting (a password's length) is the whole question, so it answers too.
+      if ((result && optionIsChoice) || !needsInput) void run({ option: value });
     }
     if (field === "pattern") setPattern(value);
     if (field === "flags") setFlags(value);
@@ -195,6 +282,23 @@ export function Workbench({ tool }: { tool: ToolDefinition }) {
     toast.show("Download started");
   }
 
+  /**
+   * The share sheet where the device has one (phones, and Safari and Chrome on a Mac); the
+   * clipboard otherwise. Either way the text goes only where the visitor sends it.
+   */
+  async function shareOutput() {
+    if (!output) return;
+    if (typeof navigator.share === "function") {
+      try {
+        await navigator.share({ title: `${tool.name} result`, text: output });
+        return;
+      } catch (error) {
+        if (error instanceof DOMException && error.name === "AbortError") return;
+      }
+    }
+    await copyText(output, "Result");
+  }
+
   function loadExample() {
     setInput(STARTERS[tool.id] ?? "");
     clearResult();
@@ -216,7 +320,7 @@ export function Workbench({ tool }: { tool: ToolDefinition }) {
     toast.show("Options reset", "info");
   }
 
-  function loadTextFile(file: File | undefined) {
+  function loadTextFile(file: File | undefined, half?: 0 | 1) {
     if (!file) return;
     if (isImageTool) return loadImageFile(file);
     if (file.size > maxInputLength(tool.id)) {
@@ -225,7 +329,15 @@ export function Workbench({ tool }: { tool: ToolDefinition }) {
     }
     const reader = new FileReader();
     reader.onload = () => {
-      setInput(typeof reader.result === "string" ? reader.result : "");
+      const text = typeof reader.result === "string" ? reader.result : "";
+      if (split && half !== undefined) {
+        setInput((current) => {
+          const [first, second] = splitDocuments(current);
+          return half === 0 ? joinDocuments(text, second) : joinDocuments(first, text);
+        });
+      } else {
+        setInput(text);
+      }
       clearResult();
       toast.show(`Loaded ${file.name}`);
     };
@@ -335,9 +447,228 @@ export function Workbench({ tool }: { tool: ToolDefinition }) {
     }
   }
 
+  const insights = useMemo(
+    () => (result?.status === "success" ? insightsFor(tool.id, result.option, input, output) : []),
+    // Recomputed per run, not per keystroke in the input after it.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [result, output, tool.id]
+  );
+
   const errorLine = result?.status === "error" ? result.location?.line : undefined;
-  const outputIsPreview = tool.id === "markdown" && Boolean(output);
-  const outputIsImage = tool.id === "qr" && output.startsWith("data:image/");
+  const outputIsImage = output.startsWith("data:image/");
+  const isQr = tool.id === "qr" && outputIsImage;
+  const views = outputViews(tool.id, output);
+  const view: OutputView = views.length ? (preferredView && views.includes(preferredView) ? preferredView : views[0]) : "code";
+  const parsedOutput = useMemo(() => {
+    if (view !== "tree") return undefined;
+    try {
+      return JSON.parse(output) as unknown;
+    } catch {
+      return undefined;
+    }
+  }, [view, output]);
+  const outLanguage = output ? outputLanguage(tool.id, lastOption, output) : inputLanguage(tool.id, option) === "JSON" ? "JSON" : "Text";
+  const [firstDoc, secondDoc] = split ? splitDocuments(input) : ["", ""];
+  const jumpToError = () => result?.status === "error" && result.location && inputRef.current?.jumpTo(result.location.offset);
+
+  const inputActions = needsInput ? (
+    <>
+      {isImageTool ? (
+        <button type="button" className="btn btn-outline btn-sm" onClick={() => imageFileRef.current?.click()}>
+          <ImagePlus size={16} /> Choose image
+        </button>
+      ) : !split && (
+        <button type="button" className="btn btn-outline btn-sm" onClick={() => textFileRef.current?.click()}>
+          <FolderOpen size={16} /> Load file
+        </button>
+      )}
+      <button type="button" className="btn btn-outline btn-sm btn-danger-icon" onClick={clearInput}>
+        <Trash2 size={16} /> Clear
+      </button>
+    </>
+  ) : null;
+
+  const inputCard = needsInput ? (
+    <StepCard
+      step={1}
+      title="Input"
+      subtitle={split ? `Paste the ${split.first.toLowerCase()} and the ${split.second.toLowerCase()}, then click “Run tool”.` : inputSubtitle(tool.inputLabel)}
+      actions={inputActions}
+      expanded={expanded === "input"}
+      onCollapse={collapse}
+      className="is-input"
+    >
+      {tool.inputHint && !split && <p className="input-hint">{tool.inputHint}</p>}
+      {isImageTool && input.startsWith("data:image/") && (
+        <div className="image-input-preview">
+          <img src={input} alt="The image being inspected" />
+          <span>{input.slice(5, input.indexOf(";")) || "image"} · {formatBytes(byteLength(input))} as text</span>
+        </div>
+      )}
+      {split ? (
+        <div className="split-editors">
+          {([0, 1] as const).map((half) => (
+            <div className="split-editor" key={half}>
+              <div className="split-editor-head">
+                <span className="split-tag" aria-hidden>{half === 0 ? "A" : "B"}</span>
+                <span>{half === 0 ? split.first : split.second}</span>
+                <label className="split-load">
+                  <FolderOpen size={14} aria-hidden /> Load file
+                  <input
+                    type="file"
+                    className="sr-only"
+                    onChange={(event) => { loadTextFile(event.target.files?.[0], half); event.target.value = ""; }}
+                  />
+                </label>
+              </div>
+              <CodeEditor
+                ref={half === 0 ? inputRef : undefined}
+                id={half === 0 ? fieldId("input") : fieldId("input-2")}
+                value={half === 0 ? firstDoc : secondDoc}
+                onChange={(value) => setInput(half === 0 ? joinDocuments(value, secondDoc) : joinDocuments(firstDoc, value))}
+                ariaLabel={`${tool.name} ${half === 0 ? split.first : split.second}`}
+                placeholder={half === 0 ? split.firstPlaceholder : split.secondPlaceholder}
+                language={inputLanguage(tool.id, option)}
+                onDropFile={(file) => loadTextFile(file, half)}
+                size={expanded === "input" ? "regular" : "compact"}
+                expanded={expanded === "input"}
+                onToggleExpand={half === 1 ? () => setExpanded(expanded === "input" ? null : "input") : undefined}
+              />
+            </div>
+          ))}
+        </div>
+      ) : (
+        <CodeEditor
+          ref={inputRef}
+          id={fieldId("input")}
+          value={input}
+          onChange={setInput}
+          ariaLabel={`${tool.name} input`}
+          placeholder={isImageTool ? "Choose or drop an image, or paste a data URL." : `Paste your ${tool.inputLabel.toLowerCase()} here, or drop a file.`}
+          language={inputLanguage(tool.id, option)}
+          errorLine={errorLine}
+          onCopy={() => void copyText(input, "Input")}
+          onDropFile={loadTextFile}
+          expanded={expanded === "input"}
+          onToggleExpand={() => setExpanded(expanded === "input" ? null : "input")}
+          toolbar={<span className="editor-top-note">{isImageTool ? "Drop an image or paste a data URL" : "Type, paste or drop a file"}</span>}
+        />
+      )}
+    </StepCard>
+  ) : null;
+
+  const viewSwitch = views.length > 1 ? <ViewSwitch views={views} value={view} onChange={setPreferredView} /> : null;
+  let outputBody: ReactNode;
+  const strength = insights.find((item) => item.meter !== undefined);
+  if (!needsInput) {
+    outputBody = (
+      <div className={`generated${output ? " has-output" : ""}`}>
+        <input
+          className="generated-value"
+          readOnly
+          value={output}
+          placeholder={busy ? "Generating…" : "Press Run tool to generate a value."}
+          aria-label={`${tool.name} output`}
+          spellCheck={false}
+          onFocus={(event) => event.currentTarget.select()}
+        />
+        {strength?.meter !== undefined && (
+          <div className="strength" data-tone={strength.tone}>
+            <div className="strength-bar"><span style={{ width: `${Math.round(strength.meter * 100)}%` }} /></div>
+            <small>{strength.value} · {insights.find((item) => item.label === "Entropy")?.value} of entropy</small>
+          </div>
+        )}
+        <div className="generated-actions">
+          <button type="button" className="btn btn-outline btn-sm" onClick={() => void copyText(output, "Value")} disabled={!output}>
+            <Copy size={16} /> Copy value
+          </button>
+          <button type="button" className="btn btn-outline btn-sm" onClick={() => void run()} disabled={busy}>
+            <RefreshCw size={16} /> Generate another
+          </button>
+        </div>
+        <p className="generated-note">
+          <ShieldCheck size={15} aria-hidden /> Made from your browser&apos;s cryptographic random source. It never leaves this tab.
+        </p>
+      </div>
+    );
+  } else if (isQr) {
+    outputBody = (
+      <div className="pane-frame">
+        <PaneTop left={<span className="editor-top-note">Scan it with a phone camera to check it</span>} right="PNG" />
+        <div className="image-preview has-output"><img src={output} alt="Generated QR code" /></div>
+        <PaneFooter label="PNG image" bytes={byteLength(output)} />
+      </div>
+    );
+  } else if (view === "preview" && outputIsImage) {
+    outputBody = (
+      <div className="pane-frame">
+        <PaneTop left={viewSwitch} right={output.slice(5, output.indexOf(";")) || "Image"} />
+        <div className="image-preview has-output"><img src={output} alt="The image this data URL encodes" /></div>
+        <PaneFooter label="Image preview" bytes={byteLength(output)} />
+      </div>
+    );
+  } else if (view === "preview") {
+    outputBody = (
+      <div className="pane-frame">
+        <PaneTop left={viewSwitch} right="HTML" />
+        <div className="preview has-output" aria-label={`${tool.name} output`} dangerouslySetInnerHTML={{ __html: output }} />
+        <PaneFooter
+          label="Rendered HTML"
+          bytes={byteLength(output)}
+          action={<ExpandButton expanded={expanded === "output"} label="the output" onToggle={() => setExpanded(expanded === "output" ? null : "output")} />}
+        />
+      </div>
+    );
+  } else if (view === "tree" && parsedOutput !== undefined) {
+    outputBody = (
+      <div className="pane-frame">
+        <JsonTree value={parsedOutput} ariaLabel={`${tool.name} output as a tree`} leading={viewSwitch} />
+        <PaneFooter
+          label="JSON tree"
+          bytes={byteLength(output)}
+          action={<ExpandButton expanded={expanded === "output"} label="the output" onToggle={() => setExpanded(expanded === "output" ? null : "output")} />}
+        />
+      </div>
+    );
+  } else {
+    outputBody = (
+      <CodeEditor
+        value={output}
+        readOnly
+        ariaLabel={`${tool.name} output`}
+        className={output ? "has-output" : undefined}
+        placeholder={result?.status === "error" ? "No output — see the message below." : "Run the tool to see the result here."}
+        language={outLanguage}
+        onCopy={output ? () => void copyText(output, "Output") : undefined}
+        expanded={expanded === "output"}
+        onToggleExpand={() => setExpanded(expanded === "output" ? null : "output")}
+        toolbar={viewSwitch ?? <span className="editor-top-note">Read-only</span>}
+      />
+    );
+  }
+
+  const outputCard = (
+    <StepCard
+      step={needsInput ? 2 : 1}
+      title={needsInput ? "Output" : outputNoun(tool.id, lastOption)}
+      subtitle={needsInput ? outputSubtitle(tool.id, lastOption) : "A new value every time you run it."}
+      expanded={expanded === "output"}
+      onCollapse={collapse}
+      className="is-output"
+      actions={
+        <>
+          <button type="button" className="btn btn-outline btn-sm" onClick={() => void copyText(output, "Output")} disabled={!output}>
+            <Copy size={16} /> Copy
+          </button>
+          <button type="button" className="btn btn-outline btn-sm" onClick={downloadOutput} disabled={!output}>
+            <Download size={16} /> Download
+          </button>
+        </>
+      }
+    >
+      {outputBody}
+    </StepCard>
+  );
 
   return (
     <>
@@ -361,103 +692,33 @@ export function Workbench({ tool }: { tool: ToolDefinition }) {
           )}
 
           <div className="workspace-main">
-            <div className="workbench-grid">
-              <StepCard
-                step={1}
-                title="Input"
-                subtitle={needsInput ? inputSubtitle(tool.inputLabel) : "This generator takes no input."}
-                actions={needsInput ? (
-                  <>
-                    {isImageTool ? (
-                      <button type="button" className="btn btn-outline btn-sm" onClick={() => imageFileRef.current?.click()}>
-                        <ImagePlus size={16} /> Choose image
-                      </button>
-                    ) : (
-                      <button type="button" className="btn btn-outline btn-sm" onClick={loadExample}>
-                        <FileText size={16} /> Example
-                      </button>
-                    )}
-                    <button type="button" className="btn btn-outline btn-sm btn-danger-icon" onClick={clearInput}>
-                      <Trash2 size={16} /> Clear
-                    </button>
-                  </>
-                ) : undefined}
-              >
-                {needsInput ? (
-                  <>
-                    {tool.inputHint && <p className="input-hint">{tool.inputHint}</p>}
-                    <CodeEditor
-                      ref={inputRef}
-                      id={fieldId("input")}
-                      value={input}
-                      onChange={setInput}
-                      ariaLabel={`${tool.name} input`}
-                      placeholder={isImageTool ? "Choose or drop an image, or paste a data URL." : `Paste your ${tool.inputLabel.toLowerCase()} here, or drop a file.`}
-                      language={inputLanguage(tool.id, option)}
-                      errorLine={errorLine}
-                      onCopy={() => void copyText(input, "Input")}
-                      onDropFile={loadTextFile}
-                    />
-                  </>
-                ) : (
-                  <p className="pane-empty">Nothing to paste: press <b>Run tool</b> for a fresh value, as often as you like.</p>
-                )}
-              </StepCard>
-
-              <StepCard
-                step={2}
-                title="Output"
-                subtitle={outputSubtitle(tool.id, lastOption)}
-                actions={
-                  <>
-                    <button type="button" className="btn btn-outline btn-sm" onClick={() => void copyText(output, "Output")} disabled={!output}>
-                      <Copy size={16} /> Copy
-                    </button>
-                    <button type="button" className="btn btn-outline btn-sm" onClick={downloadOutput} disabled={!output}>
-                      <Download size={16} /> Download
-                    </button>
-                  </>
-                }
-              >
-                {outputIsPreview ? (
-                  <div className="preview has-output" aria-label={`${tool.name} output`} dangerouslySetInnerHTML={{ __html: output }} />
-                ) : outputIsImage ? (
-                  <div className="image-preview has-output"><img src={output} alt="Generated QR code" /></div>
-                ) : (
-                  <CodeEditor
-                    value={output}
-                    readOnly
-                    ariaLabel={`${tool.name} output`}
-                    className={output ? "has-output" : undefined}
-                    placeholder={result?.status === "error" ? "No output — see the message below." : "Run the tool to see the result here."}
-                    language={output ? outputLanguage(tool.id, lastOption, output) : inputLanguage(tool.id, option) === "JSON" ? "JSON" : "Text"}
-                    onCopy={output ? () => void copyText(output, "Output") : undefined}
-                  />
-                )}
-              </StepCard>
-            </div>
-
-            <OptionsBar
+            <ToolToolbar
               toolId={tool.id}
               values={{ option, pattern, flags, secret }}
               onChange={setField}
-              onRun={() => void run()}
-              onReset={reset}
-              busy={busy}
+              flow={{ from: needsInput ? (split ? "2 documents" : inputLanguage(tool.id, option)) : null, to: outputNoun(tool.id, option) }}
               menu={menu}
+              extra={needsInput && (
+                <button type="button" className="btn btn-outline btn-sm" onClick={loadExample}>
+                  <FileText size={16} /> Example
+                </button>
+              )}
             />
 
-            {!bannerHidden && (
-              <ResultBanner
-                toolId={tool.id}
-                toolName={tool.name}
-                result={result}
-                output={output}
-                busy={busy}
-                onDismiss={() => setBannerHidden(true)}
-                onJumpToError={() => result?.status === "error" && result.location && inputRef.current?.jumpTo(result.location.offset)}
-              />
-            )}
+            <div className={`workbench-grid${needsInput ? "" : " is-single"}`}>
+              {inputCard}
+              {outputCard}
+            </div>
+
+            <ActionBar
+              toolName={tool.name}
+              result={result}
+              busy={busy}
+              needsInput={needsInput}
+              onRun={() => void run()}
+              onReset={reset}
+              onJumpToError={jumpToError}
+            />
           </div>
         </div>
 
@@ -466,9 +727,11 @@ export function Workbench({ tool }: { tool: ToolDefinition }) {
           option={lastOption}
           result={result}
           output={output}
+          insights={insights}
           onCopy={() => void copyText(output, "Output")}
           onDownload={downloadOutput}
-          onJumpToError={() => result?.status === "error" && result.location && inputRef.current?.jumpTo(result.location.offset)}
+          onShare={() => void shareOutput()}
+          onJumpToError={jumpToError}
           quickActions={quickActions}
         />
       </div>

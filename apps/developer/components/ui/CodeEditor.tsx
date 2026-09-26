@@ -2,10 +2,10 @@
 
 import {
   forwardRef, useImperativeHandle, useLayoutEffect, useMemo, useRef, useState,
-  type ChangeEvent, type DragEvent
+  type ChangeEvent, type DragEvent, type ReactNode
 } from "react";
-import { Copy, Upload } from "lucide-react";
-import { HIGHLIGHT_LIMIT, tokenizeJson } from "@/lib/highlight";
+import { Copy, Maximize2, Minimize2, Upload } from "lucide-react";
+import { HIGHLIGHT_LIMIT, tokenizeDiff, tokenizeJson } from "@/lib/highlight";
 import { byteLength, formatBytes, lineCount } from "@/lib/result-summary";
 
 export type CodeEditorHandle = {
@@ -20,7 +20,7 @@ type CodeEditorProps = {
   readOnly?: boolean;
   placeholder?: string;
   ariaLabel: string;
-  /** Shown in the status line; "JSON" also switches on syntax colouring. */
+  /** Shown in the status line; "JSON" and "Diff" also switch on colouring. */
   language: string;
   /** 1-based line to mark, e.g. where a parse error landed. */
   errorLine?: number;
@@ -28,6 +28,13 @@ type CodeEditorProps = {
   /** When set, a file dropped on the editor is handed here instead of being ignored. */
   onDropFile?: (file: File) => void;
   className?: string;
+  /** "compact" is the shorter editor used where two share one card. */
+  size?: "regular" | "compact";
+  /** When set, the status line offers to open the card full screen (or close it again). */
+  expanded?: boolean;
+  onToggleExpand?: () => void;
+  /** Controls for the strip along the top of the editor, left of the language. */
+  toolbar?: ReactNode;
 };
 
 // Kept in step with `.editor` in globals.css: the gutter markers and the colour layer
@@ -68,7 +75,10 @@ function indentation(value: string) {
  * what keeps the numbers beside the text they count. Long lines scroll sideways instead.
  */
 export const CodeEditor = forwardRef<CodeEditorHandle, CodeEditorProps>(function CodeEditor(
-  { id, value, onChange, readOnly, placeholder, ariaLabel, language, errorLine, onCopy, onDropFile, className },
+  {
+    id, value, onChange, readOnly, placeholder, ariaLabel, language, errorLine, onCopy, onDropFile, className,
+    size: editorSize = "regular", expanded = false, onToggleExpand, toolbar
+  },
   ref
 ) {
   const textareaRef = useRef<HTMLTextAreaElement>(null);
@@ -81,10 +91,12 @@ export const CodeEditor = forwardRef<CodeEditorHandle, CodeEditorProps>(function
   const gutterText = useMemo(() => Array.from({ length: lines }, (_, index) => index + 1).join("\n"), [lines]);
   const size = useMemo(() => formatBytes(byteLength(value)), [value]);
   const indent = useMemo(() => indentation(value), [value]);
-  const tokens = useMemo(
-    () => (language === "JSON" && value && value.length <= HIGHLIGHT_LIMIT ? tokenizeJson(value) : null),
-    [language, value]
-  );
+  const tokens = useMemo(() => {
+    if (!value || value.length > HIGHLIGHT_LIMIT) return null;
+    if (language === "JSON") return tokenizeJson(value);
+    if (language === "Diff") return tokenizeDiff(value);
+    return null;
+  }, [language, value]);
 
   function syncScroll() {
     const textarea = textareaRef.current;
@@ -143,7 +155,16 @@ export const CodeEditor = forwardRef<CodeEditorHandle, CodeEditorProps>(function
   const lineTop = (line: number) => PAD_Y + (line - 1) * LINE_HEIGHT;
 
   return (
-    <div className={`editor${readOnly ? " is-readonly" : ""}${dragging ? " is-dragging" : ""}`} {...dragHandlers}>
+    <div
+      className={`editor${readOnly ? " is-readonly" : ""}${dragging ? " is-dragging" : ""}${editorSize === "compact" ? " is-compact" : ""}`}
+      {...dragHandlers}
+    >
+      {editorSize !== "compact" && (
+        <div className="editor-top">
+          <div className="editor-top-left">{toolbar}</div>
+          <span className="editor-lang">{language}</span>
+        </div>
+      )}
       <div className="editor-body">
         <div className="editor-gutter" aria-hidden="true">
           <div className="editor-gutter-inner" ref={gutterRef}>
@@ -196,11 +217,22 @@ export const CodeEditor = forwardRef<CodeEditorHandle, CodeEditorProps>(function
         <span>Ln {caret.line}, Col {caret.column}</span>
         <span>{indent}</span>
         <span>UTF-8</span>
-        <span>{language}</span>
+        {editorSize === "compact" && <span>{language}</span>}
         <span className="editor-status-size">{size}</span>
         {onCopy && (
           <button type="button" className="editor-status-copy" onClick={onCopy} aria-label={`Copy ${ariaLabel.toLowerCase()}`} title="Copy">
             <Copy size={14} />
+          </button>
+        )}
+        {onToggleExpand && (
+          <button
+            type="button"
+            className="editor-status-copy"
+            onClick={onToggleExpand}
+            aria-label={expanded ? "Exit full screen" : `Open ${ariaLabel.toLowerCase()} full screen`}
+            title={expanded ? "Exit full screen (Esc)" : "Full screen"}
+          >
+            {expanded ? <Minimize2 size={14} /> : <Maximize2 size={14} />}
           </button>
         )}
       </div>
